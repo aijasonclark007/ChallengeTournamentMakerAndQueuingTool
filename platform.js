@@ -20,6 +20,8 @@
     sb.auth.onAuthStateChange((event, session) => setTimeout(() => setUser(session ? session.user : null), 0));
   } else setTimeout(() => setUser(null), 0);
 
+  const needSb = () => { if (!sb) throw new Error('The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.'); };
+  const readyP = new Promise(res => subs.push(() => res()));   // resolves once we know if someone is signed in
   const need = () => {
     if (!sb) throw new Error('The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.');
     if (!user) throw new Error('Please sign in first.');
@@ -88,10 +90,63 @@
 
   function onAuth(fn) { subs.push(fn); if (started) setTimeout(() => fn(user), 0); }
 
+
+  // ---------- public tournaments, sharing and player registrations ----------
+  const TT = 'tournaments', RT = 'registrations';
+  const fail = e => { throw new Error(e && e.message ? e.message : 'Something went wrong.'); };
+  async function listPublicTournaments() {
+    needSb(); const r = await sb.from(TT).select('*').eq('published', true).order('event_date', { ascending: true });
+    if (r.error) fail(r.error); return r.data || [];
+  }
+  async function listMyTournaments() {
+    need(); if (!user) return [];
+    const r = await sb.from(TT).select('*').eq('created_by', user.id).order('created_at', { ascending: false });
+    if (r.error) fail(r.error); return r.data || [];
+  }
+  async function getTournament(slug) {
+    needSb(); const r = await sb.from(TT).select('*').eq('slug', slug).maybeSingle();
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function saveTournament2(row) {            // insert (no id) or update (id) one of MY tournaments
+    need(); if (!user) throw new Error('Please sign in first.');
+    const body = Object.assign({}, row, { created_by: undefined });
+    let q;
+    if (row.id) q = sb.from(TT).update(body).eq('id', row.id).select('*').single();
+    else q = sb.from(TT).insert(Object.assign(body, { created_by: user.id })).select('*').single();
+    const r = await q;
+    if (r.error) { if (r.error.code === '23505') throw new Error('That page address is already taken. Try another one.'); fail(r.error); }
+    return r.data;
+  }
+  async function deleteTournament2(id) { need(); const r = await sb.from(TT).delete().eq('id', id); if (r.error) fail(r.error); }
+  async function registerForTournament(tournamentId, p) {   // works for visitors who are not signed in
+    needSb();
+    const r = await sb.from(RT).insert({ tournament_id: tournamentId, name: p.name, email: p.email, phone: p.phone || null, level: p.level || null });
+    if (r.error) {
+      if (r.error.code === '23505') throw new Error('This email is already registered for this tournament.');
+      if (r.error.code === '42501') throw new Error('Registration is closed for this tournament.');
+      fail(r.error);
+    }
+  }
+  async function slotCounts(tournamentId) {
+    needSb(); const r = await sb.rpc('slot_counts', { t: tournamentId });
+    if (r.error) fail(r.error); const o = {}; (r.data || []).forEach(x => { o[x.level] = Number(x.n); }); return o;
+  }
+  async function listRegistrations(tournamentId) {
+    need(); const r = await sb.from(RT).select('*').eq('tournament_id', tournamentId).order('created_at', { ascending: true });
+    if (r.error) fail(r.error); return r.data || [];
+  }
+  async function setRegistrationStatus(id, status) {
+    need(); const r = await sb.from(RT).update({ status }).eq('id', id); if (r.error) fail(r.error);
+  }
+  async function deleteRegistration(id) { need(); const r = await sb.from(RT).delete().eq('id', id); if (r.error) fail(r.error); }
+
   window.Platform = {
     configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, isOrganizer,
     listTournaments, loadTournament, saveTournament, deleteTournament,
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
+    listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
+    registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
+    whenReady: () => readyP,
     get user() { return user; }
   };
   window.savePlayerToPool = savePlayerToPool;

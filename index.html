@@ -93,7 +93,21 @@ ol.steps{margin:10px 0 0;padding-left:20px;color:var(--mute);font-size:14px}ol.s
 footer{text-align:center;color:var(--mute);font-size:13px;padding:8px 16px 32px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}.view{opacity:1;transform:none}}
 </style>
-<style>.chip{display:flex;align-items:center;gap:8px;font-size:12px;color:#6c6c70;white-space:nowrap}.chip a,.chip button{font:inherit;color:#007AFF;background:none;border:0;cursor:pointer;text-decoration:none;padding:0}.chip .reg{background:#007AFF;color:#fff;border-radius:999px;padding:5px 11px;font-weight:600}.chip .em{max-width:140px;overflow:hidden;text-overflow:ellipsis}@media(max-width:699px){.chip .em{display:none}}</style>
+<style>
+.acct{display:flex;align-items:center;gap:10px;font-size:13px;color:#6c6c70;white-space:nowrap;flex-wrap:wrap}.acct a,.acct button{font:inherit;color:#007AFF;background:none;border:0;cursor:pointer;text-decoration:none;padding:0;font-weight:600}.acct .reg{background:#007AFF;color:#fff;border-radius:999px;padding:5px 12px}.acct .em{max-width:150px;overflow:hidden;text-overflow:ellipsis}@media(max-width:699px){.acct .em{display:none}}
+input[type=password]{width:100%;font:inherit;padding:12px 14px;border-radius:12px;border:.5px solid var(--line);background:#F7F7FA;color:var(--ink);outline:none}input[type=password]:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,122,255,.15);background:#fff}
+.btn.ghost{background:var(--fill);color:var(--blue)}.btn.danger{background:rgba(255,59,48,.12);color:var(--red)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn.sm{border:0;font:inherit;font-weight:700;cursor:pointer;border-radius:12px;padding:9px 15px;font-size:14px;text-align:center}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-top:.5px solid var(--line)}.mrow:first-child{border-top:0}.mrow .grow small{display:block;margin-top:3px}
+.authwrap{max-width:460px;margin:12px auto 0}
+.chk{display:flex;gap:10px;align-items:center;font-size:14px;margin-top:4px}.chk input{width:18px;height:18px}
+.share{display:flex;gap:8px;max-width:520px;margin:0 auto}.share input{flex:1;min-width:0}
+.manage{margin-bottom:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.manage small{width:100%;color:var(--mute)}
+button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:pointer;color:var(--blue)}
+.sumrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:14px 0}.sum{padding:14px 16px}.sum b{display:block}.sum span{display:block;font-size:20px;font-weight:800}.sum small{color:var(--mute)}
+.tw{overflow-x:auto;margin-top:14px}table.rt{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}table.rt th{text-align:left;color:var(--mute);font-weight:600;padding:12px 14px;border-bottom:.5px solid var(--line)}table.rt td{padding:10px 14px;border-top:.5px solid var(--line);vertical-align:middle}table.rt select{padding:7px 10px;width:auto}table.rt a{color:var(--blue)}
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="art" viewBox="0 0 288 288" fill="none"><g fill="none" transform="scale(1.2)">
@@ -125,7 +139,7 @@ footer{text-align:center;color:var(--mute);font-size:13px;padding:8px 16px 32px}
     <a href="#/draw" data-p="draw">Draw &amp; Schedule</a>
     <a href="#/queue" data-p="queue">Queuing Tool</a>
   </nav>
-  <div id="chip" class="chip"></div>
+  <div id="acct" class="acct"></div>
 </div></header>
 <main id="main"><div id="view" class="view"></div></main>
 <footer>&copy; <span id="yr"></span> Challenge - Tournament Management by Ai Jason Clark</footer>
@@ -134,18 +148,30 @@ footer{text-align:center;color:var(--mute);font-size:13px;padding:8px 16px 32px}
 <script src="platform.js"></script>
 <script src="tournaments.js"></script>
 <script>
-const T = window.TOURNAMENTS || [], $ = s => document.querySelector(s);
+const $ = s => document.querySelector(s);
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const STATUS = { open: 'Registration open', soon: 'Coming soon', done: 'Completed' };
-let timer = null;
+const P = window.Platform, cloud = !!(P && P.configured);
+let T = [], timer = null, isOrg = false, rt = 0;
 $('#yr').textContent = new Date().getFullYear();
 
-// ---------- Tournaments tab ----------
-let isOrg = false;
-const P = window.Platform, isAdmin = () => { if (P && P.configured) return isOrg; try { return localStorage.getItem('rbc.admin') === '1'; } catch (e) { return false; } };
-try { if (/[?&]admin=1/.test(location.search)) localStorage.setItem('rbc.admin', '1'); if (/[?&]admin=0/.test(location.search)) localStorage.removeItem('rbc.admin'); } catch (e) {}
+// ---------- data ----------
+const longDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'To be announced';
+const rowToT = r => ({ dbId: r.id, id: r.slug, name: r.name, title: r.title || r.name, date: r.event_date || '', dateText: longDate(r.event_date), time: r.time_text || '', venue: r.venue || '',
+  status: r.status, category: r.category || '', fee: r.fee || '', deadline: r.deadline || '', perks: r.perks || '', levels: r.levels || {}, rules: r.rules || [], endpoint: r.endpoint || '',
+  cover: r.cover_url || '', pay: r.payment_info || '', owner: r.created_by, published: r.published });
+async function loadPublic() {
+  if (cloud) { try { T = (await P.listPublicTournaments()).map(rowToT); return; } catch (e) { console.warn(e); } }
+  T = window.TOURNAMENTS || [];                      // fallback: tournaments.js
+}
+const shareUrl = slug => location.origin + location.pathname + '#/t/' + slug;
+const canManage = t => !!(cloud && P.user && (t.owner === P.user.id || isOrg));
+const copyText = (text, btn, label) => { (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).catch(() => { const a = document.createElement('textarea'); a.value = text; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); });
+  if (btn) { const o = label || btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = o; }, 1600); } };
+const slugify = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 
+// ---------- cards ----------
 function cover(t, big) {
   if (t.cover) return '<div class="cover' + (big ? ' big' : '') + '"><img src="' + esc(t.cover) + '" alt=""></div>';
   const d = new Date(t.date + 'T00:00:00'), when = isNaN(d) ? '' : MON[d.getMonth()] + ' ' + d.getDate();
@@ -153,102 +179,203 @@ function cover(t, big) {
     (big ? '' : '<div class="ct">' + esc(t.title || t.name) + '</div>') + (when ? '<span class="cd">' + when + '</span>' : '') + '</div>';
 }
 function tcard(t, link) {
-  return '<a class="tcard card" ' + (link ? 'href="#/tournament/' + t.id + '"' : '') + '>' + cover(t) + '<div class="tbody"><b>' + esc(t.name) + '</b><small>' + esc(t.venue) + ' · ' + esc(t.dateText) +
-    '</small><div class="trow"><span class="pill ' + t.status + '">' + STATUS[t.status] + '</span><span class="chev">›</span></div></div></a>';
+  return '<a class="tcard card" ' + (link ? 'href="#/t/' + esc(t.id) + '"' : '') + '>' + cover(t) + '<div class="tbody"><b>' + esc(t.name) + '</b><small>' + esc(t.venue) + (t.venue && t.dateText ? ' · ' : '') + esc(t.dateText) +
+    '</small><div class="trow"><span class="pill ' + t.status + '">' + STATUS[t.status] + '</span>' + (t.published === false ? '<span class="pill done">Draft</span>' : '') + '<span class="chev">›</span></div></div></a>';
 }
+const setView = (html) => { const v = $('#view'); v.className = 'view'; v.innerHTML = html; requestAnimationFrame(() => v.classList.add('in')); window.scrollTo(0, 0); };
+const loadingHtml = '<div class="card soon-card"><div class="big">🏸</div><p class="lead" style="margin:6px auto 0">Loading…</p></div>';
+
+// ---------- Tournaments tab ----------
 function listPage() {
   const up = T.filter(t => t.status !== 'done'), past = T.filter(t => t.status === 'done'), grid = l => '<div class="tgrid">' + l.map(t => tcard(t, true)).join('') + '</div>';
-  return '<div class="head"><div><h1>Tournaments</h1><p class="lead">Tap one to see the details and register.</p></div>' +
-    (isAdmin() ? '<a class="btn sm" href="#/new">+ Create a tournament</a>' : '') + '</div>' +
+  const mk = cloud ? (P.user ? '<div class="acts"><a class="btn sm ghost" href="#/mine">My tournaments</a><a class="btn sm" href="#/new">+ Create a tournament</a></div>' : '<a class="btn sm" href="#/account/new">+ Create a tournament</a>') : '';
+  return '<div class="head"><div><h1>Tournaments</h1><p class="lead">Tap one to see the details and register. Want to run your own? Create a free account and set one up in minutes.</p></div>' + mk + '</div>' +
     (up.length ? '<h2>Upcoming</h2>' + grid(up) : '') + (past.length ? '<h2>Past</h2>' + grid(past) : '') +
     (!T.length ? '<div class="card soon-card">No tournaments yet.</div>' : '');
 }
 
-// ---------- create a tournament (builds the block you paste into tournaments.js) ----------
-function newPage() {
-  const fld = (id, label, type, ph, extra) => '<div class="fld"><label class="f" for="b-' + id + '">' + label + '</label><input id="b-' + id + '" type="' + (type || 'text') + '" placeholder="' + (ph || '') + '" ' + (extra || '') + '></div>';
-  return '<a class="back" href="#/tournaments">‹ Tournaments</a><h1>Create a tournament</h1><p class="lead">Fill in the details. The card and the code update as you type.</p>' +
-    '<div class="bgrid" style="margin-top:14px"><div class="card pad">' +
-    fld('name', 'Tournament name (shown on the card)', 'text', 'Nov 9 Tournament') + fld('title', 'Event title (headline on its page)', 'text', 'Racketeers B.C. Badminton Tournament') +
-    '<div class="two">' + fld('date', 'Date', 'date') + fld('time', 'Time', 'text', '2:00 PM - 9:00 PM') + '</div>' +
-    fld('venue', 'Venue', 'text', 'IBT Sports Center') +
-    '<div class="fld"><label class="f" for="b-status">Status</label><select id="b-status"><option value="open">Registration open</option><option value="soon" selected>Coming soon</option><option value="done">Completed</option></select></div>' +
-    '<div class="two">' + fld('category', 'Category', 'text', 'Non-gender doubles') + fld('fee', 'Entry fee', 'text', '\u20b1500 / player') + '</div>' +
-    '<div class="two">' + fld('deadline', 'Payment deadline', 'text', 'October 30, 2026') + fld('perks', 'Included', 'text', 'Food & drinks, cash prizes & medals') + '</div>' +
-    '<div class="fld"><label class="f">Skill levels (slots and base players)</label>' + ['High', 'Mid', 'Low'].map(l => '<div class="lvrow"><b>' + l + '</b><input id="b-cap' + l + '" type="number" min="0" placeholder="Slots"><input id="b-base' + l + '" type="text" placeholder="Base player: Name / Name"></div>').join('') + '<small style="color:var(--mute)">Leave Slots empty to skip a level.</small></div>' +
-    '<div class="fld"><label class="f" for="b-rules">Rules (one per line: emoji | title | text)</label><textarea id="b-rules" rows="4" placeholder="\ud83c\udff8 | Game format | 31 points, single round-robin"></textarea></div>' +
-    fld('endpoint', 'Registration link (your Google Apps Script web app URL)', 'text', 'https://script.google.com/macros/s/.../exec') +
-    fld('cover', 'Cover picture link (optional)', 'text', 'Leave empty to use the racket picture') + fld('id', 'Page address (optional)', 'text', 'nov-9') +
-    '</div><div class="stick"><h2 style="margin-top:0">Preview</h2><div id="bprev"></div>' +
-    '<h2>Your tournament code</h2><textarea id="bcode" class="code" readonly></textarea>' +
-    '<button class="btn" id="bcopy" type="button" style="margin-top:10px">Copy code</button>' +
-    '<ol class="steps"><li>Copy the code.</li><li>On GitHub, open <b>tournaments.js</b> and click the pencil.</li><li>Paste it after the last <b>}</b> in the list. Put a comma after the block before it.</li><li>Click <b>Commit changes</b>. The card appears on this page.</li></ol></div></div>';
+// ---------- account (sign in / create account) ----------
+function accountPage(next) {
+  return '<div class="authwrap"><div class="card pad"><h1 style="font-size:28px">Sign in or create an account</h1><p class="lead">' + (next === 'new' ? 'Create a free account to set up your own tournament.' : 'Sign in to manage your tournaments.') + '</p>' +
+    '<form id="af" novalidate><div class="fld"><label class="f" for="ae">Email</label><input id="ae" type="email" autocomplete="username" placeholder="you@example.com"></div>' +
+    '<div class="fld"><label class="f" for="ap">Password</label><input id="ap" type="password" autocomplete="current-password" placeholder="At least 8 characters"></div>' +
+    '<p class="err" id="aerr"></p><div class="acts"><button class="btn sm" id="ain" type="submit">Sign in</button><button class="btn sm ghost" id="aup" type="button">Create account</button><button class="btn sm ghost" id="afg" type="button">Forgot password?</button></div></form></div></div>';
 }
-function initNew() {
-  const v = id => ($('#b-' + id).value || '').trim(), slug = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+function initAccount(next) {
+  if (!cloud) { $('#aerr').textContent = 'The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.'; return; }
+  const err = (m, ok) => { const e = $('#aerr'); e.textContent = m || ''; e.style.color = ok ? '#1E8E3E' : ''; };
+  const go = async () => { await new Promise(r => { const i = setInterval(() => { if (P.user) { clearInterval(i); r(); } }, 50); setTimeout(() => { clearInterval(i); r(); }, 3000); }); location.hash = '#/' + (next || 'mine'); };
+  $('#af').addEventListener('submit', async e => { e.preventDefault(); err('');
+    if (!$('#ae').value.trim() || !$('#ap').value) return err('Enter your email and password.');
+    $('#ain').disabled = true; try { await P.signIn($('#ae').value, $('#ap').value); await go(); } catch (x) { err(x.message); } $('#ain').disabled = false; });
+  $('#aup').onclick = async () => { err('');
+    if (!$('#ae').value.trim() || !$('#ap').value) return err('Enter your email and a password (8+ characters), then press Create account.');
+    try { const r = await P.signUp($('#ae').value, $('#ap').value); if (r === 'signed-in') await go(); else err('Almost there! We sent a confirmation link to your email. Open it, then come back and sign in.', true); } catch (x) { err(x.message); } };
+  $('#afg').onclick = async () => { err(''); if (!$('#ae').value.trim()) return err('Type your email first, then press Forgot password.');
+    try { await P.resetPassword($('#ae').value); err('If that email has an account, a reset link is on its way.', true); } catch (x) { err(x.message); } };
+}
+// pages that need a signed-in user
+function needUser(next) {
+  if (!cloud) { setView('<div class="card soon-card">The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.</div>'); return false; }
+  if (!P.user) { location.hash = '#/account/' + next; return false; }
+  return true;
+}
+
+// ---------- My tournaments ----------
+function minePage(rows) {
+  return '<div class="head"><div><h1>My tournaments</h1><p class="lead">Create a tournament, share its link, and approve the players who sign up.</p></div><a class="btn sm" href="#/new">+ Create a tournament</a></div>' +
+    (rows.length ? '<div class="card" style="margin-top:14px">' + rows.map(r => '<div class="mrow"><div class="grow"><b>' + esc(r.name) + '</b><small>' + esc(longDate(r.event_date)) + ' · <span class="pill ' + r.status + '">' + STATUS[r.status] + '</span>' + (r.published ? '' : ' <span class="pill done">Draft</span>') + '</small></div>' +
+      '<div class="acts"><button class="btn sm ghost" data-copy="' + esc(r.slug) + '">Copy link</button><a class="btn sm ghost" href="#/t/' + esc(r.slug) + '">View</a><a class="btn sm ghost" href="#/regs/' + esc(r.slug) + '">Players</a><a class="btn sm ghost" href="#/edit/' + esc(r.slug) + '">Edit</a><button class="btn sm danger" data-del="' + esc(r.id) + '">Delete</button></div></div>').join('') + '</div>'
+      : '<div class="card soon-card" style="margin-top:14px"><div class="big">🏸</div><h1 style="font-size:24px">No tournaments yet</h1><p class="lead" style="margin:6px auto 14px">Create your first one. You will get a link you can share with players.</p><a class="btn sm" href="#/new">+ Create a tournament</a></div>');
+}
+function initMine() {
+  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(shareUrl(b.dataset.copy), b));
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('Delete this tournament and all of its registrations? This cannot be undone.')) return;
+    try { await P.deleteMyTournament(b.dataset.del); route(); } catch (x) { alert(x.message); } });
+}
+
+// ---------- create / edit a tournament ----------
+function builderPage(r) {
+  const fld = (id, label, type, ph, extra) => '<div class="fld"><label class="f" for="b-' + id + '">' + label + '</label><input id="b-' + id + '" type="' + (type || 'text') + '" placeholder="' + (ph || '') + '" ' + (extra || '') + '></div>';
+  return '<a class="back" href="#/' + (r ? 'mine' : 'tournaments') + '">‹ ' + (r ? 'My tournaments' : 'Tournaments') + '</a><h1>' + (r ? 'Edit tournament' : 'Create a tournament') + '</h1><p class="lead">Fill in the details. The card on the right updates as you type.</p>' +
+    '<div class="bgrid" style="margin-top:14px"><div class="card pad">' +
+    fld('name', 'Tournament name (shown on the card)', 'text', 'Summer Doubles Open', 'maxlength="80"') + fld('title', 'Event title (headline on its page)', 'text', 'Summer Doubles Open 2026', 'maxlength="120"') +
+    '<div class="two">' + fld('date', 'Date', 'date') + fld('time', 'Time', 'text', '2:00 PM - 9:00 PM', 'maxlength="60"') + '</div>' +
+    fld('venue', 'Venue', 'text', 'Your venue', 'maxlength="120"') +
+    '<div class="fld"><label class="f" for="b-status">Status</label><select id="b-status"><option value="open">Registration open</option><option value="soon">Coming soon</option><option value="done">Completed</option></select></div>' +
+    '<div class="two">' + fld('category', 'Category', 'text', 'Non-gender doubles', 'maxlength="80"') + fld('fee', 'Entry fee', 'text', '₱500 / player', 'maxlength="60"') + '</div>' +
+    '<div class="two">' + fld('deadline', 'Payment deadline', 'text', 'October 30, 2026', 'maxlength="60"') + fld('perks', 'Included', 'text', 'Food & drinks, prizes & medals', 'maxlength="160"') + '</div>' +
+    '<div class="fld"><label class="f">Skill levels (slots and base players)</label>' + ['High', 'Mid', 'Low'].map(l => '<div class="lvrow"><b>' + l + '</b><input id="b-cap' + l + '" type="number" min="0" max="999" placeholder="Slots"><input id="b-base' + l + '" type="text" maxlength="100" placeholder="Base player: Name / Name"></div>').join('') + '<small style="color:var(--mute)">Leave Slots empty to skip a level. Skip all of them if you do not use levels.</small></div>' +
+    '<div class="fld"><label class="f" for="b-pay">How to pay (shown to players after they register)</label><textarea id="b-pay" rows="3" maxlength="600" placeholder="GCash 0917 123 4567 (Juan D.). Send your proof of payment to this email."></textarea></div>' +
+    '<div class="fld"><label class="f" for="b-rules">Rules (one per line: emoji | title | text)</label><textarea id="b-rules" rows="4" maxlength="1500" placeholder="🏸 | Game format | 31 points, single round-robin"></textarea></div>' +
+    fld('cover', 'Cover picture link (optional)', 'text', 'Leave empty to use the racket picture', 'maxlength="400"') +
+    '<label class="chk"><input id="b-pub" type="checkbox" checked> Visible to the public (untick to keep it as a private draft)</label>' +
+    '<p class="err" id="berr"></p><button class="btn" id="bsave" type="button" style="margin-top:12px">' + (r ? 'Save changes' : 'Create tournament') + '</button></div>' +
+    '<div class="stick"><h2 style="margin-top:0">Preview</h2><div id="bprev"></div></div></div>';
+}
+function initBuilder(r) {
+  const v = id => ($('#b-' + id).value || '').trim();
   const build = () => {
-    const name = v('name') || 'New tournament', d = v('date');
-    const o = { id: slug(v('id') || name) || 'new', name, title: v('title') || name, date: d, dateText: d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'To be announced',
-      time: v('time') || 'To be announced', venue: v('venue') || 'To be announced', status: v('status'), category: v('category'), fee: v('fee'), deadline: v('deadline'), perks: v('perks'), levels: {}, rules: [], endpoint: v('endpoint') };
-    ['High', 'Mid', 'Low'].forEach(l => { const cap = +v('cap' + l); if (cap > 0) { o.levels[l] = { cap }; if (v('base' + l)) o.levels[l].base = v('base' + l); } });
-    v('rules') && $('#b-rules').value.split('\n').forEach(line => { const p = line.split('|').map(x => x.trim()); if (p.length >= 3) o.rules.push([p[0], p[1], p.slice(2).join(' | ')]); });
-    if (v('cover')) o.cover = v('cover');
-    $('#bprev').innerHTML = tcard(o, false); $('#bcode').value = JSON.stringify(o, null, 2) + ',';
+    const name = v('name') || 'New tournament', d = v('date'), o = { id: 'x', name, title: v('title') || name, date: d, dateText: longDate(d), venue: v('venue'), status: v('status'), cover: v('cover'), published: $('#b-pub').checked };
+    $('#bprev').innerHTML = tcard(o, false);
   };
-  document.querySelectorAll('.bgrid input, .bgrid select, .bgrid textarea').forEach(el => { if (el.id !== 'bcode') el.addEventListener('input', build); });
-  $('#bcopy').onclick = () => { const c = $('#bcode'); c.select(); (navigator.clipboard ? navigator.clipboard.writeText(c.value) : Promise.reject()).catch(() => document.execCommand('copy')); $('#bcopy').textContent = 'Copied'; setTimeout(() => { $('#bcopy').textContent = 'Copy code'; }, 1800); };
+  if (r) {
+    $('#b-name').value = r.name; $('#b-title').value = r.title || ''; $('#b-date').value = r.event_date || ''; $('#b-time').value = r.time_text || ''; $('#b-venue').value = r.venue || '';
+    $('#b-status').value = r.status; $('#b-category').value = r.category || ''; $('#b-fee').value = r.fee || ''; $('#b-deadline').value = r.deadline || ''; $('#b-perks').value = r.perks || '';
+    ['High', 'Mid', 'Low'].forEach(l => { const x = (r.levels || {})[l]; if (x) { $('#b-cap' + l).value = x.cap; $('#b-base' + l).value = x.base || ''; } });
+    $('#b-pay').value = r.payment_info || ''; $('#b-rules').value = (r.rules || []).map(x => x.join(' | ')).join('\n'); $('#b-cover').value = r.cover_url || ''; $('#b-pub').checked = r.published !== false;
+  }
+  document.querySelectorAll('.bgrid input, .bgrid select, .bgrid textarea').forEach(el => el.addEventListener('input', build));
+  $('#b-pub').addEventListener('change', build);
+  $('#bsave').onclick = async () => {
+    const err = m => { $('#berr').textContent = m || ''; }; err('');
+    if (v('name').length < 3) return err('Give your tournament a name (at least 3 characters).');
+    const levels = {}; ['High', 'Mid', 'Low'].forEach(l => { const cap = +v('cap' + l); if (cap > 0) { levels[l] = { cap }; if (v('base' + l)) levels[l].base = v('base' + l); } });
+    const rules = []; $('#b-rules').value.split('\n').forEach(line => { const p = line.split('|').map(x => x.trim()); if (p.length >= 3) rules.push([p[0], p[1], p.slice(2).join(' | ')]); });
+    const row = { name: v('name'), title: v('title') || v('name'), event_date: v('date') || null, time_text: v('time'), venue: v('venue'), status: v('status'), category: v('category'), fee: v('fee'), deadline: v('deadline'),
+      perks: v('perks'), levels, rules, payment_info: v('pay'), cover_url: v('cover') || null, published: $('#b-pub').checked };
+    if (r) row.id = r.id; else row.slug = (slugify(row.name) || 'tournament') + '-' + Math.random().toString(36).slice(2, 6);
+    const b = $('#bsave'); b.disabled = true; b.textContent = 'Saving…';
+    try { const saved = await P.saveMyTournament(row); savedPage(saved, !r); }
+    catch (x) { err(x.message); b.disabled = false; b.textContent = r ? 'Save changes' : 'Create tournament'; }
+  };
   build();
+}
+function savedPage(r, isNew) {
+  const link = shareUrl(r.slug);
+  setView('<div class="card ok"><div class="tick">✓</div><h1 style="font-size:28px">' + (isNew ? 'Your tournament is ready!' : 'Saved!') + '</h1>' +
+    (r.published ? '<p class="lead" style="margin:6px auto 14px">Share this link with your players. Anyone with it can see the details and register.</p><div class="share"><input id="sl" type="text" readonly value="' + esc(link) + '"><button class="btn sm" id="scp" type="button">Copy link</button></div>'
+      : '<p class="lead" style="margin:6px auto 14px">This is a private draft. Edit it and tick "Visible to the public" when you are ready to share.</p>') +
+    '<div class="acts" style="justify-content:center;margin-top:18px"><a class="btn sm ghost" href="#/t/' + esc(r.slug) + '">View page</a><a class="btn sm ghost" href="#/regs/' + esc(r.slug) + '">Players</a><a class="btn sm ghost" href="#/mine">My tournaments</a></div></div>');
+  const c = $('#scp'); if (c) { $('#sl').onclick = e => e.target.select(); c.onclick = () => copyText(link, c); }
+}
+
+// ---------- registrations (organizer view) ----------
+function regsPage(t, regs) {
+  const lv = Object.keys(t.levels || {}), cnt = (l, s) => regs.filter(x => (l ? x.level === l : true) && (s ? x.status === s : true)).length;
+  return '<a class="back" href="#/mine">‹ My tournaments</a><div class="head"><div><h1>Players</h1><p class="lead">' + esc(t.name) + ' · ' + regs.length + ' registered</p></div>' +
+    '<div class="acts"><button class="btn sm ghost" id="rem">Copy emails</button><button class="btn sm ghost" id="rcsv">Download CSV</button></div></div>' +
+    (lv.length ? '<div class="sumrow">' + lv.map(l => '<div class="card sum"><b>' + l + '</b><span>' + cnt(l, 'approved') + '/' + t.levels[l].cap + ' approved</span><small>' + cnt(l) + ' registered</small></div>').join('') + '</div>' : '') +
+    (regs.length ? '<div class="card tw"><table class="rt"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Level</th><th>Status</th><th></th></tr></thead><tbody>' + regs.map(x =>
+      '<tr><td><b>' + esc(x.name) + '</b></td><td><a href="mailto:' + esc(x.email) + '">' + esc(x.email) + '</a></td><td>' + esc(x.phone || '') + '</td><td>' + esc(x.level || '') + '</td>' +
+      '<td><select data-st="' + x.id + '">' + ['pending', 'approved', 'declined'].map(s => '<option value="' + s + '"' + (x.status === s ? ' selected' : '') + '>' + s[0].toUpperCase() + s.slice(1) + '</option>').join('') + '</select></td>' +
+      '<td><button class="btn sm danger" data-rm="' + x.id + '">Remove</button></td></tr>').join('') + '</tbody></table></div>'
+      : '<div class="card soon-card" style="margin-top:14px"><div class="big">📭</div><p class="lead" style="margin:6px auto 0">No one has registered yet. Share your link to get sign-ups.</p></div>') +
+    '<p class="lead" style="margin-top:14px;font-size:14px">Set a player to Approved to count them in the slot counter. Players are not emailed automatically, so use the email links or Copy emails to let them know.</p>';
+}
+function initRegs(t, regs) {
+  document.querySelectorAll('[data-st]').forEach(s => s.onchange = async () => { try { await P.setRegistrationStatus(s.dataset.st, s.value); route(); } catch (x) { alert(x.message); } });
+  document.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { if (!confirm('Remove this player?')) return; try { await P.deleteRegistration(b.dataset.rm); route(); } catch (x) { alert(x.message); } });
+  $('#rem').onclick = () => copyText(regs.map(x => x.email).join(', '), $('#rem'));
+  $('#rcsv').onclick = () => {
+    const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"', rows = [['Registered', 'Name', 'Email', 'Phone', 'Level', 'Status']].concat(regs.map(x => [x.created_at, x.name, x.email, x.phone, x.level, x.status]));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' })); a.download = (t.id || 'players') + '-players.csv'; a.click(); };
 }
 
 // ---------- one tournament (event page) ----------
 function eventPage(t) {
-  const lv = Object.keys(t.levels), open = t.status === 'open' && t.endpoint;
+  const lv = Object.keys(t.levels), open = t.status === 'open' && (t.endpoint || t.dbId);
   const kv = (k, v) => v ? '<div class="kv"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : '';
   return '<a class="back" href="#/tournaments">‹ Tournaments</a>' +
+    (canManage(t) ? '<div class="card pad manage"><b>You manage this tournament</b><div class="acts"><button class="btn sm ghost" id="mcopy" type="button">Copy share link</button><a class="btn sm ghost" href="#/regs/' + esc(t.id) + '">Players</a><a class="btn sm ghost" href="#/edit/' + esc(t.id) + '">Edit</a></div>' + (t.published === false ? '<small>Draft: only you can see this page.</small>' : '') + '</div>' : '') +
     '<section class="card">' + cover(t, true) + '<div class="hero"><span class="pill ' + t.status + '">' + STATUS[t.status] + '</span><h1>' + esc(t.title) + '</h1>' +
-    '<div class="chips"><span class="chip">📅 ' + esc(t.dateText) + '</span><span class="chip">📍 ' + esc(t.venue) + '</span>' + (t.time ? '<span class="chip">⏰ ' + esc(t.time) + '</span>' : '') + '</div>' +
-    (t.status !== 'done' ? '<div class="count" id="count" aria-label="Countdown"><div><b id="cd">--</b><span>Days</span></div><div><b id="ch">--</b><span>Hours</span></div><div><b id="cm">--</b><span>Mins</span></div><div><b id="cs">--</b><span>Secs</span></div></div>' : '') +
+    '<div class="chips"><span class="chip">📅 ' + esc(t.dateText) + '</span>' + (t.venue ? '<span class="chip">📍 ' + esc(t.venue) + '</span>' : '') + (t.time ? '<span class="chip">⏰ ' + esc(t.time) + '</span>' : '') + '<button class="chip linkchip" id="shbtn" type="button">🔗 Copy link</button></div>' +
+    (t.status !== 'done' && t.date ? '<div class="count" id="count" aria-label="Countdown"><div><b id="cd">--</b><span>Days</span></div><div><b id="ch">--</b><span>Hours</span></div><div><b id="cm">--</b><span>Mins</span></div><div><b id="cs">--</b><span>Secs</span></div></div>' : '') +
     '</div></section>' +
     '<h2>Details</h2><div class="card">' + kv('Date', t.dateText) + kv('Time', t.time) + kv('Venue', t.venue) + kv('Category', t.category) + kv('Entry fee', t.fee) + kv('Payment deadline', t.deadline) + kv('Included', t.perks) + '</div>' +
-    (t.rules.length ? '<h2>Rules: quick heads-up</h2><div class="card">' + t.rules.map(r => '<div class="rule"><em>' + r[0] + '</em><div><b>' + esc(r[1]) + '</b><small>' + esc(r[2]) + '</small></div></div>').join('') + '</div>' : '') +
-    '<h2>Register</h2><div class="card" id="reg">' + (open && lv.length ? formHtml(t, lv) : '<div class="pad"><div class="note">' + (t.status === 'done' ? 'This tournament is finished.' : 'Registration for this tournament opens soon. Check back here.') + '</div></div>') + '</div>';
+    (t.rules.length ? '<h2>Rules: quick heads-up</h2><div class="card">' + t.rules.map(r => '<div class="rule"><em>' + esc(r[0]) + '</em><div><b>' + esc(r[1]) + '</b><small>' + esc(r[2]) + '</small></div></div>').join('') + '</div>' : '') +
+    '<h2>Register</h2><div class="card" id="reg">' + (open ? formHtml(t, lv) : '<div class="pad"><div class="note">' + (t.status === 'done' ? 'This tournament is finished.' : 'Registration for this tournament opens soon. Check back here.') + '</div></div>') + '</div>';
 }
 function formHtml(t, lv) {
   return '<form id="rf" class="pad" novalidate>' +
-    '<div><label class="f" for="n">Full name</label><input id="n" type="text" autocomplete="name" placeholder="Juan Dela Cruz"><div class="err"></div></div>' +
-    '<div class="two" style="margin-top:14px"><div><label class="f" for="e">Email</label><input id="e" type="email" autocomplete="email" placeholder="you@example.com"><div class="err"></div></div>' +
-    '<div><label class="f" for="p">Phone number</label><input id="p" type="tel" inputmode="tel" autocomplete="tel" placeholder="0917 123 4567"><div class="err"></div></div></div>' +
-    '<fieldset style="border:0;padding:0;margin:18px 0 0"><legend class="f" style="padding:0">Skill level</legend><div class="lvls">' +
-    lv.map(l => '<label class="lv"><span class="slots" data-l="' + l + '">–/' + t.levels[l].cap + ' slots</span><input type="radio" name="skill" value="' + l + '"><span class="pillbtn">' + l + '</span>' +
-      (t.levels[l].base ? '<small>Base player: ' + esc(t.levels[l].base) + '</small>' : '') + '</label>').join('') + '</div><div class="err" id="skillErr"></div></fieldset>' +
+    '<div><label class="f" for="n">Full name</label><input id="n" type="text" autocomplete="name" maxlength="100" placeholder="Juan Dela Cruz"><div class="err"></div></div>' +
+    '<div class="two" style="margin-top:14px"><div><label class="f" for="e">Email</label><input id="e" type="email" autocomplete="email" maxlength="200" placeholder="you@example.com"><div class="err"></div></div>' +
+    '<div><label class="f" for="p">Phone number</label><input id="p" type="tel" inputmode="tel" autocomplete="tel" maxlength="40" placeholder="0917 123 4567"><div class="err"></div></div></div>' +
+    '<input id="hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">' +
+    (lv.length ? '<fieldset style="border:0;padding:0;margin:18px 0 0"><legend class="f" style="padding:0">Skill level</legend><div class="lvls">' +
+    lv.map(l => '<label class="lv"><span class="slots" data-l="' + esc(l) + '">–/' + t.levels[l].cap + ' slots</span><input type="radio" name="skill" value="' + esc(l) + '"><span class="pillbtn">' + esc(l) + '</span>' +
+      (t.levels[l].base ? '<small>Base player: ' + esc(t.levels[l].base) + '</small>' : '') + '</label>').join('') + '</div><div class="err" id="skillErr"></div></fieldset>' : '') +
     '<p class="err" id="sendErr" style="margin:14px 0 0"></p><button class="btn" id="go" type="submit" style="margin-top:14px">Submit registration</button></form>';
 }
-function thanksHtml() {
-  return '<div class="ok"><div class="tick">✓</div><h1 style="font-size:28px">Thank you!</h1><p class="lead" style="margin:6px auto 0">Your registration is in. Entries are approved for players with several recorded attendances at our regular schedule games. We\'ll email you once yours is approved.</p>' +
+function thanksHtml(t) {
+  if (t.endpoint) return '<div class="ok"><div class="tick">✓</div><h1 style="font-size:28px">Thank you!</h1><p class="lead" style="margin:6px auto 0">Your registration is in. Entries are approved for players with several recorded attendances at our regular schedule games. We\'ll email you once yours is approved.</p>' +
     '<p class="note" style="margin:18px auto 0;max-width:460px;font-size:14px">Tip: check your Spam or Promotions folder too, and mark our email as "Not spam" if you find it there.</p></div>';
+  return '<div class="ok"><div class="tick">✓</div><h1 style="font-size:28px">You\'re registered!</h1><p class="lead" style="margin:6px auto 0">The organizer will review your registration and contact you by email.</p>' +
+    (t.pay ? '<div class="note" style="margin:18px auto 0;max-width:460px;font-size:15px;text-align:left"><b>How to pay</b><br>' + esc(t.pay).replace(/\n/g, '<br>') + (t.deadline ? '<br><br>Payment deadline: ' + esc(t.deadline) : '') + '</div>' : '') +
+    '<p class="note" style="margin:14px auto 0;max-width:460px;font-size:14px">Tip: check your Spam or Promotions folder for their email.</p></div>';
 }
 function initEvent(t) {
-  const end = new Date(t.date + 'T00:00:00+08:00').getTime();
-  const tick = () => { if (!$('#cd')) return; const s = Math.max(0, Math.floor((end - Date.now()) / 1000)), p = n => String(n).padStart(2, '0');
-    $('#cd').textContent = p(Math.floor(s / 86400)); $('#ch').textContent = p(Math.floor(s % 86400 / 3600)); $('#cm').textContent = p(Math.floor(s % 3600 / 60)); $('#cs').textContent = p(s % 60); };
-  tick(); timer = setInterval(tick, 1000);
+  const sb = $('#shbtn'); if (sb) sb.onclick = () => copyText(shareUrl(t.id), sb, '🔗 Copy link');
+  const mc = $('#mcopy'); if (mc) mc.onclick = () => copyText(shareUrl(t.id), mc);
+  if (t.date) {
+    const end = new Date(t.date + 'T00:00:00+08:00').getTime();
+    const tick = () => { if (!$('#cd')) return; const s = Math.max(0, Math.floor((end - Date.now()) / 1000)), p = n => String(n).padStart(2, '0');
+      $('#cd').textContent = p(Math.floor(s / 86400)); $('#ch').textContent = p(Math.floor(s % 86400 / 3600)); $('#cm').textContent = p(Math.floor(s % 3600 / 60)); $('#cs').textContent = p(s % 60); };
+    tick(); timer = setInterval(tick, 1000);
+  }
   const form = $('#rf'); if (!form) return;
   window.showSlots = counts => document.querySelectorAll('.slots').forEach(el => { const l = el.dataset.l, cap = t.levels[l].cap, n = counts ? counts[l] || 0 : null;
     el.textContent = counts ? n + '/' + cap + ' slots' : ''; el.classList.toggle('full', !!counts && n >= cap); });
-  const s = document.createElement('script'); s.src = t.endpoint + '?callback=showSlots&t=' + Date.now(); s.onerror = () => window.showSlots(null); document.head.appendChild(s);
+  if (t.endpoint) { const s = document.createElement('script'); s.src = t.endpoint + '?callback=showSlots&t=' + Date.now(); s.onerror = () => window.showSlots(null); document.head.appendChild(s); }
+  else if (cloud && t.dbId) P.slotCounts(t.dbId).then(window.showSlots).catch(() => window.showSlots(null));
   const setErr = (el, m) => { el.parentElement.querySelector('.err').textContent = m; };
   form.addEventListener('submit', async e => {
     e.preventDefault();
+    if ($('#hp').value) return;                                     // hidden field: bots fill it, people do not
     const d = { name: $('#n').value.trim(), email: $('#e').value.trim(), phone: $('#p').value.trim(), skill: (form.querySelector('input[name=skill]:checked') || {}).value || '' };
     let ok = true; const chk = (bad, el, m) => { setErr(el, bad ? m : ''); if (bad) ok = false; };
     chk(d.name.length < 2, $('#n'), 'Enter your full name.'); chk(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email), $('#e'), 'Enter a valid email, like you@example.com.');
-    chk(d.phone.replace(/\D/g, '').length < 7, $('#p'), 'Enter a phone number with at least 7 digits.'); $('#skillErr').textContent = d.skill ? '' : 'Choose your skill level.'; if (!d.skill) ok = false;
+    chk(d.phone.replace(/\D/g, '').length < 7, $('#p'), 'Enter a phone number with at least 7 digits.');
+    if ($('#skillErr')) { $('#skillErr').textContent = d.skill ? '' : 'Choose your skill level.'; if (!d.skill) ok = false; }
     if (!ok) return;
     const btn = $('#go'); $('#sendErr').textContent = ''; btn.disabled = true; btn.textContent = 'Submitting...';
     try {
-      const r = await fetch(t.endpoint, { method: 'POST', body: new URLSearchParams(d) }), out = await r.json();
-      if (out.result !== 'success') throw new Error(out.message || 'Script error');
-      $('#reg').innerHTML = thanksHtml(); $('#reg').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (t.endpoint) {
+        const r = await fetch(t.endpoint, { method: 'POST', body: new URLSearchParams(d) }), out = await r.json();
+        if (out.result !== 'success') throw new Error(out.message || 'Script error');
+      } else await P.registerForTournament(t.dbId, { name: d.name, email: d.email, phone: d.phone, level: d.skill });
+      $('#reg').innerHTML = thanksHtml(t); $('#reg').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) { $('#sendErr').textContent = 'Your registration didn\'t go through (' + err.message + '). Check your connection and try again.'; btn.disabled = false; btn.textContent = 'Submit registration'; }
   });
 }
@@ -258,27 +385,57 @@ const drawPage = () => '<iframe id="tool" class="tool" src="schedule.html" title
 const queuePage = () => '<h1>Queuing Tool</h1><div class="card soon-card" style="margin-top:14px"><div class="big">🏸</div><h1 style="font-size:24px">Coming next</h1><p class="lead" style="margin:6px auto 0">We\'ll build the club queuing system here after the tournaments section is done.</p></div>';
 
 // ---------- router (no page reloads, so the bar stays and switching feels instant) ----------
-function route() {
+async function route() {
   clearInterval(timer);
-  const parts = (location.hash.replace(/^#\/?/, '') || 'tournaments').split('/'), page = parts[0], t = T.find(x => x.id === parts[1]);
-  const tab = (page === 'tournament' || page === 'new') ? 'tournaments' : page;
+  const tok = ++rt, parts = (location.hash.replace(/^#\/?/, '') || 'tournaments').split('/'), page = parts[0], arg = parts[1] ? decodeURIComponent(parts[1]) : '';
+  const tab = ['draw', 'queue'].includes(page) ? page : 'tournaments';
   document.querySelectorAll('.seg a').forEach(a => a.classList.toggle('on', a.dataset.p === tab));
-  const v = $('#view'), main = $('#main');
-  main.classList.toggle('wide', page === 'draw');
-  v.className = 'view';
-  v.innerHTML = page === 'draw' ? drawPage() : page === 'queue' ? queuePage() : page === 'new' ? newPage() : (page === 'tournament' && t) ? eventPage(t) : listPage();
-  document.title = (page === 'tournament' && t ? t.name + ' · ' : '') + 'Challenge - Tournament Management by Ai Jason Clark';
-  requestAnimationFrame(() => v.classList.add('in'));
-  window.scrollTo(0, 0);
-  if (page === 'tournament' && t) initEvent(t);
-  if (page === 'new') initNew();
-  if (page === 'draw') $('#tool').addEventListener('load', () => { try { $('#tool').contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} });
+  $('#main').classList.toggle('wide', page === 'draw');
+  const titleFor = x => (x ? x + ' · ' : '') + 'Challenge - Tournament Management by Ai Jason Clark';
+  document.title = titleFor('');
+  if (cloud && ['mine', 'new', 'edit', 'regs'].includes(page)) await P.whenReady();   // wait until we know who is signed in
+  if (tok !== rt) return;
+  if (page === 'draw') { setView(drawPage()); $('#tool').addEventListener('load', () => { try { $('#tool').contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} }); return; }
+  if (page === 'queue') return setView(queuePage());
+  if (page === 'account') { setView(accountPage(arg)); return initAccount(arg); }
+  if (page === 'mine') {
+    if (!needUser('mine')) return; setView(loadingHtml);
+    try { const rows = await P.listMyTournaments(); if (tok !== rt) return; setView(minePage(rows)); initMine(); } catch (e) { setView('<div class="card soon-card">' + esc(e.message) + '</div>'); }
+    return;
+  }
+  if (page === 'new') { if (!needUser('new')) return; setView(builderPage(null)); return initBuilder(null); }
+  if (page === 'edit' || page === 'regs') {
+    if (!needUser(page + '/' + arg)) return; setView(loadingHtml);
+    try {
+      const r = await P.getTournament(arg); if (tok !== rt) return;
+      if (!r || !(r.created_by === P.user.id || isOrg)) return setView('<a class="back" href="#/mine">‹ My tournaments</a><div class="card soon-card">We couldn\'t find that tournament in your account.</div>');
+      if (page === 'edit') { setView(builderPage(r)); return initBuilder(r); }
+      const regs = await P.listRegistrations(r.id); if (tok !== rt) return; const t = rowToT(r); setView(regsPage(t, regs)); initRegs(t, regs);
+    } catch (e) { setView('<div class="card soon-card">' + esc(e.message) + '</div>'); }
+    return;
+  }
+  if (page === 't' || page === 'tournament') {
+    setView(loadingHtml);
+    if (!T.length) await loadPublic();
+    if (tok !== rt) return;
+    let t = T.find(x => x.id === arg);
+    if (!t && cloud) { try { const r = await P.getTournament(arg); if (r) t = rowToT(r); } catch (e) {} }          // drafts are visible to their owner
+    if (tok !== rt) return;
+    if (!t) return setView('<a class="back" href="#/tournaments">‹ Tournaments</a><div class="card soon-card"><div class="big">🔎</div><h1 style="font-size:24px">Tournament not found</h1><p class="lead" style="margin:6px auto 0">The link may be wrong, or the organizer has hidden this tournament.</p></div>');
+    document.title = titleFor(t.name); setView(eventPage(t)); return initEvent(t);
+  }
+  setView(loadingHtml); await loadPublic(); if (tok !== rt) return; setView(listPage());
 }
 window.addEventListener('hashchange', route);
-function chip(){ const c = $('#chip'); if (!c) return; if (!(P && P.configured)) { c.innerHTML = ''; return; }
-  c.innerHTML = P.user ? '<span class="em">' + esc(P.user.email) + '</span><button id="so">Sign out</button>' : '<a href="#/draw">Sign in</a><a class="reg" href="#/draw">Create account</a>';
-  const b = $('#so'); if (b) b.onclick = () => P.signOut(); }
-if (P && P.configured) P.onAuth(async () => { try { isOrg = await P.isOrganizer(); } catch (e) { isOrg = false; } chip(); if (/^#\/(tournaments)?$/.test(location.hash) || !location.hash) route(); }); chip();
+
+// ---------- account chip in the header ----------
+function chip() {
+  const c = $('#acct'); if (!c) return; if (!cloud) { c.innerHTML = ''; return; }
+  c.innerHTML = P.user ? '<a href="#/mine">My tournaments</a><span class="em">' + esc(P.user.email) + '</span><button id="so" type="button">Sign out</button>' : '<a href="#/account">Sign in</a><a class="reg" href="#/account/new">Create account</a>';
+  const b = $('#so'); if (b) b.onclick = async () => { await P.signOut(); location.hash = '#/tournaments'; };
+}
+if (cloud) P.onAuth(async () => { try { isOrg = await P.isOrganizer(); } catch (e) { isOrg = false; } chip(); if (/^#\/(tournaments|t\/.*|tournament\/.*)?$/.test(location.hash)) route(); });
+chip();
 route();
 </script>
 </body>
