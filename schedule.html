@@ -1271,7 +1271,7 @@ function pubBody(web) {
   const row = (m, court, r) => '<div class="game" data-level="' + m.level + '" data-text="' + esc((m.team1 ? m.team1.name : '') + ' ' + (m.team2 ? m.team2.name : '') + ' ' + m.bracket).toLowerCase() + '">' +
     '<span class="ct">' + court + '</span><div class="info"><small>' + lvl(m.level) + esc(m.bracket) + '</small><div class="teams"><span class="tm">' + (m.team1 ? esc(m.team1.name) : 'To be decided') +
     '</span><span class="vs">vs</span><span class="tm">' + (m.team2 ? esc(m.team2.name) : 'To be decided') + '</span></div></div>' + (r ? '<span class="res">' + r.a + ' - ' + r.b + '</span>' : '') + '</div>';
-  let h = '<div class="pub"><h1>FBC x Racketeers Badminton Tournament</h1><p class="sub">' + esc(name) + ' · Game schedule</p><p class="upd">Updated ' +
+  let h = '<div class="pub"><h1>' + esc(name) + '</h1><p class="sub">Game schedule</p><p class="upd">Updated ' +
     new Date().toLocaleString([], { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</p>';
   if (web) h += '<div class="tools"><input id="q" type="search" placeholder="Search your name or team" aria-label="Search"><button class="on" data-lv="All">All</button><button data-lv="Low">Low</button><button data-lv="Mid">Mid</button><button data-lv="High">High</button></div>';
   h += '<h2>Games</h2>';
@@ -1306,8 +1306,8 @@ function pubBody(web) {
 function pubDocument() {
   const name = $('#tname').value.trim() || 'Tournament';
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<title>Game Schedule - FBC x Racketeers Badminton Tournament</title>' +
-    '<meta property="og:title" content="FBC x Racketeers Badminton Tournament - Game Schedule"><meta property="og:type" content="website">' +
+    '<title>' + esc(name) + ' - Game Schedule</title>' +
+    '<meta property="og:title" content="' + esc(name) + ' - Game Schedule"><meta property="og:type" content="website">' +
     '<meta property="og:description" content="' + esc(name) + ': games, courts and times. Search your name to find your game.">' +
     '<style>body{margin:0;background:#F4F6FB}' + PUB_CSS + '</style></head><body>' + pubBody(true) + '<script>' + FILTER_JS + '<\/script></body></html>';
 }
