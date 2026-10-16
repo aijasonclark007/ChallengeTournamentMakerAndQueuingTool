@@ -99,8 +99,8 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--mute)}
 
   <section id="authGate" class="hidden noprint">
     <div class="card gate">
-      <h2>Organizer sign in</h2>
-      <p id="gateMsg" class="hint">Sign in to open your tournaments and tools.</p>
+      <h2>Sign in or create an account</h2>
+      <p id="gateMsg" class="hint">Sign in to open your tournaments and tools. New here? Enter an email and a password (8+ characters), then press Create account.</p>
       <form id="authForm" novalidate>
         <label for="aEmail">Email</label><input id="aEmail" type="text" autocomplete="username" inputmode="email">
         <label for="aPass" style="display:block;margin-top:10px">Password</label><input id="aPass" type="password" autocomplete="current-password" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);font:inherit">
@@ -1218,7 +1218,7 @@ $('#authForm').addEventListener('submit', async e => {
 });
 $('#aUp').onclick = async () => {
   authErr('');
-  try { const r = await Platform.signUp($('#aEmail').value, $('#aPass').value); if (r === 'check-email') authErr('Check your email to confirm your account, then sign in.'); } catch (err) { authErr(err.message); }
+  try { const r = await Platform.signUp($('#aEmail').value, $('#aPass').value); authErr(r === 'check-email' ? 'Almost there! We sent a confirmation link to your email. Open it, then come back and sign in.' : ''); } catch (err) { authErr(err.message); }
 };
 $('#aForgot').onclick = async () => {
   authErr('');
@@ -1231,7 +1231,7 @@ Platform.onAuth(user => {
   if (!user) {
     tid = null; cloudList = []; resetState();
     $('#toolRoot').classList.add('hidden'); $('#authGate').classList.remove('hidden');
-    $('#gateMsg').textContent = Platform.configured ? 'Sign in to open your tournaments and tools.' : 'The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.';
+    $('#gateMsg').textContent = Platform.configured ? 'Sign in, or create a free account, to open your tournaments and tools.' : 'The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.';
     return;
   }
   $('#authGate').classList.add('hidden'); $('#toolRoot').classList.remove('hidden');

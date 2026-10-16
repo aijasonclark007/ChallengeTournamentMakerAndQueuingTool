@@ -93,7 +93,7 @@ ol.steps{margin:10px 0 0;padding-left:20px;color:var(--mute);font-size:14px}ol.s
 footer{text-align:center;color:var(--mute);font-size:13px;padding:8px 16px 32px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}.view{opacity:1;transform:none}}
 </style>
-<style>.chip{display:flex;align-items:center;gap:8px;font-size:12px;color:#6c6c70;white-space:nowrap}.chip a,.chip button{font:inherit;color:#007AFF;background:none;border:0;cursor:pointer;text-decoration:none;padding:0}.chip .em{max-width:140px;overflow:hidden;text-overflow:ellipsis}@media(max-width:699px){.chip .em{display:none}}</style>
+<style>.chip{display:flex;align-items:center;gap:8px;font-size:12px;color:#6c6c70;white-space:nowrap}.chip a,.chip button{font:inherit;color:#007AFF;background:none;border:0;cursor:pointer;text-decoration:none;padding:0}.chip .reg{background:#007AFF;color:#fff;border-radius:999px;padding:5px 11px;font-weight:600}.chip .em{max-width:140px;overflow:hidden;text-overflow:ellipsis}@media(max-width:699px){.chip .em{display:none}}</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="art" viewBox="0 0 288 288" fill="none"><g fill="none" transform="scale(1.2)">
@@ -142,7 +142,8 @@ let timer = null;
 $('#yr').textContent = new Date().getFullYear();
 
 // ---------- Tournaments tab ----------
-const P = window.Platform, isAdmin = () => { if (P && P.configured) return !!P.user; try { return localStorage.getItem('rbc.admin') === '1'; } catch (e) { return false; } };
+let isOrg = false;
+const P = window.Platform, isAdmin = () => { if (P && P.configured) return isOrg; try { return localStorage.getItem('rbc.admin') === '1'; } catch (e) { return false; } };
 try { if (/[?&]admin=1/.test(location.search)) localStorage.setItem('rbc.admin', '1'); if (/[?&]admin=0/.test(location.search)) localStorage.removeItem('rbc.admin'); } catch (e) {}
 
 function cover(t, big) {
@@ -275,9 +276,9 @@ function route() {
 }
 window.addEventListener('hashchange', route);
 function chip(){ const c = $('#chip'); if (!c) return; if (!(P && P.configured)) { c.innerHTML = ''; return; }
-  c.innerHTML = P.user ? '<span class="em">' + esc(P.user.email) + '</span><button id="so">Sign out</button>' : '<a href="#/draw">Organizer sign in</a>';
+  c.innerHTML = P.user ? '<span class="em">' + esc(P.user.email) + '</span><button id="so">Sign out</button>' : '<a href="#/draw">Sign in</a><a class="reg" href="#/draw">Create account</a>';
   const b = $('#so'); if (b) b.onclick = () => P.signOut(); }
-if (P && P.configured) P.onAuth(() => { chip(); if (/^#\/(tournaments)?$/.test(location.hash) || !location.hash) route(); }); chip();
+if (P && P.configured) P.onAuth(async () => { try { isOrg = await P.isOrganizer(); } catch (e) { isOrg = false; } chip(); if (/^#\/(tournaments)?$/.test(location.hash) || !location.hash) route(); }); chip();
 route();
 </script>
 </body>

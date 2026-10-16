@@ -64,8 +64,9 @@
   }
   async function signUp(email, password) {
     if (!sb) need();
-    if (!C.allowSignup) throw new Error('New accounts are created by the club owner.');
-    const r = await sb.auth.signUp({ email: String(email).trim(), password });
+    if (!C.allowSignup) throw new Error('Creating accounts is turned off right now.');
+    if (String(password || '').length < 8) throw new Error('Use a password with at least 8 characters.');
+    const r = await sb.auth.signUp({ email: String(email).trim(), password, options: { emailRedirectTo: location.href.split('#')[0] } });
     if (r.error) throw new Error(r.error.message);
     return r.data && r.data.session ? 'signed-in' : 'check-email';
   }
@@ -74,12 +75,21 @@
     const r = await sb.auth.resetPasswordForEmail(String(email).trim(), { redirectTo: location.href.split('#')[0] });
     if (r.error) throw new Error(r.error.message);
   }
+  // true only for owner / co-organizers (rows in the organizers table); everyone else gets a private workspace
+  let orgFor = null, orgVal = false;
+  async function isOrganizer() {
+    if (!sb || !user) return false;
+    if (orgFor === user.id) return orgVal;
+    const r = await sb.rpc('is_organizer');
+    orgFor = user.id; orgVal = !r.error && r.data === true;
+    return orgVal;
+  }
   async function signOut() { if (sb) await sb.auth.signOut(); }
 
   function onAuth(fn) { subs.push(fn); if (started) setTimeout(() => fn(user), 0); }
 
   window.Platform = {
-    configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword,
+    configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, isOrganizer,
     listTournaments, loadTournament, saveTournament, deleteTournament,
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     get user() { return user; }
