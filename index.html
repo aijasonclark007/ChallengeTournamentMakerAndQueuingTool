@@ -382,7 +382,7 @@ function initEvent(t) {
 
 // ---------- the other tabs ----------
 const drawPage = () => '<iframe id="tool" class="tool" src="schedule.html" title="Draw & Schedule tool"></iframe>';
-const queuePage = () => '<h1>Queuing Tool</h1><div class="card soon-card" style="margin-top:14px"><div class="big">🏸</div><h1 style="font-size:24px">Coming next</h1><p class="lead" style="margin:6px auto 0">We\'ll build the club queuing system here after the tournaments section is done.</p></div>';
+const queuePage = () => '<iframe id="tool" class="tool" src="queue.html" title="Queuing Tool"></iframe>';
 
 // ---------- router (no page reloads, so the bar stays and switching feels instant) ----------
 async function route() {
@@ -390,13 +390,13 @@ async function route() {
   const tok = ++rt, parts = (location.hash.replace(/^#\/?/, '') || 'tournaments').split('/'), page = parts[0], arg = parts[1] ? decodeURIComponent(parts[1]) : '';
   const tab = ['draw', 'queue'].includes(page) ? page : 'tournaments';
   document.querySelectorAll('.seg a').forEach(a => a.classList.toggle('on', a.dataset.p === tab));
-  $('#main').classList.toggle('wide', page === 'draw');
+  $('#main').classList.toggle('wide', page === 'draw' || page === 'queue');
   const titleFor = x => (x ? x + ' · ' : '') + 'Challenge - Tournament Management by Ai Jason Clark';
   document.title = titleFor('');
   if (cloud && ['mine', 'new', 'edit', 'regs'].includes(page)) await P.whenReady();   // wait until we know who is signed in
   if (tok !== rt) return;
   if (page === 'draw') { setView(drawPage()); $('#tool').addEventListener('load', () => { try { $('#tool').contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} }); return; }
-  if (page === 'queue') return setView(queuePage());
+  if (page === 'queue') { setView(queuePage()); $('#tool').addEventListener('load', () => { try { $('#tool').contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} }); return; }
   if (page === 'account') { setView(accountPage(arg)); return initAccount(arg); }
   if (page === 'mine') {
     if (!needUser('mine')) return; setView(loadingHtml);
