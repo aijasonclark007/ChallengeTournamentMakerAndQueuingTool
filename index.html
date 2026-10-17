@@ -176,8 +176,11 @@ const rowToT = r => ({ dbId: r.id, id: r.slug, name: r.name, title: r.title || r
   status: r.status, category: r.category || '', fee: r.fee || '', deadline: r.deadline || '', perks: r.perks || '', levels: r.levels || {}, rules: r.rules || [], endpoint: r.endpoint || '',
   cover: r.cover_url || '', pay: r.payment_info || '', owner: r.created_by, published: r.published });
 async function loadPublic() {
-  if (cloud) { try { T = (await P.listPublicTournaments()).map(rowToT); return; } catch (e) { console.warn(e); } }
-  T = window.TOURNAMENTS || [];                      // fallback: tournaments.js
+  // The public Tournaments page only lists the sample. Tournaments people create are shared by their registration link
+  // (#/t/<slug>) and shown to their owner under "My tournaments", never in this public list.
+  const sample = window.TOURNAMENTS || [];           // tournaments.js
+  if (cloud) { try { const rows = (await P.listPublicTournaments()).map(rowToT).filter(t => t.id === 'example'); T = rows.length ? rows : sample; return; } catch (e) { console.warn(e); } }
+  T = sample;
 }
 const shareUrl = slug => location.origin + location.pathname + '#/t/' + slug;
 const canManage = t => !!(cloud && P.user && (t.owner === P.user.id || isOrg));
