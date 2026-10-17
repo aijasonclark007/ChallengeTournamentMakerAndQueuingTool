@@ -124,7 +124,9 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .team span[data-sw]:active{background:rgba(0,122,255,.18)}
 .team span[data-qp]{cursor:pointer;border-radius:8px;transition:background .15s}.team span[data-qp].sel{background:rgba(0,122,255,.2);outline:2px solid var(--blue)}
 
-.qgame{padding:2px 0 12px;margin-bottom:12px;border-bottom:.5px solid var(--line)}
+.qgrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.qgame{background:#fff;border-radius:18px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:10px;border-top:4px solid var(--blue)}
+.qgame .qhead{margin:0}.qgame .qhead b{font-size:15px}
 .qhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .findbox{position:sticky;top:6px;z-index:30;margin:0 0 10px}
 .findbox.docked input{box-shadow:0 8px 24px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.08);background-color:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
@@ -512,11 +514,11 @@ function courtsView() {
   }).join('');
   const qAll = queuedGames(s), qg = qAll.slice(Object.values(props).filter(x => x.queued).length);   // games already sitting on a free court show there, not here
   qAll.forEach(g => g.t1.concat(g.t2).forEach(id => next.add(id)));
-  const queuedHtml = '<h2>Queued next game</h2><div class="card qcard">' +
-    (qg.length ? qg.map((g, i) => '<div class="qgame" data-k="qg:' + g.id + '"><div class="qhead"><span class="small mute">Game ' + (i + 1) + ' · goes to the next free court</span><span class="grow"></span><button class="btn ghost sm" data-qshuf="' + g.id + '">Shuffle</button><button class="xbtn" data-qdel="' + g.id + '" title="Remove queued game" aria-label="Remove queued game">\u2715</button></div>' +
-      '<div class="teams">' + teamHtml(g.t1, 0, 'q:' + g.id) + '<span class="vs">VS</span>' + teamHtml(g.t2, 0, 'q:' + g.id) + '</div></div>').join('') :
-      '<div class="small mute" style="margin-bottom:10px">Line up the next four while courts are busy. They take the first court that frees up.</div>') +
-    '<button class="btn ghost" id="queueGame">+ Queue next game</button>' + (qAll.length ? '<span class="small mute" style="margin-left:10px">' + qAll.length + ' of 4</span>' : '') + '</div>';
+  const qBtn = '<button class="btn ghost" id="queueGame">+ Queue next game</button>' + (qAll.length ? '<span class="small mute">' + qAll.length + ' of 4</span>' : '');
+  const queuedHtml = '<h2>Queued next game</h2>' + (qg.length ?
+    '<div class="qgrid">' + qg.map((g, i) => '<div class="qgame" data-k="qg:' + g.id + '"><div class="qhead"><b>Game ' + (i + 1) + '</b><span class="small mute">next free court</span><span class="grow"></span><button class="btn ghost sm" data-qshuf="' + g.id + '">Shuffle</button><button class="xbtn" data-qdel="' + g.id + '" title="Remove queued game" aria-label="Remove queued game">\u2715</button></div>' +
+      '<div class="teams">' + teamHtml(g.t1, 0, 'q:' + g.id) + '<span class="vs">VS</span>' + teamHtml(g.t2, 0, 'q:' + g.id) + '</div></div>').join('') + '</div><div class="row" style="margin-top:10px">' + qBtn + '</div>' :
+    '<div class="card qempty"><div class="small mute" style="margin-bottom:10px">Line up the next four while courts are busy. They take the first court that frees up.</div><div class="row">' + qBtn + '</div></div>');
   const shown = q.map((p, i) => ({ p, i }));                  // the number on each row is its real place in the queue, whatever the sort
   if (sortMode !== 'queue') shown.sort((a, b) => (sortMode === 'least' ? a.p.games - b.p.games : b.p.games - a.p.games) || (a.i - b.i));
   const here = s.players.filter(p => p.status === 'in').length, playing = active(s).length, doneN = s.matches.filter(m => m.end).length;
