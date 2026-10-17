@@ -141,8 +141,16 @@ summary:hover{background:#fff}
 .pvbox{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 #sharePanel{margin:12px 0;padding:16px}#sharePanel h3{margin:0 0 4px;font-size:18px}
 #shareIntro .how{margin:8px 0 12px;padding-left:22px;color:var(--ink)}#shareIntro .how li{margin:6px 0}
-#nowPlay .np{display:flex;gap:10px;align-items:center;padding:10px 12px;background:rgba(255,59,48,.07);border-radius:12px;margin:6px 0;font-weight:600}
-#nowPlay .np b{min-width:70px}#nowPlay .none{color:var(--mute);margin:6px 0}
+#nowPlay .np{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px 14px;padding:12px 14px;background:#fff;border:1.5px solid rgba(255,59,48,.35);box-shadow:0 4px 14px rgba(255,59,48,.10);border-radius:16px;margin:8px 0}
+#nowPlay .np .ct{display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;white-space:nowrap}
+#nowPlay .np .ct:before{content:"";width:9px;height:9px;border-radius:50%;background:#FF3B30;animation:nplive 1.4s infinite}
+@keyframes nplive{0%{box-shadow:0 0 0 0 rgba(255,59,48,.55)}70%{box-shadow:0 0 0 8px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
+#nowPlay .np .tm{font-weight:700;font-size:15px;line-height:1.25;min-width:0}
+#nowPlay .np .tm.r{text-align:right}
+#nowPlay .np .sc{display:flex;align-items:center;gap:8px;background:#0B1B33;color:#fff;border-radius:14px;padding:6px 14px;font-weight:900;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+#nowPlay .np .sc i{font-style:normal;opacity:.45;font-weight:700;font-size:18px}
+#nowPlay .np .sc .lead{color:#8DC63F}
+@media(max-width:560px){#nowPlay .np{grid-template-columns:1fr auto 1fr}#nowPlay .np .ct{grid-column:1/-1}}#nowPlay .none{color:var(--mute);margin:6px 0}
 #utoast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,40px);opacity:0;pointer-events:none;background:#1C1C1E;color:#fff;border-radius:14px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;z-index:50;transition:all .45s var(--spring,cubic-bezier(.2,.8,.2,1));max-width:92%}
 #utoast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#utoast button{background:rgba(255,255,255,.18);min-height:36px;padding:4px 14px}
 @media (max-width:640px){
@@ -1539,7 +1547,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     let rows; try { rows = await Platform.getLiveScores(pubSlug); } catch (e) { return; }
     const by = {}; try { matchList().forEach(m => { by[m.mid] = m; }); } catch (e) {}
     const live = rows.filter(r => r.status === 'live' && by[r.match_id]);
-    box.innerHTML = '<b>Now playing</b>' + (live.length ? live.map(r => { const m = by[r.match_id]; return '<div class="np"><b>' + esc(m.court) + '</b><span>' + esc(m.t1) + ' <b style="min-width:0">' + r.s1 + ' - ' + r.s2 + '</b> ' + esc(m.t2) + '</span></div>'; }).join('') : '<div class="none">No games are being scored live right now.</div>');
+    box.innerHTML = '<b>Now playing</b>' + (live.length ? live.map(r => { const m = by[r.match_id]; return '<div class="np"><span class="ct">' + esc(m.court) + '</span><span class="tm">' + esc(m.t1) + '</span><span class="sc"><span' + (r.s1 > r.s2 ? ' class="lead"' : '') + '>' + r.s1 + '</span><i>:</i><span' + (r.s2 > r.s1 ? ' class="lead"' : '') + '>' + r.s2 + '</span></span><span class="tm r">' + esc(m.t2) + '</span></div>'; }).join('') : '<div class="none">No games are being scored live right now.</div>');
   }
   setInterval(nowTick, 8000);
   $('#introGet').onclick = () => $('#pubLink').click();
