@@ -145,6 +145,7 @@ body.live select{background:#fff;color:#1C1C1E}
 .poolbar input{width:100%;margin-bottom:6px}.poolbar .row{gap:12px;align-items:center}
 .linkbtn{border:0;background:none;color:var(--blue);font-weight:600;font-size:13px;padding:6px 2px;min-height:32px}
 .prow[hidden]{display:none!important}
+.btn.danger{background:var(--red);color:#fff}.btn:disabled{opacity:.45}
 .paste-h{margin:14px 0 4px;padding-top:8px;border-top:1px solid var(--line)}.q .seg.lvl{width:auto;flex:none}.q .seg.lvl button{padding:5px 9px;font-size:12px}
 .seg.lvl button.on[data-l=High]{background:var(--high);color:#fff}.seg.lvl button.on[data-l=Mid]{background:var(--mid);color:#fff}.seg.lvl button.on[data-l=Low]{background:var(--low);color:#fff}
 </style>
@@ -765,13 +766,36 @@ function openPaste(pool, prefill, opts) {
   };
   back();
 }
+// ----- delete players from the saved list (this never touches tonight's queue) -----
+function openManage(pool) {
+  const list = pool.slice();
+  modal('Delete saved players', '<div class="small mute">Tick the players to remove from your saved list. Players already in tonight\'s queue stay there.</div><div class="poolbar"><input id="mgQ" type="search" placeholder="Search players" autocomplete="off"><div class="row small"><span id="mgCount" class="mute"></span><span class="grow"></span><button type="button" class="linkbtn" id="mgAll">Select shown</button><button type="button" class="linkbtn" id="mgNone">Clear shown</button></div></div><div id="mgList">' +
+    list.map((p, i) => '<label class="q prow" data-name="' + esc(p.name.toLowerCase()) + '" style="cursor:pointer"><input type="checkbox" data-di="' + i + '" style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>' +
+    '<div class="row" style="margin-top:12px;position:sticky;bottom:-1px;background:#fff;padding:8px 0;gap:8px"><button type="button" class="btn ghost sm" id="mgBack">‹ Back</button><span class="grow"></span><button type="button" class="btn" id="mgDel" style="background:var(--red)"></button></div>', []);
+  const sh = $('#sheet'), rows = () => [...sh.querySelectorAll('.prow')], shown = () => rows().filter(r => !r.hidden), picked = () => rows().filter(r => r.querySelector('input').checked);
+  const upd = () => { const n = picked().length; sh.querySelector('#mgCount').textContent = n + ' to delete' + (shown().length < rows().length ? ' · showing ' + shown().length : ''); const b = sh.querySelector('#mgDel'); b.textContent = n ? 'Delete ' + n + ' player' + (n === 1 ? '' : 's') : 'Nothing ticked'; b.disabled = !n; };
+  sh.querySelector('#mgQ').oninput = e => { const t = e.target.value.trim().toLowerCase(); rows().forEach(r => { r.hidden = !!t && !r.dataset.name.includes(t); }); upd(); };
+  sh.onchange = e => { if (e.target.matches('[data-di]')) upd(); };
+  sh.onclick = e => {
+    if (e.target.closest('#mgAll')) { shown().forEach(r => { r.querySelector('input').checked = true; }); upd(); }
+    else if (e.target.closest('#mgNone')) { shown().forEach(r => { r.querySelector('input').checked = false; }); upd(); }
+    else if (e.target.closest('#mgBack')) openPool();
+    else if (e.target.closest('#mgDel')) {
+      const del = picked().map(r => list[+r.querySelector('input').dataset.di]); if (!del.length) return;
+      modal('Delete ' + del.length + ' saved player' + (del.length === 1 ? '' : 's') + '?', '<div class="small" style="max-height:30vh;overflow:auto">' + del.map(p => esc(p.name)).join(', ') + '</div><div class="small mute" style="margin-top:8px">They are removed from your saved list for good. You can add them again later. Tonight\'s queue is not changed.</div>',
+        [{ label: 'Delete ' + del.length, cls: 'danger', fn: async () => { try { for (const p of del) await P.removePlayerFromPool(p.id); toast('Deleted ' + del.length + ' saved player' + (del.length === 1 ? '' : 's')); } catch (x) { toast(x.message); } setTimeout(openPool, 250); } }]);
+    }
+  };
+  upd();
+}
 async function openPool() {
   let pool = []; try { pool = await P.fetchPlayerPool(); } catch (e) { return toast(e.message); }
   const have = new Set(view.players.map(p => p.name.toLowerCase())), list = pool.filter(p => !have.has(p.name.toLowerCase()));
-  modal('My saved players', '<div class="row" style="margin:0 0 8px"><button class="btn ghost sm" id="poolPaste" type="button">Paste a list\u2026</button><span class="small mute">e.g. from Messenger</span></div>' + (list.length ? '<div class="small mute">Tick the players who showed up tonight.</div><div class="poolbar"><input id="poolQ" type="search" placeholder="Search players" autocomplete="off"><div class="row small"><span id="poolCount" class="mute"></span><span class="grow"></span><button type="button" class="linkbtn" id="poolAll">Select shown</button><button type="button" class="linkbtn" id="poolNone">Clear shown</button></div></div><div id="poolList">' + list.map((p, i) => '<label class="q prow" data-name="' + esc(p.name.toLowerCase()) + '" style="cursor:pointer"><input type="checkbox" data-pi="' + i + '" checked style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>'
+  modal('My saved players', '<div class="row" style="margin:0 0 8px"><button class="btn ghost sm" id="poolPaste" type="button">Paste a list\u2026</button>' + (pool.length ? '<button class="btn ghost sm" id="poolManage" type="button">Delete players\u2026</button>' : '') + '</div>' + (list.length ? '<div class="small mute">Tick the players who showed up tonight.</div><div class="poolbar"><input id="poolQ" type="search" placeholder="Search players" autocomplete="off"><div class="row small"><span id="poolCount" class="mute"></span><span class="grow"></span><button type="button" class="linkbtn" id="poolAll">Select shown</button><button type="button" class="linkbtn" id="poolNone">Clear shown</button></div></div><div id="poolList">' + list.map((p, i) => '<label class="q prow" data-name="' + esc(p.name.toLowerCase()) + '" style="cursor:pointer"><input type="checkbox" data-pi="' + i + '" checked style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>'
     : '<div class="mute">' + (pool.length ? 'Everyone in your pool is already on tonight\'s list.' : 'Your pool is empty. Add players, then use Save all to my pool.') + '</div>'),
     list.length ? [{ label: 'Add selected', fn: sh => { const pick = [...sh.querySelectorAll('[data-pi]')].filter(c => c.checked).map(c => list[+c.dataset.pi]); if (!pick.length) return; act(M.addPlayers(pick.map(p => ({ name: p.name, level: p.level, status: 'in' })))); } }] : []);
   const sh = $('#sheet'), pb = sh.querySelector('#poolPaste'); if (pb) pb.onclick = () => openPaste(pool);
+  const mg = sh.querySelector('#poolManage'); if (mg) mg.onclick = () => openManage(pool);
   const q = sh.querySelector('#poolQ'); if (!q) return;
   const rows = () => [...sh.querySelectorAll('.prow')], shown = () => rows().filter(r => !r.hidden);
   const upd = () => { const n = rows().filter(r => r.querySelector('input').checked).length, v = shown().length; sh.querySelector('#poolCount').textContent = n + ' selected' + (v < rows().length ? ' · showing ' + v : ''); let e = sh.querySelector('#poolNone2'); if (!v) { if (!e) { e = document.createElement('div'); e.id = 'poolNone2'; e.className = 'mute'; e.style.padding = '14px 4px'; e.textContent = 'No saved player matches that search.'; sh.querySelector('#poolList').appendChild(e); } } else if (e) e.remove(); };
