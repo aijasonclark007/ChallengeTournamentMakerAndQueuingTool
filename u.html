@@ -65,7 +65,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   <div class="sbar"><button id="back">Back</button><div class="mid" id="smid"></div><button id="swap">Swap sides</button></div>
   <div class="sides" id="sides"></div>
   <div class="banner" id="ban"></div>
-  <div class="acts"><button id="undo">Undo</button><button class="fin" id="fin">Finish match</button></div>
+  <div class="acts"><button id="undo">Undo</button><button id="rst">Cancel live</button><button class="fin" id="fin">Finish match</button></div>
 </div>
 <div id="ov"><div class="sheet"><h3 id="ovT"></h3><p id="ovP"></p><div class="row"><button id="ovNo">Keep scoring</button><button class="go" id="ovYes">Finish</button></div></div></div>
 <div id="toast"></div>
@@ -130,6 +130,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     $('#ban').classList.toggle('on', won && !done); if (won) $('#ban').textContent = (s1 > s2 ? m.t1 : m.t2) + ' reached ' + TARGET + '. Tap Finish match.';
     $('#undo').disabled = !hist.length || done; $('#fin').disabled = done || (s1 === s2);
     $('#fin').textContent = done ? 'Match finished' : 'Finish match';
+    $('#rst').disabled = done || !(scores[m.mid] && scores[m.mid].status === 'live');
     if (!done) $('#sides').querySelectorAll('.side').forEach(el => el.onclick = () => add(+el.dataset.i));
   }
   function add(i) {
@@ -145,10 +146,26 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     try { const l = JSON.parse(localStorage.getItem('ump.' + slug + '.' + mid) || 'null'); if (l && sv && l.s1 === s1 && l.s2 === s2) hist = l.hist || []; } catch (e) {}
     $('#smid').textContent = cur.court + ' · ' + cur.time + ' · ' + cur.bracket;
     $('#score').classList.add('on'); paint();
-    if (!sv || sv.status !== 'done') { if (!sv) push(false).catch(() => {}); try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+    if (!sv || sv.status !== 'done') { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
   }
-  function closeMatch() { $('#score').classList.remove('on'); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
-  $('#back').onclick = closeMatch;
+  async function resetLive(quiet) {
+    if (!cur) return; const id = cur.mid;
+    try { await P.umpireReset(slug, key, id); delete scores[id]; s1 = 0; s2 = 0; hist = []; try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {} if (!quiet) toast('Match taken off LIVE.'); }
+    catch (e) { toast(e.message); throw e; }
+  }
+  async function closeMatch() {
+    // leaving a match nobody has scored in: take it off LIVE so it is not shown as playing
+    if (cur && s1 === 0 && s2 === 0 && scores[cur.mid] && scores[cur.mid].status === 'live') { try { if (pushing) await pushing; await resetLive(true); } catch (e) {} }
+    $('#score').classList.remove('on'); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
+  $('#back').onclick = () => closeMatch();
+  $('#rst').onclick = async () => {
+    if (!cur) return; const st = scores[cur.mid];
+    if (!st || st.status !== 'live') return toast('This match is not live.');
+    const has = s1 > 0 || s2 > 0;
+    const ok = await ask('Cancel live scoring?', has ? 'This discards the current score (' + s1 + ' - ' + s2 + ') and takes the match off LIVE. You can start it again later.' : 'This takes the match off LIVE.', 'Cancel live');
+    if (!ok) return;
+    try { if (pushing) await pushing; await resetLive(false); paint(); closeMatch(); } catch (e) {}
+  };
   $('#swap').onclick = () => { flipped = !flipped; buzz(8); paint(); };
   $('#undo').onclick = () => { if (!hist.length) return; [s1, s2] = hist.pop(); buzz(8); paint(); push(false).catch(() => {}); };
   const ask = (t, p, yes) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
