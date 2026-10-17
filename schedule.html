@@ -185,7 +185,8 @@ summary b{font-weight:800}
       <h2>4. Game schedule</h2>
       <div class="tools"><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button></div>
     </div>
-    <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:6px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div></div>
+    <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:6px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input id="pubAuto" type="checkbox" checked> Keep this link updated automatically (when scores, the knockout round or the name change)</label></div>
     <details id="umpBox" class="noprint hidden" style="margin:6px 0 10px"><summary><b>Live scoring for umpires</b> (one link per court)</summary>
       <p class="hint">Send each umpire their court's link or let them scan the QR code. They score on their phone, tap Finish match, and the result lands in your scoreboard. Press "Update with latest scores" after you build the knockout round so umpires get those games too.</p><div id="umpList"></div></details>
     <p id="pubMsg" class="hint noprint">The shareable page has no score boxes or buttons. It is easy to read on a phone, and players can search their name.</p>
@@ -1368,7 +1369,7 @@ function showUmp() {
   });
 }
 function showPubLink() { $('#pubLinkBox').classList.toggle('hidden', !pubSlug); if (pubSlug) $('#pubUrl').value = pubUrlFor(pubSlug); showUmp(); }
-async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} showPubLink(); }
+async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} pubSig = pubSigNow(); showPubLink(); }
 // finished matches from the umpires' phones are saved into the scoreboard automatically
 async function pullLive() {
   if (!pubSlug || !sched || !Platform.user || Date.now() < ingestPause || document.hidden) return;
@@ -1386,15 +1387,27 @@ async function pullLive() {
   if (g || k) { if (g) renderStandings(); if (k) renderKo(); queueSave(); say('#pubMsg', (g + k) + ' finished match' + (g + k > 1 ? 'es were' : ' was') + ' saved from live scoring.'); }
 }
 setInterval(pullLive, 6000);
+// keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
+let pubSig = null, pubBusy = false, pubLast = 0;
+const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim()]) : null;
+async function autoPublish() {
+  if (!pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
+  const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
+  pubBusy = true;
+  try { await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); pubSig = sig; pubLast = Date.now(); say('#pubMsg', 'Link updated automatically at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'); }
+  catch (e) { /* try again next round */ }
+  pubBusy = false;
+}
+setInterval(autoPublish, 10000);
 async function publishNow(msg) {
   if (!sched) return say('#pubMsg', 'Build the schedule first.');
   if (!Platform.user) return say('#pubMsg', 'Sign in to get a shareable link. You can still download the page.');
   if (!tid) return say('#pubMsg', 'Save this tournament to your account first, then get the link.');
   say('#pubMsg', 'Publishing...');
-  try { await saveNow(); pubSlug = await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); await loadPubLink(); say('#pubMsg', msg); }
+  try { await saveNow(); pubSlug = await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); await loadPubLink(); pubSig = pubSigNow(); pubLast = Date.now(); say('#pubMsg', msg); }
   catch (e) { say('#pubMsg', e.message); }
 }
-$('#pubLink').onclick = () => publishNow('Your link is ready. Copy it and send it to players. Press "Update with latest scores" any time to refresh it.');
+$('#pubLink').onclick = () => publishNow('Your link is ready. Copy it and send it to players. It keeps itself up to date while this page is open. You can also press "Update with latest scores".');
 $('#pubUpd').onclick = () => publishNow('Updated. The same link now shows the latest schedule and scores.');
 $('#pubCopy').onclick = async () => { const i = $('#pubUrl'); i.select(); try { await navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); } say('#pubMsg', 'Link copied.'); };
 $('#pubOff').onclick = async () => { if (!pubSlug) return; try { await Platform.unpublishSchedule(pubSlug); pubSlug = null; showPubLink(); say('#pubMsg', 'Sharing stopped. The old link no longer works.'); } catch (e) { say('#pubMsg', e.message); } };
