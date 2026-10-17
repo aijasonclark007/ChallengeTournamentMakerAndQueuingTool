@@ -72,15 +72,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 #sv .opts button.picked{background:var(--lime);color:#0B1B33;animation:pick .38s cubic-bezier(.2,.8,.2,1)}
 #sv .opts button.picked:after{content:" \2713";font-weight:900}
 @keyframes pick{0%{transform:scale(1)}45%{transform:scale(1.07)}100%{transform:scale(1.02)}}
-#sv .opts button.toss-win{background:#EAF7D6;box-shadow:inset 0 0 0 2px var(--lime)}
 #sv .sheet.step{animation:stepin .3s cubic-bezier(.2,.8,.2,1)}@keyframes stepin{from{opacity:.4;transform:translateX(18px)}to{opacity:1;transform:none}}
-.tossbtn{width:100%;padding:14px;border-radius:14px;background:#FFF4D6;color:#6b4a00;font-weight:800;font-size:17px;margin-bottom:10px}
-.tossbtn:disabled{opacity:.5}
-.coinwrap{height:92px;display:none;align-items:center;justify-content:center;perspective:700px}
-.coin{width:70px;height:70px;position:relative;transform-style:preserve-3d}
-.coin b{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;letter-spacing:.05em;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:radial-gradient(circle at 30% 30%,#FFE58A,#E0A800);border:4px solid #B58500;color:#5a3d00;box-shadow:0 4px 10px rgba(0,0,0,.25)}
-.coin b.t{transform:rotateY(180deg)}
-.tossres{min-height:22px;text-align:center;font-weight:700;margin:0 0 10px;color:#2E7D32}
+
 /* phone held sideways (umpire facing the court): the two teams sit side by side */
 @media (orientation:landscape) and (max-height:560px){
   .srvbar{margin:6px max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));padding:5px 10px;font-size:13px}.srvbar small{display:none}
@@ -111,7 +104,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   <div class="acts"><button id="undo">Undo</button><button id="rst">Cancel live</button><button class="fin" id="fin">Finish match</button></div>
 </div>
 <div id="ov"><div class="sheet"><h3 id="ovT"></h3><p id="ovP"></p><div class="row"><button id="ovNo">Keep scoring</button><button class="go" id="ovYes">Finish</button></div></div></div>
-<div id="sv"><div class="sheet"><h3 id="svT"></h3><p id="svP"></p><div id="svToss"></div><div class="opts" id="svO"></div></div></div>
+<div id="sv"><div class="sheet"><h3 id="svT"></h3><p id="svP"></p><div class="opts" id="svO"></div></div></div>
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -224,39 +217,30 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     const pos = []; pos[k] = pk; pos[o] = po; return { k, pos };
   }
   function chooseServe() {
-    const sh = $('#sv'), O = $('#svO'), nm = [cur.t1, cur.t2];
+    const sh = $('#sv'), O = $('#svO'), nm = [cur.t1, cur.t2], fresh = !(s1 + s2), D = isDbl();
     return new Promise(res => {
       const end = v => { sh.classList.remove('on'); res(v); };
       sh.onclick = e => { if (e.target === sh) end(null); };                    // tap outside to close without changing anything
       const sheet = sh.querySelector('.sheet'), bump = () => { sheet.classList.remove('step'); void sheet.offsetWidth; sheet.classList.add('step'); };
       const pick = (b, fn) => { buzz(10); O.classList.add('has-pick'); b.classList.add('picked'); setTimeout(fn, 420); };
-      const step1 = () => {
-        $('#svT').textContent = 'Who serves first?'; $('#svP').textContent = (s1 + s2 ? 'Who is serving right now (score ' + s1 + ' - ' + s2 + ')?' : 'Tap the player who serves first.');
-        const opts = isDbl() ? [0, 1].flatMap(k => parts(nm[k]).map(n => ({ k, n }))) : [0, 1].map(k => ({ k, n: nm[k] }));
-        O.classList.remove('has-pick'); bump();
-        O.innerHTML = opts.map((o, i) => '<button data-i="' + i + '" data-k="' + o.k + '">' + esc(o.n) + (isDbl() ? ' <small style="font-weight:600;color:var(--mute)">· ' + esc(nm[o.k]) + '</small>' : '') + '</button>').join('');
-        O.querySelectorAll('button').forEach(b => b.onclick = () => { const o = opts[+b.dataset.i]; pick(b, () => isDbl() ? step2(o) : end(svBuild(o.k, o.n, nm[1 - o.k]))); });
-        const T = $('#svToss');                                                  // coin toss only before the first rally
-        if (s1 + s2) { T.innerHTML = ''; return; }
-        T.innerHTML = '<button class="tossbtn" id="tossBtn">\uD83E\uDE99 Toss a coin</button><div class="coinwrap" id="coinw"><div class="coin" id="coin"><b>HEADS</b><b class="t">TAILS</b></div></div><div class="tossres" id="tossres"></div>';
-        $('#tossBtn').onclick = () => {
-          const btn = $('#tossBtn'), cw = $('#coinw'), coin = $('#coin'), tr = $('#tossres'); btn.disabled = true; tr.textContent = ''; cw.style.display = 'flex';
-          let r0 = Math.random(); try { const a = new Uint32Array(1); crypto.getRandomValues(a); r0 = a[0] / 4294967296; } catch (e) {}
-          const heads = r0 < 0.5, end0 = 1800 + (heads ? 0 : 180); buzz([8, 60, 8]);
-          const fin = () => {
-            const k = heads ? 0 : 1; tr.innerHTML = (heads ? 'Heads' : 'Tails') + '! <b>' + esc(nm[k]) + '</b> won the toss.'; buzz([20, 50, 20]);
-            O.querySelectorAll('button').forEach(b => b.classList.toggle('toss-win', +b.dataset.k === k));
-          };
-          coin.style.transform = 'rotateY(' + end0 + 'deg)';
-          if (coin.animate) { const an = coin.animate([{ transform: 'translateY(0) rotateY(0deg)' }, { transform: 'translateY(-46px) rotateY(' + (end0 / 2) + 'deg)', offset: .45 }, { transform: 'translateY(0) rotateY(' + end0 + 'deg)' }], { duration: 1500, easing: 'cubic-bezier(.25,.6,.3,1)' }); an.onfinish = fin; } else fin();
-        };
+      const show = (title, sub, opts, onPick) => {                               // one screen of big buttons
+        $('#svT').textContent = title; $('#svP').textContent = sub; O.classList.remove('has-pick'); bump();
+        O.innerHTML = opts.map((o, i) => '<button data-i="' + i + '">' + o.h + '</button>').join('');
+        O.querySelectorAll('button').forEach(b => b.onclick = () => pick(b, () => onPick(opts[+b.dataset.i])));
       };
-      const step2 = o => {
-        $('#svT').textContent = 'Who receives?'; $('#svP').textContent = o.n + ' serves. Tap the opponent who receives.'; $('#svToss').innerHTML = ''; O.classList.remove('has-pick'); bump();
-        O.innerHTML = parts(nm[1 - o.k]).map(n => '<button data-n="' + esc(n) + '">' + esc(n) + '</button>').join('');
-        O.querySelectorAll('button').forEach(b => b.onclick = () => pick(b, () => end(svBuild(o.k, o.n, b.dataset.n))));
-      };
-      step1(); sh.classList.add('on');
+      const sub = n => D ? ' <small style="font-weight:600;color:var(--mute)">\u00B7 ' + esc(n) + '</small>' : '';
+      const receiver = (k, server) => show('Who receives?', server + ' serves. Tap the opponent who receives.', parts(nm[1 - k]).map(n => ({ h: esc(n), n })), o => end(svBuild(k, server, o.n)));
+      const server = (k, title) => D
+        ? show(title || 'Who serves?', 'Tap the player of ' + nm[k] + ' who serves.', parts(nm[k]).map(n => ({ h: esc(n), n })), o => receiver(k, o.n))
+        : end(svBuild(k, nm[k], nm[1 - k]));
+      if (!fresh) {                                                              // joining mid-game: just say who is serving now
+        const all = D ? [0, 1].flatMap(k => parts(nm[k]).map(n => ({ k, n, h: esc(n) + sub(nm[k]) }))) : [0, 1].map(k => ({ k, n: nm[k], h: esc(nm[k]) }));
+        show('Who is serving now?', 'The score is ' + s1 + ' - ' + s2 + '. Tap the player who serves.', all, o => D ? receiver(o.k, o.n) : end(svBuild(o.k, o.n, nm[1 - o.k])));
+      } else {                                                                   // the coin is tossed on court; the app records the result
+        show('Toss a coin', 'Toss a coin with both teams on court. Who won the toss?', [0, 1].map(k => ({ k, h: '\uD83E\uDE99 ' + esc(nm[k]) })),
+          t => show(nm[t.k] + ' won the toss', 'What do they choose?', [{ h: '\uD83C\uDFF8 Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }], c => server(c.serve ? t.k : 1 - t.k, 'Who serves first?')));
+      }
+      sh.classList.add('on');
     });
   }
   async function setServe() { if (!cur) return; const v = await chooseServe(); if (!v) return; sv = v; save(false, true); paint(); }
