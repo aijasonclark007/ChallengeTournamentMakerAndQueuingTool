@@ -114,7 +114,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     pushing = (async () => {
       while (dirty) {
         const d = dirty; dirty = null; dot('off');
-        try { await P.umpireScore(slug, key, d.id, d.s1, d.s2, d.status); dot(''); lastErr = false; scores[d.id] = { id: d.id, s1: d.s1, s2: d.s2, status: d.status }; }
+        try { await P.umpireScore(slug, key, d.id, d.s1, d.s2, d.status); dot(''); try { P.liveChannel('slive-' + slug).ping(); } catch (x) {} lastErr = false; scores[d.id] = { id: d.id, s1: d.s1, s2: d.s2, status: d.status }; }
         catch (e) { dot('err'); lastErr = true; if (/finished|valid|tie|Bad/i.test(e.message)) { toast(e.message); dirty = null; throw e; } dirty = dirty || d; await new Promise(r => setTimeout(r, 2000)); }
       }
     })().finally(() => { pushing = false; });
@@ -150,7 +150,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   }
   async function resetLive(quiet) {
     if (!cur) return; const id = cur.mid;
-    try { await P.umpireReset(slug, key, id); delete scores[id]; s1 = 0; s2 = 0; hist = []; try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {} if (!quiet) toast('Match taken off LIVE.'); }
+    try { await P.umpireReset(slug, key, id); try { P.liveChannel('slive-' + slug).ping(); } catch (x) {} delete scores[id]; s1 = 0; s2 = 0; hist = []; try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {} if (!quiet) toast('Match taken off LIVE.'); }
     catch (e) { toast(e.message); throw e; }
   }
   async function closeMatch() {

@@ -206,6 +206,19 @@
     } catch (e) { return () => {}; }
   }
 
+  // instant "something changed" pings between phones (Supabase Realtime broadcast). The data itself is always re-read from the database.
+  const live = {};
+  function liveChannel(name, onPing) {
+    needSb();
+    let e = live[name];
+    if (!e) {
+      const ch = sb.channel(name, { config: { broadcast: { self: false } } }); e = live[name] = { ch, cbs: [] };
+      ch.on('broadcast', { event: 'ping' }, msg => e.cbs.slice().forEach(f => { try { f(msg && msg.payload); } catch (x) {} })).subscribe();
+    }
+    if (onPing) e.cbs.push(onPing);
+    return { ping: payload => { try { e.ch.send({ type: 'broadcast', event: 'ping', payload: payload || {} }); } catch (x) {} } };
+  }
+
   window.Platform = {
     configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, isOrganizer,
     listTournaments, loadTournament, saveTournament, deleteTournament,
@@ -213,7 +226,7 @@
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
     listQueueSessions, getQueueSession, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, unpublishSchedule, getPublicSchedule,
-    whenReady: () => readyP,
+    liveChannel, whenReady: () => readyP,
     get user() { return user; }
   };
   window.savePlayerToPool = savePlayerToPool;

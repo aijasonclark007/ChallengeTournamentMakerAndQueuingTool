@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Draw &amp; Schedule</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#F4F6FB;--card:#fff;--ink:#0B1B33;--mute:#5A6A82;--line:#D5DCE8;--navy:#0A2547;--lime:#8DC63F;--sun:#FFC20E;--chip:#EAF0F9;--ok:#2E7D32;--warn:#B26A00;--bad:#B3261E;
  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -98,6 +97,27 @@ summary b{font-weight:800}
 @media print{.noprint{display:none!important}body{background:#fff;color:#000}th{background:#ddd;color:#000}}
 #printView{display:none}.pubwrap{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#F4F6FB;color:#0B1B33}
 @media print{main{display:none!important}#printView{display:block}}
+
+/* ---- one look across the whole site: same colors, type, buttons and cards as the Queuing Tool ---- */
+:root:root:root{--bg:#F2F2F7;--card:#fff;--ink:#1C1C1E;--mute:#5F5F66;--line:rgba(60,60,67,.18);--navy:#007AFF;--lime:#34C759;--sun:#FFD60A;--chip:rgba(118,118,128,.12);--ok:#1F7A35;--warn:#A64B00;--bad:#C4001A;--blue:#007AFF;--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06)}
+body{font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,.lvl{font-family:inherit;letter-spacing:-.02em;font-weight:800}
+h1{font-size:clamp(26px,5vw,34px);line-height:1.1}h2{font-size:20px}
+.lvl{font-size:20px;border-left-color:var(--blue)}
+.card,.wrap,.pubwrap{border:0;box-shadow:var(--shadow);border-radius:18px}
+button{border-radius:14px;min-height:44px;padding:10px 18px;background:var(--blue);color:#fff;font-weight:600}
+button.go,.lockbtn{background:var(--blue)!important;color:#fff!important}
+button.ghost{background:var(--chip);color:var(--blue);border:0}
+.lockbtn.ed{background:var(--chip)!important;color:var(--blue)!important;border:0!important}
+.sv,.mv{border-radius:10px;min-height:36px;padding:5px 14px}.sv{background:var(--green,#34C759);color:#fff}.sv.ed{background:var(--chip);color:var(--blue);border:0}.mv{background:var(--chip);color:var(--blue)}
+th{background:#F2F2F7;color:var(--mute);font-size:13px;font-weight:700;letter-spacing:.02em}
+th,td{font-size:15px;padding:10px 12px}
+input[type=number],input[type=time],input[type=text],textarea,select{border-radius:12px;font-size:16px;border-color:var(--line)}
+.sc{font-size:16px}
+summary{background:var(--chip);border:2px solid var(--blue);color:var(--blue)}
+summary::before{background-color:var(--blue);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+summary:hover{background:#fff}
+.tag{border-radius:10px}
 </style>
 </head>
 <body>
@@ -1369,7 +1389,7 @@ function showUmp() {
   });
 }
 function showPubLink() { $('#pubLinkBox').classList.toggle('hidden', !pubSlug); if (pubSlug) $('#pubUrl').value = pubUrlFor(pubSlug); showUmp(); }
-async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} pubSig = pubSigNow(); showPubLink(); }
+async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} pubSig = pubSigNow(); showPubLink(); subLive(); }
 // finished matches from the umpires' phones are saved into the scoreboard automatically
 async function pullLive() {
   if (!pubSlug || !sched || !Platform.user || Date.now() < ingestPause || document.hidden) return;
@@ -1386,7 +1406,8 @@ async function pullLive() {
   });
   if (g || k) { if (g) renderStandings(); if (k) renderKo(); queueSave(); say('#pubMsg', (g + k) + ' finished match' + (g + k > 1 ? 'es were' : ' was') + ' saved from live scoring.'); }
 }
-setInterval(pullLive, 6000);
+setInterval(pullLive, 15000);
+let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pubSlug) { liveSubFor = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, () => pullLive()); } catch (e) {} } };
 // keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
 let pubSig = null, pubBusy = false, pubLast = 0;
 const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim()]) : null;

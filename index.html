@@ -37,6 +37,11 @@ nav.seg a{position:relative;z-index:1}nav.seg a.on{background:none;box-shadow:no
 .seg a:active{transform:scale(.96)}
 @keyframes toolin{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
 .tool{animation:toolin .6s var(--spring) both}
+html.tool-mode,html.tool-mode body{height:100%;overflow:hidden}
+html.tool-mode footer{display:none}
+html.tool-mode main.wide{padding:10px 12px 12px}
+html.tool-mode .tool{height:calc(100dvh - var(--hdr,64px) - 22px);min-height:0}
+@supports not (height:100dvh){html.tool-mode .tool{height:calc(100vh - var(--hdr,64px) - 22px)}}
 h1{font-size:clamp(30px,6vw,40px);letter-spacing:-.03em;line-height:1.08;margin:6px 0 4px;font-weight:800}
 h2{font-size:13px;color:var(--mute);font-weight:600;margin:28px 0 8px 16px;letter-spacing:.01em;text-transform:none}
 .lead{color:var(--mute);margin:0 0 8px;max-width:60ch}
@@ -397,17 +402,29 @@ function ensureTool(name) {
   let f = $('#tool-' + name);
   if (!f) {
     f = document.createElement('iframe'); f.id = 'tool-' + name; f.className = 'tool'; f.title = TOOLS[name][1]; f.style.display = 'none';
-    f.addEventListener('load', () => { try { f.contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} });
+    f.addEventListener('load', () => { f.dataset.ready = '1'; try { f.contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} });
     f.src = TOOLS[name][0]; $('#tools').appendChild(f);
   }
   return f;
 }
-function showTool(name) {
+const setHdr = () => { const b = document.querySelector('header.bar'); if (b) document.documentElement.style.setProperty('--hdr', b.offsetHeight + 'px'); };
+window.addEventListener('resize', setHdr);
+// the tools tell us when their tab changes, so the address (and the Back button) follows them; links like #/queue/players open that tab
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin) return; const d = e.data;
+  if (d && d.t === 'tab' && d.tool === 'queue') { const hh = '#/queue/' + d.tab; if (location.hash !== hh) history.pushState(null, '', hh); }
+});
+function gotoTool(name, arg) {
+  const f = ensureTool(name), send = () => { try { f.contentWindow.postMessage({ t: 'goto', tab: arg }, location.origin); } catch (x) {} };
+  if (f.dataset.ready) send(); else f.addEventListener('load', send, { once: true });
+}
+function showTool(name, arg) {
   ensureTool(name); $('#view').style.display = 'none'; $('#tools').style.display = '';
+  document.documentElement.classList.add('tool-mode'); setHdr(); if (arg && name === 'queue') gotoTool(name, arg);
   Object.keys(TOOLS).forEach(n => { const x = $('#tool-' + n); if (x) x.style.display = n === name ? '' : 'none'; });   // going from hidden to shown replays the pop-in
   window.scrollTo(0, 0);
 }
-function hideTools() { $('#tools').style.display = 'none'; $('#view').style.display = ''; }
+function hideTools() { $('#tools').style.display = 'none'; $('#view').style.display = ''; document.documentElement.classList.remove('tool-mode'); }
 
 // ---------- router (no page reloads, so the bar stays and switching feels instant) ----------
 let prevTab = 'tournaments', lastNav = null;
@@ -434,7 +451,7 @@ async function route() {
   document.title = titleFor('');
   if (cloud && ['mine', 'new', 'edit', 'regs'].includes(page)) await P.whenReady();   // wait until we know who is signed in
   if (tok !== rt) return;
-  if (page === 'draw' || page === 'queue') { showTool(page); return; }
+  if (page === 'draw' || page === 'queue') { showTool(page, arg); return; }
   if (page === 'account') { setView(accountPage(arg)); return initAccount(arg); }
   if (page === 'mine') {
     if (!needUser('mine')) return; setView(loadingHtml);
