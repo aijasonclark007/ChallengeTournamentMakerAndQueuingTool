@@ -26,6 +26,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px}
 .seg button{flex:1;border:0;background:none;padding:7px 8px;border-radius:9px;font-weight:600;font-size:13px;white-space:nowrap}
 .seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.seg.pay button{min-height:38px;padding:6px 12px}.seg.pay button.on.cash{background:var(--green);color:#fff}.seg.pay button.on.gcash{background:var(--blue);color:#fff}
 .banner{background:#fff;border-radius:16px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .banner.info{background:rgba(0,122,255,.08);box-shadow:none}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px}.dot.off{background:var(--orange)}.dot.guest{background:#8E8E93}
@@ -255,7 +256,8 @@ const M = {
   swap: (mid, outId, inId) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) throw new Error('That game already ended.');
     const inP = byId(s, inId); if (!inP || inP.status !== 'in' || onCourtIds(s).has(inId)) throw new Error('That player is no longer waiting.');
     m.t1 = m.t1.map(id => id === outId ? inId : id); m.t2 = m.t2.map(id => id === outId ? inId : id); },
-  paid: (id, v) => s => { const p = byId(s, id); if (p) p.paid = !!v; },
+  paid: (id, v) => s => { const p = byId(s, id); if (p) { p.paid = !!v; if (!v) p.payBy = null; } },
+  pay: (id, method) => s => { const p = byId(s, id); if (!p) return; if (p.paid && p.payBy === method) { p.paid = false; p.payBy = null; } else { p.paid = true; p.payBy = method; } },   // Cash or GCash; tap the same one again to undo
   fee: (k, v) => s => { s.fees[k] = v; },
   swapQueue: (a, b) => s => {
     const ids = queueOrder(s).map(p => p.id), ia = ids.indexOf(a), ib = ids.indexOf(b);
@@ -263,7 +265,7 @@ const M = {
     ids[ia] = b; ids[ib] = a; s.manual = ids;
   },
   autoOrder: () => s => { delete s.manual; },
-  newNight: () => s => { delete s.manual; s.matches = []; s.seeds = {}; s.players.forEach(p => { p.games = 0; p.paid = false; p.status = 'out'; p.since = Date.now(); }); }
+  newNight: () => s => { delete s.manual; s.matches = []; s.seeds = {}; s.players.forEach(p => { p.games = 0; p.paid = false; p.payBy = null; p.status = 'out'; p.since = Date.now(); }); }
 };
 
 // ---------------------------------------------------------------- sync engine (guest = this device, cloud = shared live)
@@ -444,9 +446,11 @@ function feeCalc(s) {
 }
 function feeOutHtml() {
   const s = view, f = s.fees, c = feeCalc(s), rows = s.players.filter(p => p.games > 0 || p.paid).sort((a, b) => a.name.localeCompare(b.name));
+  const by = m => rows.filter(p => p.paid && (p.payBy || null) === m).reduce((n, p) => n + Math.ceil(c.due(p)), 0);
   const collected = rows.filter(p => p.paid).reduce((n, p) => n + Math.ceil(c.due(p)), 0), owed = rows.reduce((n, p) => n + Math.ceil(c.due(p)), 0);
-  return '<div class="row" style="margin:0 2px 8px"><span class="mute">Total cost</span><b class="amt" style="font-size:20px">' + peso(c.total) + '</b></div><div class="card">' + (rows.length ? '<table><tr><th>Player</th><th>Games</th><th>Amount</th><th>Paid</th></tr>' + rows.map(p => '<tr data-name="' + esc(p.name.toLowerCase()) + '"><td><b>' + esc(p.name) + '</b></td><td>' + p.games + '</td><td class="amt">' + peso(c.due(p)) + '</td><td><input type="checkbox" data-paid="' + p.id + '"' + (p.paid ? ' checked' : '') + ' style="width:22px;height:22px"></td></tr>').join('') + '</table>' +
-    '<div class="row" style="margin-top:10px"><b>Collected ' + peso(collected) + '</b><span class="mute">of ' + peso(owed) + '</span></div>' : '<div class="mute">Amounts appear once players have played games.</div>') + '</div>';
+  return '<div class="row" style="margin:0 2px 8px"><span class="mute">Total cost</span><b class="amt" style="font-size:20px">' + peso(c.total) + '</b></div><div class="card">' + (rows.length ? '<table><tr><th>Player</th><th>Games</th><th>Amount</th><th>Payment</th></tr>' + rows.map(p => '<tr data-name="' + esc(p.name.toLowerCase()) + '"><td><b>' + esc(p.name) + '</b></td><td>' + p.games + '</td><td class="amt">' + peso(c.due(p)) + '</td><td><div class="seg pay"><button type="button" class="cash' + (p.paid && p.payBy === 'cash' ? ' on' : '') + '" data-pay="' + p.id + '" data-m="cash">Cash</button><button type="button" class="gcash' + (p.paid && p.payBy === 'gcash' ? ' on' : '') + '" data-pay="' + p.id + '" data-m="gcash">GCash</button></div>' + (p.paid && !p.payBy ? '<div class="small mute">Paid (pick how)</div>' : '') + '</td></tr>').join('') + '</table>' +
+    '<div class="row" style="margin-top:10px"><b>Collected ' + peso(collected) + '</b><span class="mute">of ' + peso(owed) + '</span></div>' +
+    '<div class="row small" style="margin-top:6px;gap:14px"><span><b style="color:var(--green)">Cash</b> ' + peso(by('cash')) + '</span><span><b style="color:var(--blue)">GCash</b> ' + peso(by('gcash')) + '</span>' + (by(null) ? '<span class="mute">Not specified ' + peso(by(null)) + '</span>' : '') + '</div>' : '<div class="mute">Amounts appear once players have played games.</div>') + '</div>';
 }
 let findQ = '';
 function applyFind() {
@@ -467,7 +471,7 @@ function applyFind() {
     return '<div class="foundrow"><span>' + esc(p.name) + ' <span class="chip ' + p.level + '">' + p.level + '</span></span><span>' + where + ' · ' + p.games + ' game' + (p.games === 1 ? '' : 's') + '</span></div>';
   }).join('') : '<div class="foundrow">No player named "' + esc(findQ.trim()) + '".</div>';
 }
-function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); applyFind(); $$('[data-paid]').forEach(c => c.onchange = () => act(M.paid(c.dataset.paid, c.checked), true)); }
+function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); applyFind(); $$('[data-pay]').forEach(b => b.onclick = () => { buzz(8); act(M.pay(b.dataset.pay, b.dataset.m), true); }); }
 function feesView() {
   const f = view.fees;
   const num = (k, lab) => '<div><label class="lab">' + lab + '</label><input type="number" min="0" step="any" data-fee="' + k + '" value="' + (f[k] || '') + '" placeholder="0"></div>';
