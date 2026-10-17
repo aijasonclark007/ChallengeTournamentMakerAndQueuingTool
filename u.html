@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0A2547">
+<title>Umpire Scoring</title>
+<style>
+:root{--navy:#0A2547;--lime:#8DC63F;--ink:#0B1B33;--mute:#5A6A82;--line:#D5DCE8;--red:#E5383B;--bg:#F4F6FB}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulation}
+.top{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.top h1{margin:0;font-size:17px;flex:1;line-height:1.2}.top small{display:block;font-weight:500;opacity:.75;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%;background:#7bd88f;flex:none;transition:background .2s}.dot.off{background:#ffb703}.dot.err{background:var(--red)}
+.wrap{padding:14px 14px 40px;max-width:560px;margin:0 auto}
+.msg{padding:40px 20px;text-align:center;color:var(--mute)}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0;display:block;width:100%;text-align:left;transition:transform .15s,box-shadow .2s}
+.card:active{transform:scale(.98)}
+.card.next{border:2px solid var(--lime);box-shadow:0 6px 18px rgba(141,198,63,.28)}
+.card .t{font-size:13px;color:var(--mute);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card .v{font-weight:700;font-size:17px;margin-top:4px}.card .v i{font-style:normal;color:var(--mute);font-weight:500;margin:0 6px}
+.badge{padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;background:#8a97ab}
+.badge.live{background:var(--red);animation:pulse 1.4s infinite}.badge.done{background:#2E7D32}.badge.up{background:var(--navy)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(229,56,59,.5)}70%{box-shadow:0 0 0 8px rgba(229,56,59,0)}100%{box-shadow:0 0 0 0 rgba(229,56,59,0)}}
+h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase;letter-spacing:.06em}
+/* scoring screen */
+#score{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .45s cubic-bezier(.2,.8,.2,1);z-index:10;padding-top:env(safe-area-inset-top)}
+#score.on{transform:none}
+.sbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff}
+.sbar button{background:rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:8px 14px;font-weight:700}
+.sbar .mid{flex:1;text-align:center;font-size:13px;opacity:.85}
+.sides{flex:1;display:flex;flex-direction:column;gap:10px;padding:10px 12px;min-height:0}
+.side{flex:1;border-radius:22px;background:#fff;border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;user-select:none;transition:transform .12s,background .2s,border-color .2s}
+.side:active{transform:scale(.985)}
+.side .nm{font-size:19px;font-weight:700;padding:0 14px;text-align:center}
+.side .pt{font-size:clamp(84px,24vh,170px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.side .hint{position:absolute;bottom:10px;font-size:12px;color:var(--mute)}
+.side.win{background:#EAF7D6;border-color:var(--lime)}
+.side.bump .pt{animation:bump .3s cubic-bezier(.2,.8,.2,1)}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+.acts{display:flex;gap:10px;padding:4px 12px 14px}
+.acts button{flex:1;padding:16px 8px;border-radius:16px;background:#fff;border:1px solid var(--line);font-weight:800}
+.acts button.fin{flex:2;background:var(--lime);color:#10230a;border-color:var(--lime)}
+.acts button:disabled{opacity:.4}
+.banner{margin:0 12px;padding:10px 14px;border-radius:14px;background:#FFF4D6;color:#6b4a00;font-weight:700;text-align:center;display:none}
+.banner.on{display:block;animation:pop .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:30;visibility:hidden;opacity:0;transition:opacity .2s,visibility .2s;padding:20px}
+#ov.on{visibility:visible;opacity:1}
+#ov .sheet{background:#fff;border-radius:20px;padding:20px;max-width:380px;width:100%;transform:scale(.94);transition:transform .35s cubic-bezier(.2,.8,.2,1)}#ov.on .sheet{transform:none}
+#ov h3{margin:0 0 6px;font-size:20px}#ov p{margin:0 0 16px;color:var(--mute)}
+#ov .row{display:flex;gap:10px}#ov .row button{flex:1;padding:14px;border-radius:14px;font-weight:800;background:#EEF1F7}#ov .row .go{background:var(--lime);color:#10230a}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:all .3s;z-index:40;pointer-events:none;max-width:90%;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="top"><h1 id="ttl">Umpire scoring<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
+<div class="wrap" id="list"><div class="msg">Loading...</div></div>
+
+<div id="score" aria-live="polite">
+  <div class="sbar"><button id="back">Back</button><div class="mid" id="smid"></div><button id="swap">Swap sides</button></div>
+  <div class="sides" id="sides"></div>
+  <div class="banner" id="ban"></div>
+  <div class="acts"><button id="undo">Undo</button><button class="fin" id="fin">Finish match</button></div>
+</div>
+<div id="ov"><div class="sheet"><h3 id="ovT"></h3><p id="ovP"></p><div class="row"><button id="ovNo">Keep scoring</button><button class="go" id="ovYes">Finish</button></div></div></div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="platform-config.js"></script>
+<script src="platform.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s), P = window.Platform, TARGET = 31;   // first to 31 wins, sudden death
+  const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k'), court = q.get('c');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+  let data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], flipped = false, wake = null, timer = null;
+  const toast = (t) => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
+  const dot = k => { $('#dot').className = 'dot' + (k ? ' ' + k : ''); };
+
+  async function load() {
+    try {
+      data = await P.umpireGet(slug, key); scores = {}; (data.scores || []).forEach(x => { scores[x.id] = x; }); dot('');
+      if (!cur) renderList();
+    } catch (e) { dot('err'); if (!data) $('#list').innerHTML = '<div class="msg">' + esc(e.message) + '</div>'; }
+  }
+  const mine = () => (data.matches || []).filter(m => !court || m.court === court).sort((a, b) => (a.slot - b.slot) || String(a.court).localeCompare(String(b.court)));
+  function state(m) { const s = scores[m.mid]; if (s) return s.status; if (m.res) return 'done'; return 'up'; }
+  function renderList() {
+    $('#ttl').innerHTML = esc(data.name) + '<small>' + (court ? esc(court) : 'All courts') + ' · live scoring</small>';
+    const ms = mine(); let nextFound = false;
+    if (!ms.length) { $('#list').innerHTML = '<div class="msg">No matches on ' + esc(court || 'this schedule') + ' yet. The organizer needs to publish the schedule again.</div>'; return; }
+    const card = m => {
+      const st = state(m), s = scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null), ready = m.t1 && m.t2;
+      let next = false; if (!nextFound && st !== 'done' && ready) { next = true; nextFound = true; }
+      const badge = st === 'live' ? '<span class="badge live">LIVE</span>' : st === 'done' ? '<span class="badge done">FINAL</span>' : '<span class="badge up">' + (ready ? (next ? 'UP NEXT' : 'UPCOMING') : 'TO BE DECIDED') + '</span>';
+      return '<button class="card' + (next ? ' next' : '') + '" data-m="' + esc(m.mid) + '"' + (ready || st !== 'up' ? '' : ' disabled') + '><div class="t">' + badge + '<span>' + esc(m.time) + '</span>' + (court ? '' : '<span>' + esc(m.court) + '</span>') + '<span>' + esc(m.bracket) + '</span></div>' +
+        '<div class="v">' + esc(m.t1 || 'TBD') + '<i>vs</i>' + esc(m.t2 || 'TBD') + (s ? '<div style="margin-top:4px;font-size:22px">' + s.s1 + ' - ' + s.s2 + '</div>' : '') + '</div></button>';
+    };
+    $('#list').innerHTML = (court ? '' : '<p class="msg" style="padding:0 0 6px;text-align:left">Tip: ask the organizer for your court link to see only your court.</p>') + '<h2>Your matches</h2>' + ms.map(card).join('');
+    $('#list').querySelectorAll('[data-m]').forEach(b => b.onclick = () => openMatch(b.dataset.m));
+  }
+
+  // ----- scoring screen -----
+  let pushing = false, dirty = null, lastErr = false;
+  async function push(final) {
+    dirty = { s1, s2, status: final ? 'done' : 'live', id: cur.mid };
+    if (pushing) return pushing;
+    pushing = (async () => {
+      while (dirty) {
+        const d = dirty; dirty = null; dot('off');
+        try { await P.umpireScore(slug, key, d.id, d.s1, d.s2, d.status); dot(''); lastErr = false; scores[d.id] = { id: d.id, s1: d.s1, s2: d.s2, status: d.status }; }
+        catch (e) { dot('err'); lastErr = true; if (/finished|valid|tie|Bad/i.test(e.message)) { toast(e.message); dirty = null; throw e; } dirty = dirty || d; await new Promise(r => setTimeout(r, 2000)); }
+      }
+    })().finally(() => { pushing = false; });
+    return pushing;
+  }
+  function paint(bump) {
+    const m = cur, done = state(m) === 'done' && scores[m.mid] && scores[m.mid].status === 'done';
+    const a = flipped ? 1 : 0, names = [m.t1, m.t2], pts = [s1, s2];
+    const order = flipped ? [1, 0] : [0, 1];
+    $('#sides').innerHTML = order.map(i => '<div class="side' + (pts[i] >= TARGET ? ' win' : '') + '" data-i="' + i + '"><div class="nm">' + esc(names[i]) + '</div><div class="pt">' + pts[i] + '</div>' + (done ? '' : '<div class="hint">tap anywhere to add a point</div>') + '</div>').join('');
+    if (bump != null) { const el = $('#sides').querySelector('[data-i="' + bump + '"]'); if (el) el.classList.add('bump'); }
+    const won = s1 >= TARGET || s2 >= TARGET;
+    $('#ban').classList.toggle('on', won && !done); if (won) $('#ban').textContent = (s1 > s2 ? m.t1 : m.t2) + ' reached ' + TARGET + '. Tap Finish match.';
+    $('#undo').disabled = !hist.length || done; $('#fin').disabled = done || (s1 === s2);
+    $('#fin').textContent = done ? 'Match finished' : 'Finish match';
+    if (!done) $('#sides').querySelectorAll('.side').forEach(el => el.onclick = () => add(+el.dataset.i));
+  }
+  function add(i) {
+    if (s1 >= TARGET || s2 >= TARGET) return buzz(30);
+    hist.push([s1, s2]); if (i === 0) s1++; else s2++;
+    buzz(10); paint(i); push(false).catch(() => {});
+    try { localStorage.setItem('ump.' + slug + '.' + cur.mid, JSON.stringify({ s1, s2, hist })); } catch (e) {}
+  }
+  async function openMatch(mid) {
+    cur = (data.matches || []).find(m => m.mid === mid); if (!cur) return;
+    const sv = scores[mid] || (cur.res ? { s1: cur.res.a, s2: cur.res.b, status: 'done' } : null);
+    s1 = sv ? sv.s1 : 0; s2 = sv ? sv.s2 : 0; hist = []; flipped = false;
+    try { const l = JSON.parse(localStorage.getItem('ump.' + slug + '.' + mid) || 'null'); if (l && sv && l.s1 === s1 && l.s2 === s2) hist = l.hist || []; } catch (e) {}
+    $('#smid').textContent = cur.court + ' · ' + cur.time + ' · ' + cur.bracket;
+    $('#score').classList.add('on'); paint();
+    if (!sv || sv.status !== 'done') { if (!sv) push(false).catch(() => {}); try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  }
+  function closeMatch() { $('#score').classList.remove('on'); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
+  $('#back').onclick = closeMatch;
+  $('#swap').onclick = () => { flipped = !flipped; buzz(8); paint(); };
+  $('#undo').onclick = () => { if (!hist.length) return; [s1, s2] = hist.pop(); buzz(8); paint(); push(false).catch(() => {}); };
+  const ask = (t, p, yes) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
+  $('#fin').onclick = async () => {
+    if (!cur || s1 === s2) return;
+    const lead = s1 > s2 ? cur.t1 : cur.t2, reached = s1 >= TARGET || s2 >= TARGET;
+    const ok = await ask('Finish this match?', (reached ? '' : 'Nobody has reached ' + TARGET + ' yet. ') + lead + ' wins ' + Math.max(s1, s2) + ' - ' + Math.min(s1, s2) + '. The score is saved to the scoreboard and cannot be changed from here.', 'Finish');
+    if (!ok) return;
+    try { await push(true); buzz([20, 60, 20]); toast('Saved. Final score ' + s1 + ' - ' + s2); closeMatch(); } catch (e) { /* toast already shown */ }
+  };
+  window.addEventListener('online', () => { if (cur) push(false).catch(() => {}); });
+  document.addEventListener('visibilitychange', async () => { if (!document.hidden && cur && !wake) { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} } });
+
+  if (!slug || !key) { $('#list').innerHTML = '<div class="msg">This link is incomplete. Ask the organizer for your court link.</div>'; return; }
+  if (!P || !P.configured) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
+  load(); timer = setInterval(() => { if (!cur && !document.hidden) load(); }, 12000);
+})();
+</script>
+</body>
+</html>
