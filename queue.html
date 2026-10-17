@@ -482,7 +482,7 @@ function courtsView() {
   const qAll = queuedGames(s), qg = qAll.slice(Object.values(props).filter(x => x.queued).length);   // games already sitting on a free court show there, not here
   qAll.forEach(g => g.t1.concat(g.t2).forEach(id => next.add(id)));
   const queuedHtml = '<h2>Queued next game</h2><div class="card qcard">' +
-    (qg.length ? qg.map((g, i) => '<div class="qgame" data-k="qg:' + g.id + '"><div class="qhead"><span class="small mute">Game ' + (i + 1) + ' · goes to the next free court</span><span class="grow"></span><button class="btn ghost sm" data-qswap="' + g.id + '">\u21C4 Swap</button><button class="btn ghost sm" data-qshuf="' + g.id + '">Shuffle</button><button class="xbtn" data-qdel="' + g.id + '" title="Remove queued game" aria-label="Remove queued game">\u2715</button></div>' +
+    (qg.length ? qg.map((g, i) => '<div class="qgame" data-k="qg:' + g.id + '"><div class="qhead"><span class="small mute">Game ' + (i + 1) + ' · goes to the next free court</span><span class="grow"></span><button class="btn ghost sm" data-qshuf="' + g.id + '">Shuffle</button><button class="xbtn" data-qdel="' + g.id + '" title="Remove queued game" aria-label="Remove queued game">\u2715</button></div>' +
       '<div class="teams">' + teamHtml(g.t1, 0, 'g:' + g.id) + '<span class="vs">VS</span>' + teamHtml(g.t2, 0, 'g:' + g.id) + '</div></div>').join('') :
       '<div class="small mute" style="margin-bottom:10px">Line up the next four while courts are busy. They take the first court that frees up.</div>') +
     '<button class="btn ghost" id="queueGame">+ Queue next game</button>' + (qAll.length ? '<span class="small mute" style="margin-left:10px">' + qAll.length + ' of 4</span>' : '') + '</div>';
@@ -714,11 +714,6 @@ function bind() {
   $$('[data-grip]').forEach(g => g.addEventListener('pointerdown', e => startDrag(e, g.dataset.grip)));
   const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
   const qgb = $('#queueGame'); if (qgb) qgb.onclick = () => { buzz(8); act(M.queueGame()); };
-  $$('[data-qswap]').forEach(b => b.onclick = () => {
-    const g = queuedGames(view).find(x => x.id === b.dataset.qswap); if (!g) return;
-    modal('Swap a player', '<div class="small mute" style="margin-bottom:8px">Who is leaving this game?</div><div class="swaplist">' + g.t1.concat(g.t2).map(id => '<button class="swrow" data-out="' + id + '"><span><b>' + esc(nm(id)) + '</b> ' + chipOf(id) + '</span></button>').join('') + '</div>', []);
-    $$('[data-out]').forEach(o => o.onclick = () => swapSheet('g:' + g.id + ':' + o.dataset.out));
-  });
   $$('[data-wswap]').forEach(b => b.onclick = () => {
     const id = b.dataset.wswap, q = queueOrder(view), me = q.findIndex(x => x.id === id);
     if (q.length < 2) return toast('Need at least two waiting players to swap.');
