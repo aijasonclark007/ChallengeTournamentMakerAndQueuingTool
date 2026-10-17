@@ -296,6 +296,10 @@ const M = {
     const cur = queuedGames(s), g = cur.find(x => x.id === gid); if (!g) return;
     const sw = arr => arr.map(i => i === a ? b : i === b ? a : i); g.t1 = sw(g.t1); g.t2 = sw(g.t2); s.queued = cur;
   },
+  swapInMatch: (mid, a, b) => s => {
+    const m = s.matches.find(x => x.id === mid); if (!m || m.end) throw new Error('That game already ended.');
+    const sw = arr => arr.map(i => i === a ? b : i === b ? a : i); m.t1 = sw(m.t1); m.t2 = sw(m.t2);
+  },
   unqueue: id => s => { s.queued = (s.queued || []).filter(g => g.id !== id); },
   setMode: mode => s => { s.mode = mode; s.seeds = {}; },
   shuffle: cid => s => { s.seeds[cid] = (s.seeds[cid] || 0) + 1; },
@@ -656,10 +660,10 @@ function swapSheet(ref) {                      // tap a name on any court card, 
   const qIds = new Set(qg.flatMap(g => g.t1.concat(g.t2))), cn = id => { const g = qg.findIndex(x => x.t1.concat(x.t2).includes(id)); return g >= 0 ? 'In queued game ' + (g + 1) : ''; };
   const cand = queueOrder(s).filter(p => !game.includes(p.id) && (kind === 'g' || !qIds.has(p.id)));
   if (!cand.length && kind !== 'g') return toast('Nobody else is waiting to swap in.');
-  const gq = kind === 'g' ? qg.find(x => x.id === key) : null;
+  const gq = kind === 'g' ? qg.find(x => x.id === key) : kind === 'm' ? s.matches.find(x => x.id === key) : null;
   const mates = gq ? gq.t1.concat(gq.t2).filter(id => id !== outId).map(id => '<button class="swrow" data-with="' + id + '"><span><b>' + esc(nm(id)) + '</b> ' + chipOf(id) + '</span><span class="small mute">' + (gq.t1.includes(id) ? 'Team 1' : 'Team 2') + '</span></button>').join('') : '';
   modal('Swap ' + nm(outId), (gq ? '<div class="small mute" style="margin-bottom:8px">' + esc(nm(outId)) + ' is on <b>' + (gq.t1.includes(outId) ? 'Team 1' : 'Team 2') + '</b>. Swap with someone in this game to change the teams:</div><div class="swaplist" style="max-height:none;margin-bottom:12px">' + mates + '</div>' : '') + '<div class="small mute" style="margin-bottom:8px">' + (gq ? 'Or swap with someone who is waiting:' : 'Who takes their place?') + '</div><div class="swaplist">' + cand.map(p => '<button class="swrow" data-in="' + p.id + '"><span><b>' + esc(p.name) + '</b> ' + '<span class="chip ' + p.level + '">' + p.level + '</span></span><span class="small mute">' + (cn(p.id) || p.games + ' game' + (p.games === 1 ? '' : 's')) + '</span></button>').join('') + '</div>', []);
-  $$('[data-with]').forEach(b => b.onclick = () => { closeModal(); buzz([8, 30, 8]); act(M.swapInGame(key, outId, b.dataset.with)); });
+  $$('[data-with]').forEach(b => b.onclick = () => { closeModal(); buzz([8, 30, 8]); act(kind === 'm' ? M.swapInMatch(key, outId, b.dataset.with) : M.swapInGame(key, outId, b.dataset.with)); });
   $$('[data-in]').forEach(b => b.onclick = () => {
     const inId = b.dataset.in; closeModal(); buzz([8, 30, 8]);
     if (kind === 'm') act(M.swap(key, outId, inId)); else if (kind === 'g') act(M.swapQueued(key, outId, inId)); else act(M.swapQueue(outId, inId));
