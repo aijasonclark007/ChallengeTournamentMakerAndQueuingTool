@@ -111,6 +111,12 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .q.swapped{animation:swapflash 1.2s cubic-bezier(.2,.8,.2,1)}
 .swaphint{position:sticky;top:6px;z-index:5;background:var(--blue);color:#fff;border-radius:14px;padding:10px 14px;margin:8px 0;font-weight:600;display:flex;gap:10px;align-items:center;box-shadow:0 8px 20px rgba(0,122,255,.3)}.swaphint button{margin-left:auto;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:700}
 .team span[data-qp]{cursor:pointer;border-radius:8px;transition:background .15s}.team span[data-qp].sel{background:rgba(0,122,255,.2);outline:2px solid var(--blue)}
+
+.findbox{margin:0 0 10px}
+.findbox input{width:100%;padding:11px 14px 11px 38px;border-radius:14px;border:.5px solid var(--line);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 12px center/18px no-repeat;font-size:16px}
+.findbox input:focus{outline:2px solid var(--blue);border-color:transparent}
+.foundrow{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:rgba(0,122,255,.08);border-radius:10px;padding:8px 12px;margin-top:6px;font-size:14px;animation:pop .3s cubic-bezier(.2,.8,.2,1) both}
+.team span.hit{background:#FFF3B0;border-radius:8px;outline:2px solid #FFC20E}
 </style>
 </head>
 <body>
@@ -206,6 +212,8 @@ const M = {
   setStatus: (id, st) => s => { const p = byId(s, id); if (!p) return; if (onCourtIds(s).has(id)) throw new Error(p.name + ' is on a court.');
     if (st === 'in' && p.status !== 'in') p.since = Date.now(); p.status = st; },
   checkInAll: () => s => { let n = 0; s.players.forEach(p => { if (p.status === 'out') { p.status = 'in'; p.since = Date.now() + n++; } }); },
+  checkOutAll: () => s => { const busy = onCourtIds(s); s.players.forEach(p => { if (!busy.has(p.id) && p.status !== 'out') p.status = 'out'; }); delete s.manual; },
+  removeAll: () => s => { if (onCourtIds(s).size) throw new Error('Finish or cancel the games on court first.'); s.players = []; delete s.manual; },
   removePlayer: id => s => { if (onCourtIds(s).has(id)) throw new Error('That player is on a court.'); s.players = s.players.filter(p => p.id !== id); },
   addCourt: () => s => { if (s.courts.length >= MAX_COURTS) throw new Error('Up to ' + MAX_COURTS + ' courts.');
     const n = Math.max(0, ...s.courts.map(c => parseInt((c.name.match(/\d+/) || [0])[0], 10))) + 1; s.courts.push({ id: uid(), name: 'Court ' + n }); },
@@ -387,8 +395,8 @@ function playersView() {
   const label = { court: 'On court', in: 'Here', break: 'Break', out: 'Not here' };
   return '<div class="card"><div class="two"><div><label class="lab" for="pn">Player name</label><input id="pn" type="text" maxlength="40" placeholder="Juan Dela Cruz"></div><div><label class="lab" for="pl">Level</label><select id="pl">' + LEVELS.map(l => '<option' + (l === 'Mid' ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div></div>' +
     '<div class="row" style="margin-top:10px"><button class="btn" id="padd">Add player</button><button class="btn ghost" id="pbulk">Add many</button><button class="btn ghost" id="psample">Sample players</button>' + (s.players.some(p => p.sample) ? '<button class="btn ghost" id="pclr">Clear samples</button>' : '') + (backend.type === 'cloud' ? '<button class="btn ghost" id="ppool">From my saved players</button>' : '') + '</div></div>' +
-    '<div class="row" style="margin:12px 2px"><b>' + s.players.length + ' players</b><span class="mute small">' + s.players.filter(p => p.status === 'in').length + ' here</span><span class="grow"></span><button class="btn ghost sm" id="pall">Check everyone in</button><button class="btn ghost sm" id="psave">Save all to my pool</button></div>' +
-    '<div class="card">' + (list.length ? list.map(p => '<div class="q"><div class="grow"><b>' + esc(p.name) + '</b><div class="small mute">' + p.games + ' games</div></div>' +
+    '<div class="row" style="margin:12px 2px"><b>' + s.players.length + ' players</b><span class="mute small">' + s.players.filter(p => p.status === 'in').length + ' here</span><span class="grow"></span><button class="btn ghost sm" id="pall">Check everyone in</button><button class="btn ghost sm" id="pnone">Mark everyone not here</button><button class="btn ghost sm" id="psave">Save all to my pool</button><button class="btn danger sm" id="prem">Remove all</button></div>' +
+    '<div class="card">' + (list.length ? list.map(p => '<div class="q" data-name="' + esc(p.name.toLowerCase()) + '"><div class="grow"><b>' + esc(p.name) + '</b><div class="small mute">' + p.games + ' games</div></div>' +
       '<select data-lv="' + p.id + '" style="width:92px">' + LEVELS.map(l => '<option' + (p.level === l ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
       '<button class="pill ' + status(p) + '" data-st="' + p.id + '" style="min-width:76px;padding:7px 10px">' + label[status(p)] + '</button><button class="btn danger sm" data-rm="' + p.id + '">✕</button></div>').join('') : '<div class="mute">No players yet. Add a few above, or use Add many.</div>') + '</div>' +
     '<div class="small mute" style="margin:8px 4px">Tap a status to switch between Not here, Here and Break. Only players marked Here join the queue.</div>';
@@ -401,10 +409,29 @@ function feeCalc(s) {
 function feeOutHtml() {
   const s = view, f = s.fees, c = feeCalc(s), rows = s.players.filter(p => p.games > 0 || p.paid).sort((a, b) => a.name.localeCompare(b.name));
   const collected = rows.filter(p => p.paid).reduce((n, p) => n + Math.ceil(c.due(p)), 0), owed = rows.reduce((n, p) => n + Math.ceil(c.due(p)), 0);
-  return '<div class="row" style="margin:0 2px 8px"><span class="mute">Total cost</span><b class="amt" style="font-size:20px">' + peso(c.total) + '</b></div><div class="card">' + (rows.length ? '<table><tr><th>Player</th><th>Games</th><th>Amount</th><th>Paid</th></tr>' + rows.map(p => '<tr><td><b>' + esc(p.name) + '</b></td><td>' + p.games + '</td><td class="amt">' + peso(c.due(p)) + '</td><td><input type="checkbox" data-paid="' + p.id + '"' + (p.paid ? ' checked' : '') + ' style="width:22px;height:22px"></td></tr>').join('') + '</table>' +
+  return '<div class="row" style="margin:0 2px 8px"><span class="mute">Total cost</span><b class="amt" style="font-size:20px">' + peso(c.total) + '</b></div><div class="card">' + (rows.length ? '<table><tr><th>Player</th><th>Games</th><th>Amount</th><th>Paid</th></tr>' + rows.map(p => '<tr data-name="' + esc(p.name.toLowerCase()) + '"><td><b>' + esc(p.name) + '</b></td><td>' + p.games + '</td><td class="amt">' + peso(c.due(p)) + '</td><td><input type="checkbox" data-paid="' + p.id + '"' + (p.paid ? ' checked' : '') + ' style="width:22px;height:22px"></td></tr>').join('') + '</table>' +
     '<div class="row" style="margin-top:10px"><b>Collected ' + peso(collected) + '</b><span class="mute">of ' + peso(owed) + '</span></div>' : '<div class="mute">Amounts appear once players have played games.</div>') + '</div>';
 }
-function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); $$('[data-paid]').forEach(c => c.onchange = () => act(M.paid(c.dataset.paid, c.checked), true)); }
+let findQ = '';
+function applyFind() {
+  const q = findQ.trim().toLowerCase(), info = $('#findInfo'); if (!$('#find')) return;
+  const hit = n => !q || String(n).toLowerCase().includes(q);
+  let shown = 0;
+  $$('.q[data-k^="q:"]').forEach(r => { const ok = hit(r.querySelector('b').textContent); r.style.display = ok ? '' : 'none'; if (ok) shown++; });
+  $$('.q[data-name]').forEach(r => { const ok = hit(r.dataset.name); r.style.display = ok ? '' : 'none'; if (ok) shown++; });
+  $$('tr[data-name]').forEach(r => { const ok = hit(r.dataset.name); r.style.display = ok ? '' : 'none'; if (ok) shown++; });
+  $$('.team span').forEach(sp => { const nameEl = sp.firstChild ? sp.firstChild.textContent : ''; sp.classList.toggle('hit', !!q && hit(nameEl)); });
+  if (!info) return;
+  if (!q) { info.innerHTML = ''; return; }
+  const s = view, q2 = queueOrder(s), act2 = active(s), cn = id => (s.courts.find(c => c.id === id) || { name: 'a court' }).name;
+  const found = s.players.filter(p => p.name.toLowerCase().includes(q)).slice(0, 6);
+  info.innerHTML = found.length ? found.map(p => {
+    const m = act2.find(x => x.t1.concat(x.t2).includes(p.id)), i = q2.findIndex(x => x.id === p.id);
+    const where = m ? '<b>Playing on ' + esc(cn(m.court)) + '</b>' : i >= 0 ? '<b>#' + (i + 1) + ' in the queue</b>' : p.status === 'break' ? 'On a break' : 'Not here';
+    return '<div class="foundrow"><span>' + esc(p.name) + ' <span class="chip ' + p.level + '">' + p.level + '</span></span><span>' + where + ' · ' + p.games + ' game' + (p.games === 1 ? '' : 's') + '</span></div>';
+  }).join('') : '<div class="foundrow">No player named "' + esc(findQ.trim()) + '".</div>';
+}
+function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); applyFind(); $$('[data-paid]').forEach(c => c.onchange = () => act(M.paid(c.dataset.paid, c.checked), true)); }
 function feesView() {
   const f = view.fees;
   const num = (k, lab) => '<div><label class="lab">' + lab + '</label><input type="number" min="0" step="any" data-fee="' + k + '" value="' + (f[k] || '') + '" placeholder="0"></div>';
@@ -474,9 +501,10 @@ function render() {
   const old = {}; $$('[data-k]').forEach(el => { old[el.dataset.k] = el.getBoundingClientRect(); });
   const first = !rendered, changed = tabChanged; tabChanged = false;
   const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div><div id="tabbody">' + body + '</div>';
+  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' ? '<div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"><div id="findInfo"></div></div>' : '') + '<div id="tabbody">' + body + '</div>';
   bind();
   rendered = true;
+  const fi = $('#find'); if (fi) { fi.oninput = () => { findQ = fi.value; applyFind(); }; fi.onkeydown = e => { if (e.key === 'Escape') { fi.value = ''; findQ = ''; applyFind(); } }; applyFind(); }
   if (lastSwap && Date.now() < lastSwap.until) lastSwap.ids.forEach(id => { const el = document.querySelector('[data-k="q:' + id + '"]'); if (el) { el.classList.add('swapped'); setTimeout(() => el.classList.remove('swapped'), Math.max(50, lastSwap ? lastSwap.until - Date.now() : 50)); } });
   placeThumb();
   if (changed) { const tb = $('#tabbody'); if (tb) { tb.style.setProperty('--tx', (tabDir * 44) + 'px'); tb.classList.add('tabin'); } }
@@ -534,6 +562,8 @@ function bind() {
   const pcl = $('#pclr'); if (pcl) pcl.onclick = () => act(M.removeSamples());
   const an = $('#ann'); if (an) an.onclick = () => { announceOn = !announceOn; try { localStorage.setItem('queue.ann', announceOn ? '1' : '0'); } catch (e) {} an.textContent = announceOn ? '🔔 Announcements on' : '🔕 Announcements off'; if (announceOn) announce('Test court', ['Ana'], ['Ben']); };
   const pall = $('#pall'); if (pall) pall.onclick = () => act(M.checkInAll());
+  const pnone = $('#pnone'); if (pnone) pnone.onclick = () => { const busy = onCourtIds(view).size; act(M.checkOutAll()); toast(busy ? 'Everyone is marked Not here, except players still on a court.' : 'Everyone is marked Not here.'); };
+  const prem = $('#prem'); if (prem) prem.onclick = () => { if (!view.players.length) return toast('There are no players to remove.'); if (confirm('Remove all ' + view.players.length + ' players from this list? Games and history are kept. This cannot be undone.')) act(M.removeAll()); };
   $$('[data-lv]').forEach(sel => sel.onchange = () => act(M.setLevel(sel.dataset.lv, sel.value)));
   $$('[data-st]').forEach(b => b.onclick = () => { const p = byId(view, b.dataset.st); if (!p) return; act(M.setStatus(p.id, p.status === 'in' ? 'break' : p.status === 'break' ? 'out' : 'in')); });
   $$('[data-rm]').forEach(b => b.onclick = () => { const p = byId(view, b.dataset.rm); if (p && confirm('Remove ' + p.name + '?')) act(M.removePlayer(p.id)); });
