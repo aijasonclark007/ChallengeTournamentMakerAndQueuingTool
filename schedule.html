@@ -93,7 +93,7 @@ summary b{font-weight:800}
 :root[data-theme="dark"] summary{border-color:var(--lime);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){summary,summary::before{transition:none}}
 .gate{max-width:440px;margin:32px auto;padding:22px}
-.hidden{display:none}
+.hidden,#previewBar.hidden,#stepbar.hidden,#sharePanel.hidden{display:none!important}
 @media print{.noprint{display:none!important}body{background:#fff;color:#000}th{background:#ddd;color:#000}}
 #printView{display:none}.pubwrap{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#F4F6FB;color:#0B1B33}
 @media print{main{display:none!important}#printView{display:block}}
@@ -190,7 +190,6 @@ section,#schedSec,#standSec,#koSec{scroll-margin-top:96px}
         <div style="flex:1;min-width:220px"><label for="tname">Tournament name</label><input id="tname" type="text" placeholder="e.g. November 8 Tournament"></div>
         <button id="tNew" class="go" type="button">Create new</button>
         <button id="tRename" class="ghost" type="button">Rename current</button>
-        <button id="pvOpen" class="ghost" type="button">Preview mode</button>
       </div>
       <p id="saveNote" class="hint"></p>
       <details><summary>Backup and restore</summary>
@@ -1306,7 +1305,7 @@ $('#aForgot').onclick = async () => {
 };
 $('#signOut').onclick = async () => { await saveNow(); await Platform.signOut(); };
 Platform.onAuth(user => {
-  if (preview) { if (user) $('#acct').textContent = 'Signed in as ' + user.email; return; }
+  if (preview) { if (!user) return; preview = false; $('#previewBar').classList.add('hidden'); $('#tpanel').classList.remove('hidden'); }   // signing in ends any preview
   clearTimeout(saveTimer);
   if (!user) {
     tid = null; cloudList = []; resetState();
@@ -1581,7 +1580,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     window.scrollTo(0, 0);
   }
   async function enterPreview() {
-    if (Platform.user && tid) await saveNow();
+    if (Platform.user) return;                      // signed-in organizers never see preview mode
     preview = true; clearTimeout(saveTimer); pubSlug = null; pubKey = null; showPubLink();
     $('#authGate').classList.add('hidden'); $('#toolRoot').classList.remove('hidden'); $('#tpanel').classList.add('hidden'); $('#previewBar').classList.remove('hidden');
     runDemo(); pillFrom('');
@@ -1592,7 +1591,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     else { $('#toolRoot').classList.add('hidden'); $('#authGate').classList.remove('hidden'); }
     pill.className = 'pill'; pill.textContent = ''; refresh();
   }
-  $('#pvTry').onclick = enterPreview; $('#pvOpen').onclick = enterPreview; $('#pvExit').onclick = exitPreview; $('#pvAgain').onclick = runDemo;
+  $('#pvTry').onclick = enterPreview; $('#pvExit').onclick = exitPreview; $('#pvAgain').onclick = runDemo;
 
   // ---- keep everything in sync ----
   const sums = () => {
