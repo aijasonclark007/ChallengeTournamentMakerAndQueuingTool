@@ -238,7 +238,11 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
         show('Who is serving now?', 'The score is ' + s1 + ' - ' + s2 + '. Tap the player who serves.', all, o => D ? receiver(o.k, o.n) : end(svBuild(o.k, o.n, nm[1 - o.k])));
       } else {                                                                   // the coin is tossed on court; the app records the result
         show('Toss a coin', 'Toss a coin with both teams on court. Who won the toss?', [0, 1].map(k => ({ k, h: '\uD83E\uDE99 ' + esc(nm[k]) })),
-          t => show(nm[t.k] + ' won the toss', 'What do they choose?', [{ h: '\uD83C\uDFF8 Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }], c => server(c.serve ? t.k : 1 - t.k, 'Who serves first?')));
+          t => show(nm[t.k] + ' won the toss', 'The winner chooses to serve, to receive, or which end to start on. The other team takes what is left.',
+            [{ h: '\uD83C\uDFF8 Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }, { h: 'Choose the end' }],
+            c => c.serve !== undefined ? server(c.serve ? t.k : 1 - t.k, 'Who serves first?')            // winner serves or receives, the other team gets the end
+              : show(nm[1 - t.k] + ' choose', nm[t.k] + ' chose the end. ' + nm[1 - t.k] + ' now choose to serve or receive.',    // winner took the end, so the other team picks serve / receive
+                  [{ h: '\uD83C\uDFF8 Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }], d => server(d.serve ? 1 - t.k : t.k, 'Who serves first?'))));
       }
       sh.classList.add('on');
     });
