@@ -1276,23 +1276,23 @@ Platform.onAuth(user => {
 });
 
 const PUB_CSS = `
-.pub{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#0B1B33;max-width:900px;margin:0 auto;padding:16px}
-.pub h1{font-size:26px;line-height:1.15;margin:0}.pub h2{font-size:20px;margin:28px 0 8px;border-left:5px solid #8DC63F;padding-left:10px}
-.pub .sub{color:#46566e;margin:4px 0 0}.pub .upd{color:#5A6A82;font-size:14px;margin:2px 0 0}
+.pub{font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;color:#1C1C1E;max-width:900px;margin:0 auto;padding:16px}
+.pub h1{font-size:26px;line-height:1.15;margin:0}.pub h2{font-size:20px;margin:28px 0 8px;border-left:5px solid #007AFF;padding-left:10px}
+.pub .sub{color:#5F5F66;margin:4px 0 0}.pub .upd{color:#5F5F66;font-size:14px;margin:2px 0 0}
 .pub .tools{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
-.pub .tools input{flex:1;min-width:200px;padding:10px 12px;border:1px solid #B9C4D6;border-radius:10px;font:inherit}
-.pub .tools button{padding:8px 14px;border-radius:999px;border:1px solid #B9C4D6;background:#fff;color:#0B1B33;font:inherit;font-weight:700;cursor:pointer}
-.pub .tools button.on{background:#0A2547;color:#fff;border-color:#0A2547}
-.pub .slot{margin:12px 0;border:1px solid #D5DCE8;border-radius:12px;overflow:hidden;background:#fff}
-.pub .slot h3{margin:0;padding:8px 14px;background:#0A2547;color:#fff;font-size:16px}
-.pub .game{display:flex;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid #E6EBF3}
-.pub .ct{flex:0 0 76px;font-weight:700}.pub .info{flex:1;min-width:0}.pub .info small{display:block;color:#5A6A82}
-.pub .teams{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center}.pub .tm{font-weight:600}.pub .vs{color:#7a8aa3;font-size:13px}
+.pub .tools input{flex:1;min-width:200px;padding:12px 14px;border:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06);border-radius:12px;font-size:16px;font:inherit}
+.pub .tools button{padding:10px 16px;border-radius:12px;border:0;background:rgba(118,118,128,.12);color:#007AFF;font:inherit;font-weight:700;cursor:pointer}
+.pub .tools button.on{background:#007AFF;color:#fff}
+.pub .slot{margin:12px 0;border:0;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);border-radius:18px;overflow:hidden;background:#fff}
+.pub .slot h3{margin:0;padding:8px 14px;background:#F2F2F7;color:#5F5F66;font-size:14px;letter-spacing:.02em}
+.pub .game{display:flex;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid rgba(60,60,67,.12)}
+.pub .ct{flex:0 0 76px;font-weight:700}.pub .info{flex:1;min-width:0}.pub .info small{display:block;color:#5F5F66}
+.pub .teams{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center}.pub .tm{font-weight:600;font-size:16px}.pub .vs{color:#7a8aa3;font-size:13px}
 .pub .res{font-weight:800;white-space:nowrap}.pub .liv{display:inline-block;background:#E5383B;color:#fff;border-radius:999px;padding:0 8px;font-size:11px;margin-right:6px;vertical-align:2px;animation:lv 1.4s infinite}@keyframes lv{50%{opacity:.55}}
 .pub .lv{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;margin-right:6px}
 .pub .lv-Low{background:#2E7D32}.pub .lv-Mid{background:#1565C0}.pub .lv-High{background:#C2410C}
 .pub .brk{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
-.pub .bk{border:1px solid #D5DCE8;border-radius:12px;padding:10px 14px;background:#fff}.pub .bk b{display:block}.pub .bk ol{margin:6px 0 0;padding-left:20px}
+.pub .bk{border:0;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);border-radius:18px;padding:10px 14px;background:#fff}.pub .bk b{display:block}.pub .bk ol{margin:6px 0 0;padding-left:20px}
 @media print{.pub .tools{display:none}.pub .slot{break-inside:avoid}.pub .slot h3{background:#ddd;color:#000}}
 `;
 const FILTER_JS = `(function(){var q=document.getElementById('q'),bs=[].slice.call(document.querySelectorAll('.pub .tools button')),lv='All';
@@ -1347,7 +1347,7 @@ function pubDocument() {
     '<title>' + esc(name) + ' - Game Schedule</title>' +
     '<meta property="og:title" content="' + esc(name) + ' - Game Schedule"><meta property="og:type" content="website">' +
     '<meta property="og:description" content="' + esc(name) + ': games, courts and times. Search your name to find your game.">' +
-    '<style>body{margin:0;background:#F4F6FB}' + PUB_CSS + '</style></head><body>' + pubBody(true) + '<script>' + FILTER_JS + '<\/script></body></html>';
+    '<style>body{margin:0;background:#F2F2F7}' + PUB_CSS + '</style></head><body>' + pubBody(true) + '<script>' + FILTER_JS + '<\/script></body></html>';
 }
 function refreshPub() { if (sched && $('#pubDet').open) { $('#pubPreview').innerHTML = pubBody(false); $('#pubCode').value = pubDocument(); } }
 $('#pubDet').addEventListener('toggle', refreshPub);
