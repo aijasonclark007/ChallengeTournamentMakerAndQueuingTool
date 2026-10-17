@@ -717,6 +717,7 @@ function bind() {
   $$('[data-grip]').forEach(g => g.addEventListener('pointerdown', e => startDrag(e, g.dataset.grip)));
   const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
   const qgb = $('#queueGame'); if (qgb) qgb.onclick = () => { buzz(8); act(M.queueGame()); };
+  $$('[data-sort]').forEach(b => b.onclick = () => { sortMode = b.dataset.sort; buzz(6); render(); });
   $$('[data-qshuf]').forEach(b => b.onclick = () => act(M.reQueue(b.dataset.qshuf)));
   $$('[data-qdel]').forEach(b => b.onclick = () => act(M.unqueue(b.dataset.qdel)));
   const rcs = $('#renCourts'); if (rcs) rcs.onclick = () => renameCourtsModal();
