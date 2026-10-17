@@ -117,6 +117,8 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 @keyframes swapflash{0%{background:rgba(0,122,255,.38);transform:scale(1.035)}60%{transform:scale(1)}100%{background:transparent;transform:none}}
 .q.swapped{animation:swapflash 1.2s cubic-bezier(.2,.8,.2,1)}
 .swaphint{position:sticky;top:64px;z-index:5;background:var(--blue);color:#fff;border-radius:14px;padding:10px 14px;margin:8px 0;font-weight:600;display:flex;gap:10px;align-items:center;box-shadow:0 8px 20px rgba(0,122,255,.3)}.swaphint button{margin-left:auto;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:700}
+.swaplist{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}.swrow{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-radius:12px;background:var(--fill);font:inherit;color:inherit;text-align:left;cursor:pointer}.swrow:active{background:rgba(0,122,255,.15)}
+.team span[data-sw]{cursor:pointer;border-radius:8px;padding:2px 4px;margin:-2px -4px;transition:background .15s}.team span[data-sw]:active{background:rgba(0,122,255,.18)}
 .team span[data-qp]{cursor:pointer;border-radius:8px;transition:background .15s}.team span[data-qp].sel{background:rgba(0,122,255,.2);outline:2px solid var(--blue)}
 
 .qgame{padding:2px 0 12px;margin-bottom:12px;border-bottom:.5px solid var(--line)}
@@ -242,7 +244,7 @@ function proposals(s) {
   qg.forEach(g => g.t1.concat(g.t2).forEach(id => taken.add(id)));
   s.courts.forEach((c, i) => {
     if (active(s).some(m => m.court === c.id)) return;
-    if (qi < qg.length) { const g = qg[qi++]; out[c.id] = { t1: g.t1.map(id => byId(s, id)), t2: g.t2.map(id => byId(s, id)), queued: true }; return; }
+    if (qi < qg.length) { const g = qg[qi++]; out[c.id] = { t1: g.t1.map(id => byId(s, id)), t2: g.t2.map(id => byId(s, id)), queued: true, qid: g.id }; return; }
     const pr = propose(s, taken, s.seeds[c.id] || 0, i + 1);
     if (pr) { out[c.id] = pr; pr.t1.concat(pr.t2).forEach(p => taken.add(p.id)); }
   });
@@ -282,6 +284,12 @@ const M = {
     const taken = new Set(); cur.forEach(o => { if (o !== g) o.t1.concat(o.t2).forEach(i => taken.add(i)); });
     g.seed = (g.seed || 0) + 1; const pr = propose(s, taken, g.seed, 200); if (pr) { g.t1 = pr.t1.map(p => p.id); g.t2 = pr.t2.map(p => p.id); }
     s.queued = cur;
+  },
+  swapQueued: (gid, outId, inId) => s => {
+    const cur = queuedGames(s), g = cur.find(x => x.id === gid), p = byId(s, inId);
+    if (!g || !p || p.status !== 'in' || onCourtIds(s).has(inId)) throw new Error('That player is no longer waiting.');
+    const g2 = cur.find(x => x !== g && x.t1.concat(x.t2).includes(inId)), sw = (x, a, b) => { x.t1 = x.t1.map(i => i === a ? b : i); x.t2 = x.t2.map(i => i === a ? b : i); };
+    sw(g, outId, inId); if (g2) sw(g2, inId, outId); s.queued = cur;
   },
   unqueue: id => s => { s.queued = (s.queued || []).filter(g => g.id !== id); },
   setMode: mode => s => { s.mode = mode; s.seeds = {}; },
@@ -451,14 +459,14 @@ function renameCourtsModal(focusId) {
 }
 function courtsView() {
   const s = view, props = proposals(s), q = queueOrder(s), next = new Set(Object.values(props).flatMap(p => p.t1.concat(p.t2).map(x => x.id)));
-  const teamHtml = (arr, isP) => '<div class="team">' + arr.map(x => { const id = isP ? x.id : x; return '<span' + (isP ? ' data-qp="' + id + '" class="' + (selQ === id ? 'sel' : '') + '"' : '') + '>' + esc(nm(id)) + ' ' + chipOf(id) + '</span>'; }).join('') + '</div>';
+  const teamHtml = (arr, isP, ref) => '<div class="team">' + arr.map(x => { const id = isP ? x.id : x; return '<span' + (ref ? ' data-sw="' + ref + ':' + id + '" title="Tap to swap"' : '') + '>' + esc(nm(id)) + ' ' + chipOf(id) + '</span>'; }).join('') + '</div>';
   const cards = s.courts.map(c => {
     const m = active(s).find(x => x.court === c.id), pr = props[c.id];
     if (m) return '<div class="court busy" data-k="c:' + c.id + ':' + m.id + '"><header>' + cname(c) + '<span class="timer" data-start="' + m.start + '">' + fmtT(Date.now() - m.start) + '</span></header>' +
-      '<div class="teams">' + teamHtml(m.t1) + '<span class="vs">VS</span>' + teamHtml(m.t2) + '</div>' +
+      '<div class="teams">' + teamHtml(m.t1, 0, 'm:' + m.id) + '<span class="vs">VS</span>' + teamHtml(m.t2, 0, 'm:' + m.id) + '</div>' +
       '<div class="row"><button class="btn green grow" data-fin="' + m.id + '">Finish</button><button class="btn ghost" data-swap="' + m.id + '">Swap</button><button class="btn danger" data-cancel="' + m.id + '">Cancel</button></div></div>';
     return '<div class="court free" data-k="c:' + c.id + ':free"><header>' + cname(c) + '<button class="xbtn" data-delc="' + c.id + '" title="Remove court" aria-label="Remove court">\u2715</button></header>' +
-      (pr ? '<div class="small mute">Next game' + (pr.queued ? ' · queued' : '') + '</div><div class="teams">' + teamHtml(pr.t1, 1) + '<span class="vs">VS</span>' + teamHtml(pr.t2, 1) + '</div>' +
+      (pr ? '<div class="small mute">Next game' + (pr.queued ? ' · queued' : '') + '</div><div class="teams">' + teamHtml(pr.t1, 1, pr.queued ? 'g:' + pr.qid : 'f:' + c.id) + '<span class="vs">VS</span>' + teamHtml(pr.t2, 1, pr.queued ? 'g:' + pr.qid : 'f:' + c.id) + '</div>' +
         '<div class="row"><button class="btn grow" data-start="' + c.id + '">Start game</button><button class="btn ghost" data-shuf="' + c.id + '">Shuffle</button></div>'
         : '<div class="mute">Waiting for players. ' + (q.length ? q.length + ' in the queue.' : 'Nobody is checked in yet.') + (s.mode !== 'any' ? ' Mode: ' + MODES.find(x => x[0] === s.mode)[1] + '.' : '') + '</div>') + '</div>';
   }).join('');
@@ -466,14 +474,14 @@ function courtsView() {
   qAll.forEach(g => g.t1.concat(g.t2).forEach(id => next.add(id)));
   const queuedHtml = '<h2>Queued next game</h2><div class="card qcard">' +
     (qg.length ? qg.map((g, i) => '<div class="qgame" data-k="qg:' + g.id + '"><div class="qhead"><span class="small mute">Game ' + (i + 1) + ' · goes to the next free court</span><span class="grow"></span><button class="btn ghost sm" data-qshuf="' + g.id + '">Shuffle</button><button class="xbtn" data-qdel="' + g.id + '" title="Remove queued game" aria-label="Remove queued game">\u2715</button></div>' +
-      '<div class="teams">' + teamHtml(g.t1) + '<span class="vs">VS</span>' + teamHtml(g.t2) + '</div></div>').join('') :
+      '<div class="teams">' + teamHtml(g.t1, 0, 'g:' + g.id) + '<span class="vs">VS</span>' + teamHtml(g.t2, 0, 'g:' + g.id) + '</div></div>').join('') :
       '<div class="small mute" style="margin-bottom:10px">Line up the next four while courts are busy. They take the first court that frees up.</div>') +
     '<button class="btn ghost" id="queueGame">+ Queue next game</button>' + (qAll.length ? '<span class="small mute" style="margin-left:10px">' + qAll.length + ' of 4</span>' : '') + '</div>';
   const here = s.players.filter(p => p.status === 'in').length, playing = active(s).length, doneN = s.matches.filter(m => m.end).length;
   const stats = '<div class="stats"><div class="stat"><b>' + here + '</b><span>Players here</span></div><div class="stat"><b>' + playing + '/' + s.courts.length + '</b><span>Courts playing</span></div><div class="stat"><b>' + doneN + '</b><span>Games played</span></div></div>';
   const hero = s.players.length ? '' : '<div class="card hero" data-k="hero"><div class="big">🏸</div><h1 style="font-size:22px">Ready when you are</h1><p class="mute" style="margin:4px 0 14px">Add your players, or fill in some sample players to try the queue right now.</p><div class="row" style="justify-content:center"><button class="btn" id="sampleQuick">Try with 20 sample players</button><button class="btn ghost" id="toPlayers">Add my own</button></div></div>';
   return stats + hero + '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams.</div><div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
-    '<h2>Courts</h2><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' + queuedHtml +
+    '<h2>Courts</h2><div class="small mute" style="margin:-4px 2px 8px">Tap a player\'s name to swap them.</div><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' + queuedHtml +
     '<h2>Up next (' + q.length + ')</h2>' + (selQ && q.some(p => p.id === selQ) ? '<div class="swaphint"><span>Tap another player to swap with <b>' + esc(nm(selQ)) + '</b></span><button id="selCancel">Cancel</button></div>' : '<div class="small mute" style="margin:-4px 2px 8px">Move players by hand: tap a name, then tap another to swap them, or drag the ⠿ handle onto someone.' + (s.manual && s.manual.length ? ' <b>Manual order is on.</b> <a href="#" id="autoOrd" style="color:var(--blue);font-weight:700">Back to automatic</a>' : '') + '</div>') + '<div class="card">' + (q.length ? q.map((p, i) => '<div class="q' + (next.has(p.id) ? ' next' : '') + (selQ === p.id ? ' sel' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
       '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
@@ -634,6 +642,21 @@ function startDrag(e, id) {
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
   place(); raf = requestAnimationFrame(tick);
 }
+function swapSheet(ref) {                      // tap a name on any court card, then tap who takes their place
+  const [kind, key, outId] = ref.split(':'), s = view, qg = queuedGames(s);
+  const inGame = new Set(); let game = [];
+  if (kind === 'm') { const m = s.matches.find(x => x.id === key); if (!m || m.end) return; game = m.t1.concat(m.t2); }
+  else if (kind === 'g') { const g = qg.find(x => x.id === key); if (!g) return; game = g.t1.concat(g.t2); }
+  else { const pr = proposals(s)[key]; if (!pr) return; game = pr.t1.concat(pr.t2).map(x => x.id); }
+  const qIds = new Set(qg.flatMap(g => g.t1.concat(g.t2))), cn = id => { const g = qg.findIndex(x => x.t1.concat(x.t2).includes(id)); return g >= 0 ? 'In queued game ' + (g + 1) : ''; };
+  const cand = queueOrder(s).filter(p => !game.includes(p.id) && (kind === 'g' || !qIds.has(p.id)));
+  if (!cand.length) return toast('Nobody else is waiting to swap in.');
+  modal('Swap ' + nm(outId), '<div class="small mute" style="margin-bottom:8px">Who takes their place?</div><div class="swaplist">' + cand.map(p => '<button class="swrow" data-in="' + p.id + '"><span><b>' + esc(p.name) + '</b> ' + '<span class="chip ' + p.level + '">' + p.level + '</span></span><span class="small mute">' + (cn(p.id) || p.games + ' game' + (p.games === 1 ? '' : 's')) + '</span></button>').join('') + '</div>', []);
+  $$('[data-in]').forEach(b => b.onclick = () => {
+    const inId = b.dataset.in; closeModal(); buzz([8, 30, 8]);
+    if (kind === 'm') act(M.swap(key, outId, inId)); else if (kind === 'g') act(M.swapQueued(key, outId, inId)); else act(M.swapQueue(outId, inId));
+  });
+}
 function swapPlayers(a, b) {
   if (!a || !b || a === b) return;
   selQ = null; lastSwap = { ids: [a, b], until: Date.now() + 1200 }; buzz([8, 30, 8]);
@@ -673,7 +696,7 @@ function bind() {
   // manual swaps: tap a name then another name, or drag the handle
   const pick = id => { if (!selQ) { selQ = id; buzz(8); render(); } else if (selQ === id) { selQ = null; render(); } else swapPlayers(selQ, id); };
   $$('.q[data-k^="q:"]').forEach(r => r.onclick = e => { if (e.target.closest('.grip')) return; pick(r.dataset.k.slice(2)); });
-  $$('[data-qp]').forEach(sp => sp.onclick = () => pick(sp.dataset.qp));
+  $$('[data-sw]').forEach(sp => sp.onclick = () => swapSheet(sp.dataset.sw));
   const sc = $('#selCancel'); if (sc) sc.onclick = () => { selQ = null; render(); };
   const ao = $('#autoOrd'); if (ao) ao.onclick = e => { e.preventDefault(); act(M.autoOrder()); toast('Back to automatic order.'); };
   $$('[data-grip]').forEach(g => g.addEventListener('pointerdown', e => startDrag(e, g.dataset.grip)));
