@@ -187,6 +187,10 @@ async function loadPublic() {
   T = list;
 }
 const shareUrl = slug => location.origin + location.pathname + '#/t/' + slug;
+// Creating tournaments is limited to the site owner for now (the database enforces it too, see supabase-step8.sql)
+const OWNER_EMAIL = 'aijasonclark@gmail.com';
+const canCreate = () => !!(cloud && P.user && String(P.user.email || '').toLowerCase() === OWNER_EMAIL);
+const ownerOnly = () => '<a class="back" href="#/tournaments">‹ Tournaments</a><div class="card soon-card"><div class="big">🏸</div><h1 style="font-size:24px">Creating tournaments is limited for now</h1><p class="lead" style="margin:6px auto 0">Tournament creation is not open to everyone yet. Players can still register through a tournament link.</p></div>';
 const canManage = t => !!(cloud && P.user && (t.owner === P.user.id || isOrg));
 const copyText = (text, btn, label) => { (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).catch(() => { const a = document.createElement('textarea'); a.value = text; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); });
   if (btn) { const o = label || btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = o; }, 1600); } };
@@ -210,8 +214,8 @@ const loadingHtml = '<div class="card soon-card"><div class="big">🏸</div><p c
 function listPage() {
   const mineId = P.user ? P.user.id : null, mine = T.filter(t => mineId && t.owner === mineId), pub = T.filter(t => !(mineId && t.owner === mineId));
   const up = pub.filter(t => t.status !== 'done'), past = pub.filter(t => t.status === 'done'), grid = l => '<div class="tgrid">' + l.map(t => tcard(t, true)).join('') + '</div>';
-  const mk = cloud ? (P.user ? '<div class="acts"><a class="btn sm ghost" href="#/mine">My tournaments</a><a class="btn sm" href="#/new">+ Create a tournament</a></div>' : '<a class="btn sm" href="#/account/new">+ Create a tournament</a>') : '';
-  return '<div class="head"><div><h1>Tournaments</h1><p class="lead">Tap one to see the details and register. Want to run your own? Create a free account and set one up in minutes.</p></div>' + mk + '</div>' +
+  const mk = canCreate() ? '<div class="acts"><a class="btn sm ghost" href="#/mine">My tournaments</a><a class="btn sm" href="#/new">+ Create a tournament</a></div>' : '';
+  return '<div class="head"><div><h1>Tournaments</h1><p class="lead">Tap one to see the details and register.</p></div>' + mk + '</div>' +
     (mine.length ? '<h2>Your tournaments</h2>' + grid(mine) : '') + (up.length ? '<h2>' + (mine.length ? 'Sample' : 'Upcoming') + '</h2>' + grid(up) : '') + (past.length ? '<h2>Past</h2>' + grid(past) : '') +
     (!T.length ? '<div class="card soon-card">No tournaments yet.</div>' : '');
 }
@@ -465,6 +469,7 @@ async function route() {
   if (tok !== rt) return;
   if (page === 'draw' || page === 'queue') { showTool(page, arg); return; }
   if (page === 'account') { setView(accountPage(arg)); return initAccount(arg); }
+  if (['mine', 'new', 'edit'].includes(page) && P.user && !canCreate()) return setView(ownerOnly());
   if (page === 'mine') {
     if (!needUser('mine')) return; setView(loadingHtml);
     try { const rows = await P.listMyTournaments(); if (tok !== rt) return; setView(minePage(rows)); initMine(); } catch (e) { setView('<div class="card soon-card">' + esc(e.message) + '</div>'); }
@@ -499,7 +504,7 @@ setTimeout(() => Object.keys(TOOLS).forEach(ensureTool), 1200);     // warm up b
 // ---------- account chip in the header ----------
 function chip() {
   const c = $('#acct'); if (!c) return; if (!cloud) { c.innerHTML = ''; return; }
-  c.innerHTML = P.user ? '<a href="#/mine">My tournaments</a><span class="em">' + esc(P.user.email) + '</span><button id="so" type="button">Sign out</button>' : '<a href="#/account">Sign in</a><a class="reg" href="#/account/new">Create account</a>';
+  c.innerHTML = P.user ? (canCreate() ? '<a href="#/mine">My tournaments</a>' : '') + '<span class="em">' + esc(P.user.email) + '</span><button id="so" type="button">Sign out</button>' : '<a href="#/account">Sign in</a><a class="reg" href="#/account/new">Create account</a>';
   const b = $('#so'); if (b) b.onclick = async () => { await P.signOut(); location.hash = '#/tournaments'; };
 }
 if (cloud) P.onAuth(async () => { try { isOrg = await P.isOrganizer(); } catch (e) { isOrg = false; } chip(); if (/^(#\/?)?(tournaments|t\/.*|tournament\/.*)?$/.test(location.hash)) route(); });
