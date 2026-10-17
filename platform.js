@@ -140,12 +140,48 @@
   }
   async function deleteRegistration(id) { need(); const r = await sb.from(RT).delete().eq('id', id); if (r.error) fail(r.error); }
 
+  // ---------- queuing tool: shared sessions (several organizers, one live queue) ----------
+  const QT = 'queue_sessions';
+  async function listQueueSessions() {
+    need(); const r = await sb.from(QT).select('id, name, owner, join_code, public_code, version, updated_at').order('updated_at', { ascending: false });
+    if (r.error) fail(r.error); return r.data || [];
+  }
+  async function getQueueSession(id) {
+    need(); const r = await sb.from(QT).select('*').eq('id', id).maybeSingle();
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function createQueueSession(name, state) {
+    need(); const r = await sb.from(QT).insert({ name, state, owner: user.id }).select('*').single();
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function saveQueueState(id, version, state) {      // returns null when someone else saved first (version moved on)
+    need(); const r = await sb.from(QT).update({ state, version: version + 1 }).eq('id', id).eq('version', version).select('id, version, updated_at');
+    if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
+  }
+  async function renameQueueSession(id, name) { need(); const r = await sb.from(QT).update({ name }).eq('id', id); if (r.error) fail(r.error); }
+  async function deleteQueueSession(id) { need(); const r = await sb.from(QT).delete().eq('id', id); if (r.error) fail(r.error); }
+  async function joinQueueSession(code) {
+    need(); const r = await sb.rpc('join_queue_session', { p_code: String(code || '').trim() });
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function getPublicQueue(code) {
+    needSb(); const r = await sb.rpc('get_public_queue', { p_code: String(code || '') });
+    if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
+  }
+  function subscribeQueue(id, cb) {                         // live pushes; the page also polls as a safety net
+    try {
+      const ch = sb.channel('queue-' + id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: QT, filter: 'id=eq.' + id }, p => { if (p && p.new) cb(p.new); }).subscribe();
+      return () => { try { sb.removeChannel(ch); } catch (e) {} };
+    } catch (e) { return () => {}; }
+  }
+
   window.Platform = {
     configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, isOrganizer,
     listTournaments, loadTournament, saveTournament, deleteTournament,
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
+    listQueueSessions, getQueueSession, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue,
     whenReady: () => readyP,
     get user() { return user; }
   };

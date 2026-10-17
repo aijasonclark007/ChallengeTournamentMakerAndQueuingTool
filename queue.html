@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Queuing Tool</title>
+<style>
+:root{--bg:#F2F2F7;--card:#fff;--ink:#1C1C1E;--mute:#6E6E73;--line:rgba(60,60,67,.16);--fill:rgba(118,118,128,.12);--blue:#007AFF;--green:#34C759;--orange:#FF9500;--red:#FF3B30;--high:#FF3B30;--mid:#FF9500;--low:#34C759;--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:12px 12px 80px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:26px;letter-spacing:-.02em;margin:4px 0 2px}
+h2{font-size:13px;color:var(--mute);font-weight:600;margin:20px 4px 8px}
+.card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:14px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.mute{color:var(--mute)}.small{font-size:13px}
+.btn{border:0;background:var(--blue);color:#fff;font-weight:600;padding:9px 14px;border-radius:12px}
+.btn.ghost{background:var(--fill);color:var(--blue)}.btn.danger{background:rgba(255,59,48,.12);color:var(--red)}.btn.green{background:var(--green)}
+.btn:disabled{opacity:.45;cursor:default}.btn.sm{padding:6px 11px;font-size:13px;border-radius:10px}
+input[type=text],input[type=number],select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:.5px solid var(--line);background:#F7F7FA;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.15);background:#fff}
+.seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px}
+.seg button{flex:1;border:0;background:none;padding:7px 8px;border-radius:9px;font-weight:600;font-size:13px;white-space:nowrap}
+.seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.banner{background:#fff;border-radius:16px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.info{background:rgba(0,122,255,.08);box-shadow:none}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px}.dot.off{background:var(--orange)}.dot.guest{background:#8E8E93}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;color:#fff}
+.chip.High{background:var(--high)}.chip.Mid{background:var(--mid)}.chip.Low{background:var(--low)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.court{background:#fff;border-radius:18px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:10px}
+.court header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.court header b{font-size:17px}
+.court.busy{border-top:4px solid var(--green)}.court.free{border-top:4px solid #C7C7CC}
+.teams{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.team{background:var(--fill);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-height:60px;justify-content:center}
+.team span{display:flex;align-items:center;gap:6px;font-weight:600}
+.vs{color:var(--mute);font-weight:700;font-size:12px}
+.timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:20px}
+.q{display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:.5px solid var(--line)}.q:first-child{border-top:0}
+.q .n{width:24px;color:var(--mute);font-weight:700;text-align:right}
+.q.next{background:rgba(52,199,89,.1);border-radius:10px}
+.pill{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--fill);color:var(--mute);border:0}
+.pill.in{background:rgba(52,199,89,.16);color:#1E8E3E}.pill.break{background:rgba(255,149,0,.16);color:#B26A00}.pill.court{background:rgba(0,122,255,.12);color:var(--blue)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.lab{display:block;font-weight:600;font-size:13px;margin:8px 0 4px}
+.err{color:var(--red);font-size:13px;min-height:0}
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#1C1C1E;color:#fff;padding:10px 16px;border-radius:14px;opacity:0;pointer-events:none;transition:all .25s;z-index:60;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%)}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:center;z-index:50}
+#ov.on{display:flex}
+#ov .sheet{background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:18px;max-height:88vh;overflow:auto}
+@media(min-width:600px){#ov{align-items:center}#ov .sheet{border-radius:22px}}
+.sheet h3{margin:0 0 8px;font-size:19px}
+.code{font:700 30px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.14em;background:var(--fill);border-radius:14px;padding:12px;text-align:center}
+.amt{font-weight:800;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse}td,th{padding:8px 4px;border-top:.5px solid var(--line);text-align:left;vertical-align:middle}th{font-size:12px;color:var(--mute);border-top:0}
+/* live board */
+body.live{background:#0B1B33;color:#fff;padding:18px}
+body.live .court{background:#13294B;box-shadow:none;color:#fff}body.live .team{background:rgba(255,255,255,.1)}
+body.live .card{background:#13294B;color:#fff;box-shadow:none}body.live .q{border-color:rgba(255,255,255,.12)}body.live .mute,body.live .vs{color:#A9B6CC}
+body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer{font-size:26px}
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+<div id="ov"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="platform-config.js"></script>
+<script src="platform.js"></script>
+<script>
+const P = window.Platform, cloud = !!(P && P.configured);
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clone = o => JSON.parse(JSON.stringify(o));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const LEVELS = ['High', 'Mid', 'Low'], LV = { High: 3, Mid: 2, Low: 1 };
+const MODES = [['any', 'Any level'], ['same', 'Same level'], ['hm', 'High + Mid'], ['ml', 'Mid + Low']];
+const MODE_HELP = { any: 'The next four in line play, with the teams balanced by level.', same: 'Four players of the same level play together.',
+  hm: 'Each team gets one High and one Mid player.', ml: 'Each team gets one Mid and one Low player.' };
+const MAX_COURTS = 12;
+
+// ---------------------------------------------------------------- state & rules
+const blank = () => ({ v: 1, courts: [{ id: uid(), name: 'Court 1' }], players: [], matches: [], mode: 'any', seeds: {}, fees: { courtCost: 0, shuttles: 0, shuttlePrice: 0, mode: 'equal', perGame: 0 } });
+const active = s => s.matches.filter(m => !m.end);
+const onCourtIds = s => new Set(active(s).flatMap(m => m.t1.concat(m.t2)));
+const byId = (s, id) => s.players.find(p => p.id === id);
+function queueOrder(s) {                       // fewest games first, then whoever has waited longest
+  const busy = onCourtIds(s);
+  return s.players.filter(p => p.status === 'in' && !busy.has(p.id)).sort((a, b) => (a.games - b.games) || (a.since - b.since));
+}
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const sumLv = t => t.reduce((n, p) => n + LV[p.level], 0);
+function splitsFor(four, mode) {              // the three ways to make two teams of two, best-balanced first
+  const [a, b, c, d] = four, all = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];
+  let ok = all;
+  if (mode === 'hm' || mode === 'ml') {
+    const hi = mode === 'hm' ? 'High' : 'Mid', lo = mode === 'hm' ? 'Mid' : 'Low';
+    const mixed = all.filter(sp => sp.every(t => t.some(p => p.level === hi) && t.some(p => p.level === lo)));
+    if (mixed.length) ok = mixed;
+  }
+  return ok.slice().sort((x, y) => Math.abs(sumLv(x[0]) - sumLv(x[1])) - Math.abs(sumLv(y[0]) - sumLv(y[1])));
+}
+function pickFour(q, mode, rnd) {              // rnd = null for the default pick, a random generator for reshuffles
+  const take = (arr, n) => rnd ? [arr[0]].concat(shuf(arr.slice(1, 8), rnd)).slice(0, n) : arr.slice(0, n);
+  if (mode === 'any') return q.length >= 4 ? take(q, 4) : null;
+  if (mode === 'same') {
+    for (const p of q) { const g = q.filter(x => x.level === p.level); if (g.length >= 4) return take(g, 4); }
+    return null;
+  }
+  const hi = mode === 'hm' ? 'High' : 'Mid', lo = mode === 'hm' ? 'Mid' : 'Low', A = q.filter(p => p.level === hi), B = q.filter(p => p.level === lo);
+  if (A.length >= 2 && B.length >= 2) return (rnd ? shuf(A.slice(0, 4), rnd).slice(0, 2).concat(shuf(B.slice(0, 4), rnd).slice(0, 2)) : [A[0], A[1], B[0], B[1]]);
+  const both = q.filter(p => p.level === hi || p.level === lo);
+  return both.length >= 4 ? take(both, 4) : null;
+}
+function shuf(a, rnd) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function propose(s, taken, seed, salt) {       // a suggested game for one empty court; shuffles are shared so every phone agrees
+  const q = queueOrder(s).filter(p => !taken.has(p.id));
+  const base = pickFour(q, s.mode, null); if (!base) return null;
+  const v = splitsFor(base, s.mode);
+  if (seed < v.length) return { t1: v[seed][0], t2: v[seed][1] };
+  const rnd = mulberry(seed * 7919 + salt), four = pickFour(q, s.mode, rnd) || base, v2 = splitsFor(four, s.mode), sp = v2[Math.floor(rnd() * v2.length)];
+  return { t1: sp[0], t2: sp[1] };
+}
+function proposals(s) {
+  const taken = new Set(), out = {};
+  s.courts.forEach((c, i) => {
+    if (active(s).some(m => m.court === c.id)) return;
+    const pr = propose(s, taken, s.seeds[c.id] || 0, i + 1);
+    if (pr) { out[c.id] = pr; pr.t1.concat(pr.t2).forEach(p => taken.add(p.id)); }
+  });
+  return out;
+}
+
+// every change is a small function on a copy of the state (so two phones can both change things safely)
+const M = {
+  addPlayers(list) { return s => { list.forEach(x => { const name = String(x.name || '').trim().slice(0, 40); if (!name) return;
+      if (s.players.some(p => p.name.toLowerCase() === name.toLowerCase())) return;
+      s.players.push({ id: uid(), name, level: LEVELS.includes(x.level) ? x.level : 'Mid', status: x.status || 'out', since: Date.now(), games: 0, paid: false }); }); }; },
+  setLevel: (id, level) => s => { const p = byId(s, id); if (p && LEVELS.includes(level)) p.level = level; },
+  setStatus: (id, st) => s => { const p = byId(s, id); if (!p) return; if (onCourtIds(s).has(id)) throw new Error(p.name + ' is on a court.');
+    if (st === 'in' && p.status !== 'in') p.since = Date.now(); p.status = st; },
+  checkInAll: () => s => { let n = 0; s.players.forEach(p => { if (p.status === 'out') { p.status = 'in'; p.since = Date.now() + n++; } }); },
+  removePlayer: id => s => { if (onCourtIds(s).has(id)) throw new Error('That player is on a court.'); s.players = s.players.filter(p => p.id !== id); },
+  addCourt: () => s => { if (s.courts.length >= MAX_COURTS) throw new Error('Up to ' + MAX_COURTS + ' courts.');
+    const n = Math.max(0, ...s.courts.map(c => parseInt((c.name.match(/\d+/) || [0])[0], 10))) + 1; s.courts.push({ id: uid(), name: 'Court ' + n }); },
+  removeCourt: id => s => { if (s.courts.length <= 1) throw new Error('Keep at least one court.'); if (active(s).some(m => m.court === id)) throw new Error('Finish the game on that court first.'); s.courts = s.courts.filter(c => c.id !== id); delete s.seeds[id]; },
+  setMode: mode => s => { s.mode = mode; s.seeds = {}; },
+  shuffle: cid => s => { s.seeds[cid] = (s.seeds[cid] || 0) + 1; },
+  start: (cid, t1, t2) => s => {
+    if (active(s).some(m => m.court === cid)) throw new Error('That court is already playing.');
+    const ids = t1.concat(t2), busy = onCourtIds(s);
+    if (new Set(ids).size !== 4 || ids.some(id => !byId(s, id) || byId(s, id).status !== 'in' || busy.has(id))) throw new Error('The queue changed. Check the next game and try again.');
+    s.matches.push({ id: uid(), court: cid, t1, t2, start: Date.now(), end: null, s1: null, s2: null }); s.seeds[cid] = 0; },
+  finish: (mid, s1, s2) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) return; m.end = Date.now();
+    m.s1 = Number.isFinite(s1) ? s1 : null; m.s2 = Number.isFinite(s2) ? s2 : null;
+    m.t1.concat(m.t2).forEach(id => { const p = byId(s, id); if (p) { p.games++; p.since = Date.now(); } }); },
+  cancel: mid => s => { s.matches = s.matches.filter(m => m.id !== mid || m.end); },
+  swap: (mid, outId, inId) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) throw new Error('That game already ended.');
+    const inP = byId(s, inId); if (!inP || inP.status !== 'in' || onCourtIds(s).has(inId)) throw new Error('That player is no longer waiting.');
+    m.t1 = m.t1.map(id => id === outId ? inId : id); m.t2 = m.t2.map(id => id === outId ? inId : id); },
+  paid: (id, v) => s => { const p = byId(s, id); if (p) p.paid = !!v; },
+  fee: (k, v) => s => { s.fees[k] = v; },
+  newNight: () => s => { s.matches = []; s.seeds = {}; s.players.forEach(p => { p.games = 0; p.paid = false; p.status = 'out'; p.since = Date.now(); }); }
+};
+
+// ---------------------------------------------------------------- sync engine (guest = this device, cloud = shared live)
+let backend = { type: 'guest' }, server = { state: blank(), version: 0 }, pending = [], view = server.state, flushing = false;
+let skipRender = false, sessions = [], tab = 'courts', pendingRender = false, unsub = null, pollTimer = null, syncState = 'guest';
+const GK = 'queue.guest.v1';
+function recompute() { let s = server.state; for (const fn of pending) { try { const n = clone(s); fn(n); s = n; } catch (e) {} } view = s; }
+function saveGuest() { try { localStorage.setItem(GK, JSON.stringify(server.state)); } catch (e) {} }
+function loadGuest() { try { const g = JSON.parse(localStorage.getItem(GK) || 'null'); return g && g.courts ? g : blank(); } catch (e) { return blank(); } }
+function act(fn, quiet) {
+  try { fn(clone(view)); } catch (e) { toast(e.message); return; }
+  pending.push(fn); recompute(); if (quiet) { skipRender = true; feeOutRender(); } else render(); flush();
+}
+async function flush() {
+  if (flushing) return; flushing = true;
+  try {
+    while (pending.length) {
+      const fn = pending[0];
+      if (backend.type === 'guest') { const n = clone(server.state); try { fn(n); server.state = n; } catch (e) { toast(e.message); } pending.shift(); saveGuest(); continue; }
+      let done = false;
+      for (let i = 0; i < 6 && !done; i++) {
+        const n = clone(server.state);
+        try { fn(n); } catch (e) { toast(e.message); pending.shift(); done = true; break; }
+        let res; try { res = await P.saveQueueState(backend.id, server.version, n); setSync('live'); } catch (e) { setSync('offline'); await sleep(2000); continue; }
+        if (res) { server = { state: n, version: res.version }; pending.shift(); done = true; }
+        else { const row = await P.getQueueSession(backend.id).catch(() => null); if (row) server = { state: row.state, version: row.version }; recompute(); render(); }   // someone else saved first: re-apply on top of theirs
+      }
+      if (!done) break;
+    }
+  } finally { flushing = false; recompute(); if (skipRender) { skipRender = false; feeOutRender(); } else safeRender(); }
+}
+function setSync(s) { if (syncState !== s) { syncState = s; const e = $('#sync'); if (e) e.innerHTML = syncHtml(); } }
+function takeRemote(row) {
+  if (!row || backend.type !== 'cloud' || row.id !== backend.id) return;
+  if (row.version > server.version) { server = { state: row.state && row.state.courts ? row.state : server.state, version: row.version }; recompute(); safeRender(); }
+}
+async function poll() {
+  if (backend.type !== 'cloud') return;
+  if (pending.length) return flush();
+  try { takeRemote(await P.getQueueSession(backend.id)); setSync('live'); } catch (e) { setSync('offline'); }
+}
+function watch() {
+  if (unsub) unsub(); unsub = null; clearInterval(pollTimer);
+  if (backend.type !== 'cloud') return;
+  unsub = P.subscribeQueue(backend.id, takeRemote); pollTimer = setInterval(poll, 4000);
+}
+function safeRender() { const a = document.activeElement; if (a && /INPUT|SELECT|TEXTAREA/.test(a.tagName) && $('#root').contains(a)) { pendingRender = true; return; } render(); }
+document.addEventListener('focusout', () => { if (pendingRender) setTimeout(() => { const a = document.activeElement; if (!(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) { pendingRender = false; render(); } }, 50); });
+
+// ---------------------------------------------------------------- small UI helpers
+let toastT; function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+function modal(title, body, buttons) {
+  $('#sheet').innerHTML = '<h3>' + esc(title) + '</h3>' + body + '<div class="row" style="margin-top:14px;justify-content:flex-end" id="mbtn"></div>';
+  const bar = $('#mbtn'); (buttons || []).concat([{ label: 'Close', cls: 'ghost', fn: () => true }]).forEach(b => {
+    const el = document.createElement('button'); el.className = 'btn ' + (b.cls || ''); el.textContent = b.label; el.onclick = () => { if (b.fn($('#sheet')) !== false) closeModal(); }; bar.appendChild(el); });
+  $('#ov').classList.add('on');
+}
+function closeModal() { $('#ov').classList.remove('on'); }
+$('#ov').addEventListener('click', e => { if (e.target.id === 'ov') closeModal(); });
+const nm = id => { const p = byId(view, id); return p ? p.name : '?'; };
+const chipOf = id => { const p = byId(view, id); return p ? '<span class="chip ' + p.level + '">' + p.level + '</span>' : ''; };
+const names = ids => ids.map(nm).join(' & ');
+const fmtT = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+const peso = n => '₱' + Math.ceil(n).toLocaleString('en-US');
+const syncHtml = () => syncState === 'guest' ? '<span class="dot guest"></span>Preview on this device' : syncState === 'offline' ? '<span class="dot off"></span>Reconnecting…' : '<span class="dot"></span>Live, synced';
+const goSignIn = () => { try { top.location.hash = '#/account/queue'; } catch (e) { location.href = 'index.html#/account/queue'; } };
+
+// ---------------------------------------------------------------- views
+function barHtml() {
+  if (backend.type === 'guest') {
+    const hasPlayers = view.players.length;
+    return '<div class="banner info"><div class="grow"><b>Preview mode.</b> Try everything. Your players and games stay on this device only.' + (cloud ? ' <a href="#" id="si" style="color:var(--blue);font-weight:600">Sign in or create an account</a> to save them and let other organizers join.' : '') + '</div>' +
+      (hasPlayers ? '<button class="btn danger sm" id="gReset">Clear</button>' : '') + '</div>';
+  }
+  const cur = sessions.find(x => x.id === backend.id) || {};
+  const mine = cur.owner === P.user.id;
+  return '<div class="banner"><div class="grow"><div class="row"><select id="sess" style="max-width:260px">' + sessions.map(x => '<option value="' + x.id + '"' + (x.id === backend.id ? ' selected' : '') + '>' + esc(x.name) + (x.owner !== P.user.id ? ' (joined)' : '') + '</option>').join('') + '</select>' +
+    '<button class="btn ghost sm" id="sNew">+ New night</button><button class="btn ghost sm" id="sJoin">Join with code</button><button class="btn sm" id="sShare">Share</button>' +
+    (mine ? '<button class="btn danger sm" id="sDel">Delete</button>' : '') + '</div></div><div class="small mute" id="sync">' + syncHtml() + '</div></div>' + migrateBanner();
+}
+function migrateBanner() {
+  const g = loadGuest(); if (!g.players.length || localStorage.getItem('queue.guest.moved')) return '';
+  return '<div class="banner info"><div class="grow">You have a preview session on this device with ' + g.players.length + ' player' + (g.players.length === 1 ? '' : 's') + '.</div><button class="btn sm" id="gMove">Save it to my account</button><button class="btn ghost sm" id="gSkip">Dismiss</button></div>';
+}
+function courtsView() {
+  const s = view, props = proposals(s), q = queueOrder(s), next = new Set(Object.values(props).flatMap(p => p.t1.concat(p.t2).map(x => x.id)));
+  const teamHtml = (arr, isP) => '<div class="team">' + arr.map(x => { const id = isP ? x.id : x; return '<span>' + esc(nm(id)) + ' ' + chipOf(id) + '</span>'; }).join('') + '</div>';
+  const cards = s.courts.map(c => {
+    const m = active(s).find(x => x.court === c.id), pr = props[c.id];
+    if (m) return '<div class="court busy"><header><b>' + esc(c.name) + '</b><span class="timer" data-start="' + m.start + '">' + fmtT(Date.now() - m.start) + '</span></header>' +
+      '<div class="teams">' + teamHtml(m.t1) + '<span class="vs">VS</span>' + teamHtml(m.t2) + '</div>' +
+      '<div class="row"><button class="btn green grow" data-fin="' + m.id + '">Finish</button><button class="btn ghost" data-swap="' + m.id + '">Swap</button><button class="btn danger" data-cancel="' + m.id + '">Cancel</button></div></div>';
+    return '<div class="court free"><header><b>' + esc(c.name) + '</b><button class="btn danger sm" data-delc="' + c.id + '" title="Remove court">Remove</button></header>' +
+      (pr ? '<div class="small mute">Next game</div><div class="teams">' + teamHtml(pr.t1, 1) + '<span class="vs">VS</span>' + teamHtml(pr.t2, 1) + '</div>' +
+        '<div class="row"><button class="btn grow" data-start="' + c.id + '">Start game</button><button class="btn ghost" data-shuf="' + c.id + '">Shuffle</button></div>'
+        : '<div class="mute">Waiting for players. ' + (q.length ? q.length + ' in the queue.' : 'Nobody is checked in yet.') + (s.mode !== 'any' ? ' Mode: ' + MODES.find(x => x[0] === s.mode)[1] + '.' : '') + '</div>') + '</div>';
+  }).join('');
+  return '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams.</div></div>' +
+    '<h2>Courts</h2><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' +
+    '<h2>Up next (' + q.length + ')</h2><div class="card">' + (q.length ? q.map((p, i) => '<div class="q' + (next.has(p.id) ? ' next' : '') + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
+      '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
+}
+function playersView() {
+  const s = view, busy = onCourtIds(s), list = s.players.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const status = p => busy.has(p.id) ? 'court' : p.status;
+  const label = { court: 'On court', in: 'Here', break: 'Break', out: 'Not here' };
+  return '<div class="card"><div class="two"><div><label class="lab" for="pn">Player name</label><input id="pn" type="text" maxlength="40" placeholder="Juan Dela Cruz"></div><div><label class="lab" for="pl">Level</label><select id="pl">' + LEVELS.map(l => '<option' + (l === 'Mid' ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div></div>' +
+    '<div class="row" style="margin-top:10px"><button class="btn" id="padd">Add player</button><button class="btn ghost" id="pbulk">Add many</button>' + (backend.type === 'cloud' ? '<button class="btn ghost" id="ppool">From my saved players</button>' : '') + '</div></div>' +
+    '<div class="row" style="margin:12px 2px"><b>' + s.players.length + ' players</b><span class="mute small">' + s.players.filter(p => p.status === 'in').length + ' here</span><span class="grow"></span><button class="btn ghost sm" id="pall">Check everyone in</button><button class="btn ghost sm" id="psave">Save all to my pool</button></div>' +
+    '<div class="card">' + (list.length ? list.map(p => '<div class="q"><div class="grow"><b>' + esc(p.name) + '</b><div class="small mute">' + p.games + ' games</div></div>' +
+      '<select data-lv="' + p.id + '" style="width:92px">' + LEVELS.map(l => '<option' + (p.level === l ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+      '<button class="pill ' + status(p) + '" data-st="' + p.id + '" style="min-width:76px;padding:7px 10px">' + label[status(p)] + '</button><button class="btn danger sm" data-rm="' + p.id + '">✕</button></div>').join('') : '<div class="mute">No players yet. Add a few above, or use Add many.</div>') + '</div>' +
+    '<div class="small mute" style="margin:8px 4px">Tap a status to switch between Not here, Here and Break. Only players marked Here join the queue.</div>';
+}
+function feeCalc(s) {
+  const f = s.fees, total = (+f.courtCost || 0) + (+f.shuttles || 0) * (+f.shuttlePrice || 0), played = s.players.filter(p => p.games > 0), games = s.players.reduce((n, p) => n + p.games, 0);
+  const due = p => f.mode === 'perGame' ? p.games * (+f.perGame || 0) : f.mode === 'equity' ? (games ? total * p.games / games : 0) : (played.length && p.games > 0 ? total / played.length : 0);
+  return { total, due, played, games };
+}
+function feeOutHtml() {
+  const s = view, f = s.fees, c = feeCalc(s), rows = s.players.filter(p => p.games > 0 || p.paid).sort((a, b) => a.name.localeCompare(b.name));
+  const collected = rows.filter(p => p.paid).reduce((n, p) => n + Math.ceil(c.due(p)), 0), owed = rows.reduce((n, p) => n + Math.ceil(c.due(p)), 0);
+  return '<div class="row" style="margin:0 2px 8px"><span class="mute">Total cost</span><b class="amt" style="font-size:20px">' + peso(c.total) + '</b></div><div class="card">' + (rows.length ? '<table><tr><th>Player</th><th>Games</th><th>Amount</th><th>Paid</th></tr>' + rows.map(p => '<tr><td><b>' + esc(p.name) + '</b></td><td>' + p.games + '</td><td class="amt">' + peso(c.due(p)) + '</td><td><input type="checkbox" data-paid="' + p.id + '"' + (p.paid ? ' checked' : '') + ' style="width:22px;height:22px"></td></tr>').join('') + '</table>' +
+    '<div class="row" style="margin-top:10px"><b>Collected ' + peso(collected) + '</b><span class="mute">of ' + peso(owed) + '</span></div>' : '<div class="mute">Amounts appear once players have played games.</div>') + '</div>';
+}
+function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); $$('[data-paid]').forEach(c => c.onchange = () => act(M.paid(c.dataset.paid, c.checked), true)); }
+function feesView() {
+  const f = view.fees;
+  const num = (k, lab) => '<div><label class="lab">' + lab + '</label><input type="number" min="0" step="any" data-fee="' + k + '" value="' + (f[k] || '') + '" placeholder="0"></div>';
+  return '<div class="card"><div class="two">' + num('courtCost', 'Court rental (total)') + num('shuttles', 'Shuttles used') + num('shuttlePrice', 'Price per shuttle') + (f.mode === 'perGame' ? num('perGame', 'Fee per game (each player)') : '') + '</div>' +
+    '<label class="lab">How to split</label><div class="seg" id="fmode">' + [['equal', 'Equal split'], ['perGame', 'Per game'], ['equity', 'By games played']].map(([k, l]) => '<button data-fm="' + k + '" class="' + (f.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<div class="small mute" style="margin-top:8px">' + (f.mode === 'equal' ? 'The total is shared equally by everyone who played at least one game.' : f.mode === 'perGame' ? 'Each player pays the fee for every game they played.' : 'The total is shared in proportion to games played.') + '</div></div>' +
+    '<h2>Who owes what</h2><div id="feeOut">' + feeOutHtml() + '</div>';
+}
+function historyView() {
+  const done = view.matches.filter(m => m.end).sort((a, b) => b.end - a.end), cn = id => (view.courts.find(c => c.id === id) || { name: 'Court' }).name;
+  return '<div class="card">' + (done.length ? done.map(m => '<div class="q"><div class="grow"><b>' + esc(names(m.t1)) + '</b> <span class="mute">vs</span> <b>' + esc(names(m.t2)) + '</b><div class="small mute">' + esc(cn(m.court)) + ' · ' + fmtT(m.end - m.start) + ' · ' + new Date(m.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</div></div>' +
+    (m.s1 != null && m.s2 != null ? '<span class="amt">' + m.s1 + ' - ' + m.s2 + '</span>' : '') + '</div>').join('') : '<div class="mute">Finished games show up here.</div>') + '</div>' +
+    '<div class="row" style="margin-top:12px"><button class="btn danger" id="night">Start a new night (reset games and payments)</button></div>';
+}
+function render() {
+  if (liveCode) return;
+  const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'fees' ? feesView() : historyView();
+  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div id="tabbody">' + body + '</div>';
+  bind();
+}
+
+// ---------------------------------------------------------------- events
+function bind() {
+  $$('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+  const si = $('#si'); if (si) si.onclick = e => { e.preventDefault(); goSignIn(); };
+  const gr = $('#gReset'); if (gr) gr.onclick = () => { if (confirm('Clear the preview session on this device?')) { server = { state: blank(), version: 0 }; pending = []; saveGuest(); recompute(); render(); } };
+  // courts
+  $$('[data-mode]').forEach(b => b.onclick = () => act(M.setMode(b.dataset.mode)));
+  $$('[data-shuf]').forEach(b => b.onclick = () => act(M.shuffle(b.dataset.shuf)));
+  $$('[data-start]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { const pr = proposals(view)[b.dataset.start]; if (!pr) return toast('The queue changed.'); act(M.start(b.dataset.start, pr.t1.map(p => p.id), pr.t2.map(p => p.id))); }; });
+  $$('[data-delc]').forEach(b => b.onclick = () => act(M.removeCourt(b.dataset.delc)));
+  const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
+  $$('[data-cancel]').forEach(b => b.onclick = () => { if (confirm('Cancel this game? The players go back to their place in the queue.')) act(M.cancel(b.dataset.cancel)); });
+  $$('[data-fin]').forEach(b => b.onclick = () => {
+    const m = view.matches.find(x => x.id === b.dataset.fin); if (!m) return;
+    modal('Finish game', '<div class="two"><div><label class="lab">' + esc(names(m.t1)) + '</label><input id="f1" type="number" min="0" max="99" inputmode="numeric" placeholder="Score"></div><div><label class="lab">' + esc(names(m.t2)) + '</label><input id="f2" type="number" min="0" max="99" inputmode="numeric" placeholder="Score"></div></div><div class="small mute" style="margin-top:8px">Scores are optional.</div>',
+      [{ label: 'Save result', cls: 'green', fn: sh => { act(M.finish(m.id, parseInt(sh.querySelector('#f1').value, 10), parseInt(sh.querySelector('#f2').value, 10))); } }]);
+  });
+  $$('[data-swap]').forEach(b => b.onclick = () => {
+    const m = view.matches.find(x => x.id === b.dataset.swap); if (!m) return;
+    const q = queueOrder(view); if (!q.length) return toast('Nobody is waiting to swap in.');
+    modal('Swap a player', '<label class="lab">Who is leaving the court?</label><select id="so">' + m.t1.concat(m.t2).map(id => '<option value="' + id + '">' + esc(nm(id)) + '</option>').join('') + '</select>' +
+      '<label class="lab">Who comes in?</label><select id="sin">' + q.map(p => '<option value="' + p.id + '">' + esc(p.name) + ' (' + p.level + ')</option>').join('') + '</select>',
+      [{ label: 'Swap', cls: 'green', fn: sh => { act(M.swap(m.id, sh.querySelector('#so').value, sh.querySelector('#sin').value)); } }]);
+  });
+  // players
+  const add = () => { const n = $('#pn').value.trim(); if (!n) return toast('Type a name first.'); act(M.addPlayers([{ name: n, level: $('#pl').value }])); const e = $('#pn'); if (e) e.focus(); };
+  const pa = $('#padd'); if (pa) { pa.onclick = add; $('#pn').addEventListener('keydown', e => { if (e.key === 'Enter') add(); }); }
+  const pb = $('#pbulk'); if (pb) pb.onclick = () => modal('Add many players', '<div class="small mute">One per line. Add the level after a comma, like <b>Ana, High</b>. No level means Mid.</div><textarea id="bt" rows="8" style="margin-top:8px" placeholder="Ana, High&#10;Ben, Mid&#10;Carla, Low"></textarea>',
+    [{ label: 'Add them', fn: sh => { const list = sh.querySelector('#bt').value.split('\n').map(l => { const p = l.split(/[,\t;|]/).map(x => x.trim()); const lv = LEVELS.find(x => x.toLowerCase() === (p[1] || '').toLowerCase()); return { name: p[0], level: lv || 'Mid' }; }).filter(x => x.name); if (!list.length) { toast('Nothing to add.'); return false; } act(M.addPlayers(list)); } }]);
+  const pall = $('#pall'); if (pall) pall.onclick = () => act(M.checkInAll());
+  $$('[data-lv]').forEach(sel => sel.onchange = () => act(M.setLevel(sel.dataset.lv, sel.value)));
+  $$('[data-st]').forEach(b => b.onclick = () => { const p = byId(view, b.dataset.st); if (!p) return; act(M.setStatus(p.id, p.status === 'in' ? 'break' : p.status === 'break' ? 'out' : 'in')); });
+  $$('[data-rm]').forEach(b => b.onclick = () => { const p = byId(view, b.dataset.rm); if (p && confirm('Remove ' + p.name + '?')) act(M.removePlayer(p.id)); });
+  const pp = $('#ppool'); if (pp) pp.onclick = openPool;
+  const ps = $('#psave'); if (ps) ps.onclick = async () => { if (backend.type !== 'cloud') return toast('Sign in to save players to your account.'); if (!view.players.length) return toast('No players yet.');
+    try { for (const p of view.players) await P.savePlayerToPool(p.name, p.level); toast('Saved ' + view.players.length + ' players to your pool.'); } catch (e) { toast(e.message); } };
+  // fees
+  $$('[data-fee]').forEach(i => i.onchange = () => act(M.fee(i.dataset.fee, parseFloat(i.value) || 0), true));
+  $$('[data-fm]').forEach(b => b.onclick = () => act(M.fee('mode', b.dataset.fm)));
+  feeOutRender();
+  const nt = $('#night'); if (nt) nt.onclick = () => { if (confirm('Reset everyone\'s games and payments for a new night? Players stay on the list.')) act(M.newNight()); };
+  // cloud session bar
+  const sess = $('#sess'); if (sess) sess.onchange = () => openSession(sess.value);
+  const sn = $('#sNew'); if (sn) sn.onclick = () => modal('New night', '<label class="lab" for="nn">Name</label><input id="nn" type="text" maxlength="60" value="' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })) + '">', [{ label: 'Create', fn: async sh => { const name = sh.querySelector('#nn').value.trim() || 'Session'; await createSession(name, blank()); } }]);
+  const sj = $('#sJoin'); if (sj) sj.onclick = () => modal('Join with a code', '<div class="small mute">Ask the organizer for their 6-character code.</div><input id="jc" type="text" maxlength="6" style="margin-top:8px;text-transform:uppercase;letter-spacing:.2em;font-size:20px;text-align:center" placeholder="ABC123">',
+    [{ label: 'Join', fn: async sh => { try { const id = await P.joinQueueSession(sh.querySelector('#jc').value); await refreshSessions(); await openSession(id); toast('Joined!'); } catch (e) { toast(e.message); } } }]);
+  const sh = $('#sShare'); if (sh) sh.onclick = () => { const cur = sessions.find(x => x.id === backend.id); if (!cur) return;
+    const link = location.origin + location.pathname.replace(/[^/]*$/, '') + 'queue.html?live=' + cur.public_code;
+    modal('Share this night', '<div class="small mute">Other organizers: sign in, open the Queuing Tool, tap <b>Join with code</b>, and enter</div><div class="code" style="margin:8px 0 14px">' + esc(cur.join_code) + '</div>' +
+      '<div class="small mute">Live board for players (view only, no sign-in)</div><input id="lk" type="text" readonly value="' + esc(link) + '" style="margin-top:6px">', [{ label: 'Copy board link', cls: 'ghost', fn: () => { const i = $('#lk'); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); } toast('Link copied'); return false; } }]); };
+  const sd = $('#sDel'); if (sd) sd.onclick = async () => { if (!confirm('Delete this night and all its data for everyone?')) return; try { await P.deleteQueueSession(backend.id); await refreshSessions(); if (sessions.length) await openSession(sessions[0].id); else await createSession('My first night', blank()); } catch (e) { toast(e.message); } };
+  const gm = $('#gMove'); if (gm) gm.onclick = async () => { try { const g = loadGuest(); g.players.forEach(p => { p.status = 'out'; }); g.matches = []; await createSession('Preview session', g); localStorage.setItem('queue.guest.moved', '1'); toast('Saved to your account.'); } catch (e) { toast(e.message); } };
+  const gs = $('#gSkip'); if (gs) gs.onclick = () => { try { localStorage.setItem('queue.guest.moved', '1'); } catch (e) {} render(); };
+}
+async function openPool() {
+  let pool = []; try { pool = await P.fetchPlayerPool(); } catch (e) { return toast(e.message); }
+  const have = new Set(view.players.map(p => p.name.toLowerCase())), list = pool.filter(p => !have.has(p.name.toLowerCase()));
+  modal('My saved players', list.length ? '<div class="small mute">Tick the players who showed up tonight.</div><div style="margin-top:8px">' + list.map((p, i) => '<label class="q" style="cursor:pointer"><input type="checkbox" data-pi="' + i + '" checked style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>'
+    : '<div class="mute">' + (pool.length ? 'Everyone in your pool is already on tonight\'s list.' : 'Your pool is empty. Add players, then use Save all to my pool.') + '</div>',
+    list.length ? [{ label: 'Add selected', fn: sh => { const pick = [...sh.querySelectorAll('[data-pi]')].filter(c => c.checked).map(c => list[+c.dataset.pi]); if (!pick.length) return; act(M.addPlayers(pick.map(p => ({ name: p.name, level: p.level, status: 'in' })))); } }] : []);
+}
+
+// ---------------------------------------------------------------- sessions (cloud)
+async function refreshSessions() { sessions = await P.listQueueSessions(); }
+async function openSession(id) {
+  if (pending.length) await flush();
+  const row = await P.getQueueSession(id); if (!row) { toast('That night was not found.'); return; }
+  backend = { type: 'cloud', id }; server = { state: row.state && row.state.courts ? row.state : blank(), version: row.version }; pending = []; recompute();
+  try { localStorage.setItem('queue.sid', id); } catch (e) {}
+  syncState = 'live'; watch(); render();
+}
+async function createSession(name, state) {
+  const row = await P.createQueueSession(name, state); await refreshSessions(); await openSession(row.id);
+}
+async function startCloud() {
+  try {
+    await refreshSessions();
+    const last = (() => { try { return localStorage.getItem('queue.sid'); } catch (e) { return null; } })();
+    const pick = sessions.find(x => x.id === last) || sessions[0];
+    if (pick) await openSession(pick.id); else await createSession('My first night', blank());
+  } catch (e) { startGuest(); toast('Could not reach your account: ' + e.message); }
+}
+function startGuest() {
+  if (unsub) unsub(); unsub = null; clearInterval(pollTimer);
+  backend = { type: 'guest' }; pending = []; server = { state: loadGuest(), version: 0 }; syncState = 'guest'; recompute(); render();
+}
+
+// ---------------------------------------------------------------- public live board (?live=CODE)
+const liveCode = new URLSearchParams(location.search).get('live');
+function liveRender(row) {
+  const s = row.state && row.state.courts ? row.state : blank(); view = s;
+  const q = queueOrder(s), name = id => { const p = byId(s, id); return p ? p.name : '?'; };
+  document.title = row.name + ' · Live board';
+  const cards = s.courts.map(c => { const m = active(s).find(x => x.court === c.id);
+    return '<div class="court ' + (m ? 'busy' : 'free') + '"><header><b>' + esc(c.name) + '</b>' + (m ? '<span class="timer" data-start="' + m.start + '">' + fmtT(Date.now() - m.start) + '</span>' : '<span class="mute">Free</span>') + '</header>' +
+      (m ? '<div class="teams"><div class="team">' + m.t1.map(id => '<span>' + esc(name(id)) + '</span>').join('') + '</div><span class="vs">VS</span><div class="team">' + m.t2.map(id => '<span>' + esc(name(id)) + '</span>').join('') + '</div></div>' : '<div class="mute">Waiting for the next game</div>') + '</div>'; }).join('');
+  $('#root').innerHTML = '<h1>' + esc(row.name) + '</h1><div class="small mute">Live board · updates automatically</div><h2>On court</h2><div class="grid">' + cards + '</div><h2>Up next</h2><div class="card">' +
+    (q.length ? q.slice(0, 12).map((p, i) => '<div class="q"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b></div><span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + '</span></div>').join('') : '<div class="mute">No one is waiting.</div>') + '</div>';
+}
+async function startLive() {
+  document.body.classList.add('live'); $('#root').innerHTML = '<h1>Loading…</h1>';
+  const tick = async () => { try { const row = await P.getPublicQueue(liveCode); if (row) liveRender(row); else $('#root').innerHTML = '<h1>Board not found</h1><div class="mute">The link may be wrong or the night was deleted.</div>'; } catch (e) { /* keep showing the last board */ } };
+  await tick(); setInterval(tick, 5000);
+}
+
+// ---------------------------------------------------------------- go
+setInterval(() => $$('.timer[data-start]').forEach(t => { t.textContent = fmtT(Date.now() - +t.dataset.start); }), 1000);
+setInterval(() => { if (!liveCode && tab === 'courts' && !(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) && !$('#ov').classList.contains('on')) { const q = $('#tabbody'); if (q) { /* refresh waiting minutes */ render(); } } }, 60000);
+(async function init() {
+  if (liveCode) { if (!cloud) { $('#root').innerHTML = '<h1>Live board</h1><div class="mute">The cloud is not connected.</div>'; return; } await P.whenReady(); return startLive(); }
+  if (!cloud) return startGuest();
+  await P.whenReady();
+  P.onAuth(user => { if (user) startCloud(); else startGuest(); });
+})();
+</script>
+</body>
+</html>
