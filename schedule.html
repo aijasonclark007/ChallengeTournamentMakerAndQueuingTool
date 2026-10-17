@@ -212,7 +212,6 @@ section,#schedSec,#standSec,#koSec{scroll-margin-top:96px}
         <div><label for="start">First game</label><input id="start" type="time" value="14:00"></div>
         <button id="drawBtn" class="go">Pair players</button>
         <button id="sample" class="ghost" type="button">Load 72 sample players</button>
-        <button id="toQueue" class="ghost" type="button">Send players to Queue</button>
       </div>
       <p id="plCount" class="hint"></p>
       <p id="loadMsg" class="hint"></p>
@@ -1550,15 +1549,8 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   function count() {
     const n = validPlayers().length, all = parsePlayers($('#players').value).length;
     $('#plCount').textContent = !all ? 'Paste or type your players, one per line. Or press "Load 72 sample players" to try it.' : n < 4 ? n + ' player' + (n === 1 ? '' : 's') + ' ready. Add at least 4 so there are 2 teams.' : n + ' players ready.' + (all > n ? ' ' + (all - n) + ' line(s) need a level of High, Mid or Low.' : '');
-    $('#toQueue').disabled = !n;
   }
   $('#players').addEventListener('input', count);
-  $('#toQueue').onclick = () => {
-    const list = validPlayers().map(p => ({ name: p.name, level: p.skill }));
-    if (!list.length) return;
-    if (window.parent === window) { $('#loadMsg').textContent = 'Open this from the main page to send players to the Queuing Tool.'; return; }
-    window.parent.postMessage({ t: 'sendQueue', players: list }, location.origin);
-  };
 
   // undo for actions that rearrange or erase work
   const toast = $('#utoast') || (() => { const d = document.createElement('div'); d.id = 'utoast'; d.innerHTML = '<span id="utxt"></span><button id="uundo" type="button">Undo</button>'; document.body.appendChild(d); return d; })();
