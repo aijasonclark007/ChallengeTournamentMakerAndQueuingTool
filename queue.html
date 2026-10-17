@@ -123,6 +123,9 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .winbtn:hover{border-color:var(--green)}.winbtn:active{transform:scale(.97)}
 .winbtn.picked{background:rgba(52,199,89,.16);border-color:var(--green);box-shadow:0 6px 18px rgba(52,199,89,.3);animation:pop .4s cubic-bezier(.2,.8,.2,1)}
 .winbtn.picked span{filter:none;opacity:1;transform:scale(1.25) rotate(-8deg)}
+
+.cname{cursor:pointer;border-radius:8px;padding:2px 4px;margin-left:-4px;transition:background .15s}.cname:hover{background:var(--fill)}
+.cname .pen{opacity:.4;font-size:13px;font-weight:400}.cname:hover .pen{opacity:.9}
 </style>
 </head>
 <body>
@@ -223,6 +226,12 @@ const M = {
   removePlayer: id => s => { if (onCourtIds(s).has(id)) throw new Error('That player is on a court.'); s.players = s.players.filter(p => p.id !== id); },
   addCourt: () => s => { if (s.courts.length >= MAX_COURTS) throw new Error('Up to ' + MAX_COURTS + ' courts.');
     const n = Math.max(0, ...s.courts.map(c => parseInt((c.name.match(/\d+/) || [0])[0], 10))) + 1; s.courts.push({ id: uid(), name: 'Court ' + n }); },
+  renameCourts: list => s => {
+    const names = list.map(x => String(x.name || '').trim().slice(0, 24));
+    if (names.some(n => !n)) throw new Error('Every court needs a name.');
+    if (new Set(names.map(n => n.toLowerCase())).size !== names.length) throw new Error('Two courts have the same name.');
+    list.forEach((x, i) => { const c = s.courts.find(k => k.id === x.id); if (c) c.name = names[i]; });
+  },
   removeCourt: id => s => { if (s.courts.length <= 1) throw new Error('Keep at least one court.'); if (active(s).some(m => m.court === id)) throw new Error('Finish the game on that court first.'); s.courts = s.courts.filter(c => c.id !== id); delete s.seeds[id]; },
   setMode: mode => s => { s.mode = mode; s.seeds = {}; },
   shuffle: cid => s => { s.seeds[cid] = (s.seeds[cid] || 0) + 1; },
@@ -374,15 +383,28 @@ function migrateBanner() {
   const g = loadGuest(); if (!g.players.length || localStorage.getItem('queue.guest.moved')) return '';
   return '<div class="banner info"><div class="grow">You have a preview session on this device with ' + g.players.length + ' player' + (g.players.length === 1 ? '' : 's') + '.</div><button class="btn sm" id="gMove">Save it to my account</button><button class="btn ghost sm" id="gSkip">Dismiss</button></div>';
 }
+const cname = c => '<b class="cname" data-ren="' + c.id + '" title="Rename court">' + esc(c.name) + ' <span class="pen">✎</span></b>';
+function renameCourtsModal(focusId) {
+  modal('Name your courts', '<div class="small mute" style="margin-bottom:8px">Use the court numbers you rented, like Court 5, Court 3 and Court 1.</div>' +
+    view.courts.map(c => '<label class="lab">' + esc(c.name) + '</label><input type="text" maxlength="24" data-cid="' + c.id + '" value="' + esc(c.name) + '">').join(''),
+    [{ label: 'Save names', cls: 'green', fn: sh => {
+      const list = [...sh.querySelectorAll('[data-cid]')].map(i => ({ id: i.dataset.cid, name: i.value }));
+      try { M.renameCourts(list)(clone(view)); } catch (e) { toast(e.message); return false; }
+      act(M.renameCourts(list));
+    } }]);
+  const sh = $('#sheet'), first = sh.querySelector('[data-cid="' + focusId + '"]') || sh.querySelector('[data-cid]');
+  sh.querySelectorAll('[data-cid]').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const b = $('#mbtn .btn'); if (b) b.click(); } }));
+  setTimeout(() => { if (first) { first.focus(); first.select(); } }, 60);
+}
 function courtsView() {
   const s = view, props = proposals(s), q = queueOrder(s), next = new Set(Object.values(props).flatMap(p => p.t1.concat(p.t2).map(x => x.id)));
   const teamHtml = (arr, isP) => '<div class="team">' + arr.map(x => { const id = isP ? x.id : x; return '<span' + (isP ? ' data-qp="' + id + '" class="' + (selQ === id ? 'sel' : '') + '"' : '') + '>' + esc(nm(id)) + ' ' + chipOf(id) + '</span>'; }).join('') + '</div>';
   const cards = s.courts.map(c => {
     const m = active(s).find(x => x.court === c.id), pr = props[c.id];
-    if (m) return '<div class="court busy" data-k="c:' + c.id + ':' + m.id + '"><header><b>' + esc(c.name) + '</b><span class="timer" data-start="' + m.start + '">' + fmtT(Date.now() - m.start) + '</span></header>' +
+    if (m) return '<div class="court busy" data-k="c:' + c.id + ':' + m.id + '"><header>' + cname(c) + '<span class="timer" data-start="' + m.start + '">' + fmtT(Date.now() - m.start) + '</span></header>' +
       '<div class="teams">' + teamHtml(m.t1) + '<span class="vs">VS</span>' + teamHtml(m.t2) + '</div>' +
       '<div class="row"><button class="btn green grow" data-fin="' + m.id + '">Finish</button><button class="btn ghost" data-swap="' + m.id + '">Swap</button><button class="btn danger" data-cancel="' + m.id + '">Cancel</button></div></div>';
-    return '<div class="court free" data-k="c:' + c.id + ':free"><header><b>' + esc(c.name) + '</b><button class="btn danger sm" data-delc="' + c.id + '" title="Remove court">Remove</button></header>' +
+    return '<div class="court free" data-k="c:' + c.id + ':free"><header>' + cname(c) + '<button class="btn danger sm" data-delc="' + c.id + '" title="Remove court">Remove</button></header>' +
       (pr ? '<div class="small mute">Next game</div><div class="teams">' + teamHtml(pr.t1, 1) + '<span class="vs">VS</span>' + teamHtml(pr.t2, 1) + '</div>' +
         '<div class="row"><button class="btn grow" data-start="' + c.id + '">Start game</button><button class="btn ghost" data-shuf="' + c.id + '">Shuffle</button></div>'
         : '<div class="mute">Waiting for players. ' + (q.length ? q.length + ' in the queue.' : 'Nobody is checked in yet.') + (s.mode !== 'any' ? ' Mode: ' + MODES.find(x => x[0] === s.mode)[1] + '.' : '') + '</div>') + '</div>';
@@ -391,7 +413,7 @@ function courtsView() {
   const stats = '<div class="stats"><div class="stat"><b>' + here + '</b><span>Players here</span></div><div class="stat"><b>' + playing + '/' + s.courts.length + '</b><span>Courts playing</span></div><div class="stat"><b>' + doneN + '</b><span>Games played</span></div></div>';
   const hero = s.players.length ? '' : '<div class="card hero" data-k="hero"><div class="big">🏸</div><h1 style="font-size:22px">Ready when you are</h1><p class="mute" style="margin:4px 0 14px">Add your players, or fill in some sample players to try the queue right now.</p><div class="row" style="justify-content:center"><button class="btn" id="sampleQuick">Try with 20 sample players</button><button class="btn ghost" id="toPlayers">Add my own</button></div></div>';
   return stats + hero + '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams.</div><div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
-    '<h2>Courts</h2><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' +
+    '<h2>Courts</h2><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' +
     '<h2>Up next (' + q.length + ')</h2>' + (selQ && q.some(p => p.id === selQ) ? '<div class="swaphint"><span>Tap another player to swap with <b>' + esc(nm(selQ)) + '</b></span><button id="selCancel">Cancel</button></div>' : '<div class="small mute" style="margin:-4px 2px 8px">Move players by hand: tap a name, then tap another to swap them, or drag the ⠿ handle onto someone.' + (s.manual && s.manual.length ? ' <b>Manual order is on.</b> <a href="#" id="autoOrd" style="color:var(--blue);font-weight:700">Back to automatic</a>' : '') + '</div>') + '<div class="card">' + (q.length ? q.map((p, i) => '<div class="q' + (next.has(p.id) ? ' next' : '') + (selQ === p.id ? ' sel' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
       '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
@@ -540,6 +562,8 @@ function bind() {
   const ao = $('#autoOrd'); if (ao) ao.onclick = e => { e.preventDefault(); act(M.autoOrder()); toast('Back to automatic order.'); };
   $$('[data-grip]').forEach(g => g.addEventListener('pointerdown', e => startDrag(e, g.dataset.grip)));
   const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
+  const rcs = $('#renCourts'); if (rcs) rcs.onclick = () => renameCourtsModal();
+  $$('[data-ren]').forEach(n => n.onclick = () => renameCourtsModal(n.dataset.ren));
   $$('[data-cancel]').forEach(b => b.onclick = () => { if (confirm('Cancel this game? The players go back to their place in the queue.')) act(M.cancel(b.dataset.cancel)); });
   $$('[data-fin]').forEach(b => b.onclick = () => {
     const m = view.matches.find(x => x.id === b.dataset.fin); if (!m) return;
