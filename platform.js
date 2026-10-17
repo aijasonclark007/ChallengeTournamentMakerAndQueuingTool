@@ -169,15 +169,28 @@
     if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
   }
   // ---------- published schedule links ----------
-  async function publishSchedule(drawId, name, html) {
-    need(); const r = await sb.rpc('publish_schedule', { p_draw: drawId, p_name: name, p_html: html });
+  async function publishSchedule(drawId, name, html, matches) {
+    need(); const r = await sb.rpc('publish_schedule', { p_draw: drawId, p_name: name, p_html: html, p_matches: matches || [] });
     if (r.error) fail(r.error); return r.data;
   }
   async function myPublishedSchedule(drawId) {
-    need(); const r = await sb.from('published_schedules').select('slug, updated_at').eq('draw_id', drawId).maybeSingle();
+    need(); const r = await sb.from('published_schedules').select('slug, umpire_key, updated_at').eq('draw_id', drawId).maybeSingle();
     if (r.error) fail(r.error); return r.data;
   }
   async function unpublishSchedule(slug) { need(); const r = await sb.from('published_schedules').delete().eq('slug', slug); if (r.error) fail(r.error); }
+  async function getLiveScores(slug) {
+    needSb(); const r = await sb.rpc('get_live_scores', { p_slug: String(slug || '') });
+    if (r.error) fail(r.error); return r.data || [];
+  }
+  async function clearLiveScores(slug) { need(); const r = await sb.rpc('clear_live_scores', { p_slug: slug }); if (r.error) fail(r.error); }
+  async function umpireGet(slug, key) {
+    needSb(); const r = await sb.rpc('umpire_get', { p_slug: slug, p_key: key });
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function umpireScore(slug, key, match, s1, s2, status) {
+    needSb(); const r = await sb.rpc('umpire_score', { p_slug: slug, p_key: key, p_match: match, p_s1: s1, p_s2: s2, p_status: status });
+    if (r.error) fail(r.error);
+  }
   async function getPublicSchedule(slug) {
     needSb(); const r = await sb.rpc('get_public_schedule', { p_slug: String(slug || '') });
     if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
@@ -195,7 +208,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, unpublishSchedule, getPublicSchedule,
+    listQueueSessions, getQueueSession, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, unpublishSchedule, getPublicSchedule,
     whenReady: () => readyP,
     get user() { return user; }
   };

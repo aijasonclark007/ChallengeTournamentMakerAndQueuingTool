@@ -25,6 +25,8 @@ iframe{border:0;width:100%;height:100%;display:block}
     f.setAttribute('sandbox', 'allow-scripts allow-popups');   // runs the name search, nothing else
     f.srcdoc = row.html;
     m.remove(); document.body.appendChild(f);
+    const push = async () => { try { const sc = await Platform.getLiveScores(slug); if (f.contentWindow) f.contentWindow.postMessage({ t: 'live', scores: sc }, '*'); } catch (e) {} };
+    f.addEventListener('load', push); setInterval(() => { if (!document.hidden) push(); }, 6000);
   } catch (e) { m.textContent = 'Could not load the schedule: ' + e.message; }
 })();
 </script>
