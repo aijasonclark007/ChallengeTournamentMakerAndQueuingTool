@@ -141,6 +141,14 @@ summary:hover{background:#fff}
 .pvbox{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 #sharePanel{margin:12px 0;padding:16px}#sharePanel h3{margin:0 0 4px;font-size:18px}
 #shareIntro .how{margin:8px 0 12px;padding-left:22px;color:var(--ink)}#shareIntro .how li{margin:6px 0}
+#sdlg{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;animation:sdfade .2s}
+@keyframes sdfade{from{opacity:0}to{opacity:1}}
+#sdlg .box{background:#fff;border-radius:20px;padding:22px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:sdpop .3s cubic-bezier(.2,.8,.2,1)}
+@keyframes sdpop{from{transform:scale(.94);opacity:.5}to{transform:none;opacity:1}}
+#sdlg h3{margin:0 0 8px;font-size:20px}#sdlg p{margin:0 0 10px;color:#4a4a4f;line-height:1.45}
+#sdlg .warn{background:#FFEDEB;border:1px solid rgba(255,59,48,.35);color:#B3261E;border-radius:12px;padding:10px 12px;font-weight:700;margin:0 0 12px}
+#sdlg .btns{display:flex;gap:10px;margin-top:6px}#sdlg .btns button{flex:1;padding:13px;border-radius:14px;font-weight:800;font-size:16px}
+#sdlg .btns .stay{background:#007AFF;color:#fff}#sdlg .btns .stop{background:#FFEDEB;color:#D70015}
 #nowPlay .np{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px 14px;padding:12px 14px;background:#fff;border:1.5px solid rgba(255,59,48,.35);box-shadow:0 4px 14px rgba(255,59,48,.10);border-radius:16px;margin:8px 0}
 #nowPlay .np .np-c{display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;white-space:nowrap}
 #nowPlay .np .np-c:before{content:"";width:9px;height:9px;border-radius:50%;background:#FF3B30;animation:nplive 1.4s infinite}
@@ -1483,7 +1491,24 @@ async function publishNow(msg) {
 $('#pubLink').onclick = () => publishNow('Your link is ready. Copy it and send it to players. It keeps itself up to date while this page is open. You can also press "Update with latest scores".');
 $('#pubUpd').onclick = () => publishNow('Updated. The same link now shows the latest schedule and scores.');
 $('#pubCopy').onclick = async () => { const i = $('#pubUrl'); i.select(); try { await navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); } say('#pubMsg', 'Link copied.'); };
-$('#pubOff').onclick = async () => { if (!pubSlug) return; try { await Platform.unpublishSchedule(pubSlug); pubSlug = null; showPubLink(); say('#pubMsg', 'Sharing stopped. The old link no longer works.'); } catch (e) { say('#pubMsg', e.message); } };
+function askStopSharing(liveN) {          // a clear warning first: umpires scoring right now would lose their link
+  return new Promise(res => {
+    const d = document.createElement('div'); d.id = 'sdlg';
+    d.innerHTML = '<div class="box" role="alertdialog" aria-modal="true"><h3>Stop sharing this schedule?</h3>' +
+      (liveN ? '<div class="warn">' + liveN + (liveN === 1 ? ' game is' : ' games are') + ' being scored live right now. Those umpires will not be able to send their scores.</div>' : '') +
+      '<p>The shareable link <b>and every umpire link</b> stop working immediately. Players cannot open the schedule, and umpires who still have a game to score will be declined.</p>' +
+      '<p>Only stop sharing when all games are finished.</p><div class="btns"><button class="stay" type="button">Keep sharing</button><button class="stop" type="button">Stop sharing</button></div></div>';
+    const done = v => { d.remove(); document.removeEventListener('keydown', key); res(v); };
+    const key = e => { if (e.key === 'Escape') done(false); };
+    d.onclick = e => { if (e.target === d) done(false); };
+    d.querySelector('.stay').onclick = () => done(false); d.querySelector('.stop').onclick = () => done(true);
+    document.addEventListener('keydown', key); document.body.appendChild(d); d.querySelector('.stay').focus();
+  });
+}
+$('#pubOff').onclick = async () => { if (!pubSlug) return;
+  let liveN = 0; try { liveN = (await Platform.getLiveScores(pubSlug)).filter(r => r.status === 'live').length; } catch (e) {}
+  if (!(await askStopSharing(liveN))) return;
+  try { await Platform.unpublishSchedule(pubSlug); pubSlug = null; showPubLink(); say('#pubMsg', 'Sharing stopped. The old link no longer works.'); } catch (e) { say('#pubMsg', e.message); } };
 $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pubBody(false); window.print(); };
 </script>
 <script>
