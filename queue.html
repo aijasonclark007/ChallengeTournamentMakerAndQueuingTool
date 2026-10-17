@@ -130,6 +130,10 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 table.rank{width:100%;border-collapse:collapse}table.rank th{text-align:left;color:var(--mute);font-size:12px;padding:4px 6px}table.rank td{padding:10px 6px;border-top:.5px solid var(--line)}
 table.rank td.rk{font-weight:800;font-size:18px;text-align:center}
 table.rank tr.top td{background:rgba(255,194,14,.10)}
+
+#me .mecard{display:flex;align-items:center;gap:12px;margin:0 0 10px;font-weight:600}#me .mecard.next{background:#FFF4D6;color:#5c4100;animation:glow 2.4s ease-in-out infinite}#me .mecard.playing{background:#EAF7D6;color:#1c4a0b}
+body.live #me .card{background:#13294B;color:#fff}body.live #me .mecard.next{background:#FFC20E;color:#3a2a00}body.live #me .mecard.playing{background:#34C759;color:#06260f}
+body.live select{background:#fff;color:#1C1C1E}
 </style>
 </head>
 <body>
@@ -284,7 +288,7 @@ async function flush() {
         const n = clone(server.state);
         try { fn(n); } catch (e) { toast(e.message); pending.shift(); done = true; break; }
         let res; try { res = await P.saveQueueState(backend.id, server.version, n); setSync('live'); } catch (e) { setSync('offline'); await sleep(2000); continue; }
-        if (res) { server = { state: n, version: res.version }; pending.shift(); done = true; }
+        if (res) { server = { state: n, version: res.version }; pending.shift(); done = true; try { const cur = sessions.find(x => x.id === backend.id); if (cur && P.liveChannel) P.liveChannel('qlive-' + cur.public_code).ping(); } catch (e) {} }
         else { const row = await P.getQueueSession(backend.id).catch(() => null); if (row) server = { state: row.state, version: row.version }; recompute(); render(); }   // someone else saved first: re-apply on top of theirs
       }
       if (!done) break;
@@ -502,7 +506,11 @@ function historyView() {
 }
 let selQ = null, lastSwap = null, tabChanged = false, rendered = false, announceOn = false, tabDir = 0, lastThumb = null;
 const TABS = ['courts', 'players', 'ranking', 'fees', 'history'];
-function goTab(k) { if (k === tab || !TABS.includes(k)) return; tabDir = TABS.indexOf(k) > TABS.indexOf(tab) ? 1 : -1; tab = k; tabChanged = true; buzz(8); render(); }
+function goTab(k, fromParent) {
+  if (k === tab || !TABS.includes(k)) return; tabDir = TABS.indexOf(k) > TABS.indexOf(tab) ? 1 : -1; tab = k; tabChanged = true; buzz(8); render();
+  if (!fromParent) { try { if (window.parent !== window) window.parent.postMessage({ t: 'tab', tool: 'queue', tab: k }, location.origin); } catch (e) {} }
+}
+window.addEventListener('message', e => { if (e.origin !== location.origin) return; const d = e.data; if (d && d.t === 'goto' && !liveCode) goTab(d.tab, true); });
 function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.2,.8,.2,1)';
 function placeThumb() {
@@ -686,8 +694,38 @@ function startGuest() {
 
 // ---------------------------------------------------------------- public live board (?live=CODE)
 const liveCode = new URLSearchParams(location.search).get('live');
+// ----- "you're up next" alerts on the live board (needs the page open: it plays a sound, vibrates and shows a notification)
+let meName = null, meLast = null, meSig = '';
+try { meName = localStorage.getItem('queue.me.' + liveCode); } catch (e) {}
+function alertMe(title, body) {
+  try { const AC = window.AudioContext || window.webkitAudioContext; if (AC) { const c = new AC(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.type = 'sine'; o.frequency.setValueAtTime(660, c.currentTime); o.frequency.setValueAtTime(880, c.currentTime + .15); o.frequency.setValueAtTime(1100, c.currentTime + .3); g.gain.setValueAtTime(.2, c.currentTime); g.gain.exponentialRampToValueAtTime(.001, c.currentTime + .7); o.start(); o.stop(c.currentTime + .7); } } catch (e) {}
+  buzz([250, 120, 250, 120, 400]);
+  try { if (window.Notification && Notification.permission === 'granted') new Notification(title, { body, tag: 'queue-me' }); } catch (e) {}
+  toast(title + ' ' + body); const t0 = document.title; let n = 0; const iv = setInterval(() => { document.title = n++ % 2 ? t0 : '🔔 ' + title; if (n > 12) { clearInterval(iv); document.title = t0; } }, 700);
+}
+function renderMe(s, q, courtOf) {
+  const box = $('#me'); if (!box) return;
+  const players = s.players.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const mine = meName && players.find(p => p.name === meName);
+  let status = '', key = 'none';
+  if (mine) {
+    const m = active(s).find(x => x.t1.concat(x.t2).includes(mine.id)), pos = q.findIndex(x => x.id === mine.id);
+    if (m) { key = 'playing'; status = '🏸 Your game is on <b>' + esc(courtOf(m.court)) + '</b>. Go now!'; if (meLast && meLast !== 'playing') alertMe('Your game is ready!', 'Head to ' + courtOf(m.court) + '.'); }
+    else if (pos >= 0 && pos < 4) { key = 'next'; status = '⏳ You are <b>up next</b> (#' + (pos + 1) + '). Get ready!'; if (meLast && meLast !== 'next') alertMe("You're up next!", 'Get ready, you are #' + (pos + 1) + ' in line.'); }
+    else if (pos >= 0) { key = 'wait'; status = 'You are <b>#' + (pos + 1) + '</b> in the queue.'; }
+    else { key = 'off'; status = 'You are not in the queue right now.'; }
+    meLast = key;
+  }
+  const sig = (mine ? 'm:' + mine.name + status : 'p:' + players.map(p => p.name).join('|'));
+  if (sig === meSig || ($('#meSel') && document.activeElement === $('#meSel'))) return; meSig = sig;
+  box.innerHTML = mine ? '<div class="card mecard ' + key + '"><div class="grow">' + esc(mine.name) + '<div>' + status + '</div></div><button class="btn ghost sm" id="meOff">Stop</button></div>'
+    : players.length ? '<div class="card"><b>🔔 Get a heads-up when you are up</b><div class="small mute" style="margin:2px 0 8px">Pick your name. This page plays a sound and vibrates when you are next. Keep it open on your phone.</div><div class="row"><select id="meSel" class="grow">' + players.map(p => '<option>' + esc(p.name) + '</option>').join('') + '</select><button class="btn" id="meGo">Notify me</button></div></div>' : '';
+  const go = $('#meGo'); if (go) go.onclick = async () => { meName = $('#meSel').value; try { localStorage.setItem('queue.me.' + liveCode, meName); } catch (e) {} meLast = null; meSig = ''; try { if (window.Notification && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} renderMe(view, queueOrder(view), id => (view.courts.find(c => c.id === id) || { name: 'a court' }).name); };
+  const off = $('#meOff'); if (off) off.onclick = () => { meName = null; meLast = null; meSig = ''; try { localStorage.removeItem('queue.me.' + liveCode); } catch (e) {} renderMe(view, queueOrder(view), id => (view.courts.find(c => c.id === id) || { name: 'a court' }).name); };
+}
 function liveRender(row) {
   const s = row.state && row.state.courts ? row.state : blank(); view = s;
+  renderMe(s, queueOrder(s), id => (s.courts.find(c => c.id === id) || { name: 'a court' }).name);
   const q = queueOrder(s), name = id => { const p = byId(s, id); return p ? p.name : '?'; };
   document.title = row.name + ' · Live board';
   const cards = s.courts.map(c => { const m = active(s).find(x => x.court === c.id);
@@ -699,7 +737,9 @@ function liveRender(row) {
 async function startLive() {
   document.body.classList.add('live'); $('#root').innerHTML = '<h1>Loading…</h1>';
   const tick = async () => { try { const row = await P.getPublicQueue(liveCode); if (row) liveRender(row); else $('#root').innerHTML = '<h1>Board not found</h1><div class="mute">The link may be wrong or the queuing session was deleted.</div>'; } catch (e) { /* keep showing the last board */ } };
-  await tick(); setInterval(tick, 5000);
+  const meBox = document.createElement('div'); meBox.id = 'me'; $('#root').before(meBox);
+  await tick(); setInterval(tick, 20000);                       // safety net; the real updates arrive instantly below
+  try { P.liveChannel('qlive-' + liveCode, () => tick()); } catch (e) {}
 }
 
 // ---------------------------------------------------------------- go
