@@ -139,6 +139,10 @@ table.rank tr.top td{background:rgba(255,194,14,.10)}
 #me .mecard{display:flex;align-items:center;gap:12px;margin:0 0 10px;font-weight:600}#me .mecard.next{background:#FFF4D6;color:#5c4100;animation:glow 2.4s ease-in-out infinite}#me .mecard.playing{background:#EAF7D6;color:#1c4a0b}
 body.live #me .card{background:#13294B;color:#fff}body.live #me .mecard.next{background:#FFC20E;color:#3a2a00}body.live #me .mecard.playing{background:#34C759;color:#06260f}
 body.live select{background:#fff;color:#1C1C1E}
+.poolbar{position:sticky;top:-1px;background:#fff;z-index:2;padding:8px 0 6px;margin-top:4px}
+.poolbar input{width:100%;margin-bottom:6px}.poolbar .row{gap:12px;align-items:center}
+.linkbtn{border:0;background:none;color:var(--blue);font-weight:600;font-size:13px;padding:6px 2px;min-height:32px}
+.prow[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -690,9 +694,17 @@ function bind() {
 async function openPool() {
   let pool = []; try { pool = await P.fetchPlayerPool(); } catch (e) { return toast(e.message); }
   const have = new Set(view.players.map(p => p.name.toLowerCase())), list = pool.filter(p => !have.has(p.name.toLowerCase()));
-  modal('My saved players', list.length ? '<div class="small mute">Tick the players who showed up tonight.</div><div style="margin-top:8px">' + list.map((p, i) => '<label class="q" style="cursor:pointer"><input type="checkbox" data-pi="' + i + '" checked style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>'
+  modal('My saved players', list.length ? '<div class="small mute">Tick the players who showed up tonight.</div><div class="poolbar"><input id="poolQ" type="search" placeholder="Search players" autocomplete="off"><div class="row small"><span id="poolCount" class="mute"></span><span class="grow"></span><button type="button" class="linkbtn" id="poolAll">Select shown</button><button type="button" class="linkbtn" id="poolNone">Clear shown</button></div></div><div id="poolList">' + list.map((p, i) => '<label class="q prow" data-name="' + esc(p.name.toLowerCase()) + '" style="cursor:pointer"><input type="checkbox" data-pi="' + i + '" checked style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>'
     : '<div class="mute">' + (pool.length ? 'Everyone in your pool is already on tonight\'s list.' : 'Your pool is empty. Add players, then use Save all to my pool.') + '</div>',
     list.length ? [{ label: 'Add selected', fn: sh => { const pick = [...sh.querySelectorAll('[data-pi]')].filter(c => c.checked).map(c => list[+c.dataset.pi]); if (!pick.length) return; act(M.addPlayers(pick.map(p => ({ name: p.name, level: p.level, status: 'in' })))); } }] : []);
+  const sh = $('#sheet'), q = sh.querySelector('#poolQ'); if (!q) return;
+  const rows = () => [...sh.querySelectorAll('.prow')], shown = () => rows().filter(r => !r.hidden);
+  const upd = () => { const n = rows().filter(r => r.querySelector('input').checked).length, v = shown().length; sh.querySelector('#poolCount').textContent = n + ' selected' + (v < rows().length ? ' · showing ' + v : ''); let e = sh.querySelector('#poolNone2'); if (!v) { if (!e) { e = document.createElement('div'); e.id = 'poolNone2'; e.className = 'mute'; e.style.padding = '14px 4px'; e.textContent = 'No saved player matches that search.'; sh.querySelector('#poolList').appendChild(e); } } else if (e) e.remove(); };
+  q.oninput = () => { const t = q.value.trim().toLowerCase(); rows().forEach(r => { r.hidden = !!t && !r.dataset.name.includes(t); }); upd(); };
+  sh.addEventListener('change', e => { if (e.target.matches('[data-pi]')) upd(); });
+  sh.querySelector('#poolAll').onclick = () => { shown().forEach(r => { r.querySelector('input').checked = true; }); upd(); };
+  sh.querySelector('#poolNone').onclick = () => { shown().forEach(r => { r.querySelector('input').checked = false; }); upd(); };
+  upd(); setTimeout(() => { try { q.focus({ preventScroll: true }); } catch (x) {} }, 350);
 }
 
 // ---------------------------------------------------------------- sessions (cloud)
