@@ -510,7 +510,16 @@ function goTab(k, fromParent) {
   if (k === tab || !TABS.includes(k)) return; tabDir = TABS.indexOf(k) > TABS.indexOf(tab) ? 1 : -1; tab = k; tabChanged = true; buzz(8); render();
   if (!fromParent) { try { if (window.parent !== window) window.parent.postMessage({ t: 'tab', tool: 'queue', tab: k }, location.origin); } catch (e) {} }
 }
-window.addEventListener('message', e => { if (e.origin !== location.origin) return; const d = e.data; if (d && d.t === 'goto' && !liveCode) goTab(d.tab, true); });
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin) return; const d = e.data; if (liveCode || !d) return;
+  if (d.t === 'goto') goTab(d.tab, true);
+  if (d.t === 'import' && Array.isArray(d.players) && d.players.length) {
+    const have = new Set(view.players.map(p => p.name.toLowerCase())), list = d.players.filter(p => !have.has(String(p.name).toLowerCase()));
+    if (!list.length) return toast('Those players are already in the queue.');
+    modal('Add players from Draw & Schedule?', '<div class="small mute">' + list.length + ' player' + (list.length === 1 ? '' : 's') + ' will be added to the list as <b>Not here</b>. Check them in as they arrive.</div>',
+      [{ label: 'Add ' + list.length, fn: () => { closeModal(); act(M.addPlayers(list.map(p => ({ name: p.name, level: p.level })))); toast('Added ' + list.length + ' players'); } }]);
+  }
+});
 function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.2,.8,.2,1)';
 function placeThumb() {
