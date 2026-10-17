@@ -100,6 +100,17 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 #tabs .thumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform,width}
 #tabs button{position:relative;z-index:1}#tabs button.on{background:none;box-shadow:none}
 #root{touch-action:pan-y pinch-zoom}
+
+.q.sel{background:rgba(0,122,255,.12);outline:2px solid var(--blue);border-radius:10px}
+.q.drop{background:rgba(0,122,255,.16);outline:2px dashed var(--blue);border-radius:10px}
+.q.dragging{opacity:.3}
+.q .grip{cursor:grab;touch-action:none;color:var(--mute);padding:6px 8px;font-size:20px;line-height:1;user-select:none;-webkit-user-select:none;border-radius:8px}.q .grip:active{cursor:grabbing;background:var(--fill)}
+.q[data-k]{cursor:pointer}
+.dragclone{position:fixed;z-index:60;pointer-events:none;background:#fff;box-shadow:0 14px 34px rgba(0,0,0,.28);border-radius:14px;padding:10px 14px;display:flex;gap:10px;align-items:center;font-weight:700;transform:scale(1.05) rotate(-1.2deg)}
+@keyframes swapflash{0%{background:rgba(0,122,255,.38);transform:scale(1.035)}60%{transform:scale(1)}100%{background:transparent;transform:none}}
+.q.swapped{animation:swapflash 1.2s cubic-bezier(.2,.8,.2,1)}
+.swaphint{position:sticky;top:6px;z-index:5;background:var(--blue);color:#fff;border-radius:14px;padding:10px 14px;margin:8px 0;font-weight:600;display:flex;gap:10px;align-items:center;box-shadow:0 8px 20px rgba(0,122,255,.3)}.swaphint button{margin-left:auto;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:700}
+.team span[data-qp]{cursor:pointer;border-radius:8px;transition:background .15s}.team span[data-qp].sel{background:rgba(0,122,255,.2);outline:2px solid var(--blue)}
 </style>
 </head>
 <body>
@@ -136,7 +147,11 @@ const onCourtIds = s => new Set(active(s).flatMap(m => m.t1.concat(m.t2)));
 const byId = (s, id) => s.players.find(p => p.id === id);
 function queueOrder(s) {                       // fewest games first, then whoever has waited longest
   const busy = onCourtIds(s);
-  return s.players.filter(p => p.status === 'in' && !busy.has(p.id)).sort((a, b) => (a.games - b.games) || (a.since - b.since));
+  const base = s.players.filter(p => p.status === 'in' && !busy.has(p.id)).sort((a, b) => (a.games - b.games) || (a.since - b.since));
+  if (!s.manual || !s.manual.length) return base;
+  // the organizer moved people by hand: keep that order, new arrivals join at the end
+  const idx = new Map(s.manual.map((id, i) => [id, i]));
+  return base.filter(p => idx.has(p.id)).sort((a, b) => idx.get(a.id) - idx.get(b.id)).concat(base.filter(p => !idx.has(p.id)));
 }
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const sumLv = t => t.reduce((n, p) => n + LV[p.level], 0);
@@ -211,7 +226,13 @@ const M = {
     m.t1 = m.t1.map(id => id === outId ? inId : id); m.t2 = m.t2.map(id => id === outId ? inId : id); },
   paid: (id, v) => s => { const p = byId(s, id); if (p) p.paid = !!v; },
   fee: (k, v) => s => { s.fees[k] = v; },
-  newNight: () => s => { s.matches = []; s.seeds = {}; s.players.forEach(p => { p.games = 0; p.paid = false; p.status = 'out'; p.since = Date.now(); }); }
+  swapQueue: (a, b) => s => {
+    const ids = queueOrder(s).map(p => p.id), ia = ids.indexOf(a), ib = ids.indexOf(b);
+    if (ia < 0 || ib < 0) throw new Error('One of those players is no longer waiting.');
+    ids[ia] = b; ids[ib] = a; s.manual = ids;
+  },
+  autoOrder: () => s => { delete s.manual; },
+  newNight: () => s => { delete s.manual; s.matches = []; s.seeds = {}; s.players.forEach(p => { p.games = 0; p.paid = false; p.status = 'out'; p.since = Date.now(); }); }
 };
 
 // ---------------------------------------------------------------- sync engine (guest = this device, cloud = shared live)
@@ -339,7 +360,7 @@ function migrateBanner() {
 }
 function courtsView() {
   const s = view, props = proposals(s), q = queueOrder(s), next = new Set(Object.values(props).flatMap(p => p.t1.concat(p.t2).map(x => x.id)));
-  const teamHtml = (arr, isP) => '<div class="team">' + arr.map(x => { const id = isP ? x.id : x; return '<span>' + esc(nm(id)) + ' ' + chipOf(id) + '</span>'; }).join('') + '</div>';
+  const teamHtml = (arr, isP) => '<div class="team">' + arr.map(x => { const id = isP ? x.id : x; return '<span' + (isP ? ' data-qp="' + id + '" class="' + (selQ === id ? 'sel' : '') + '"' : '') + '>' + esc(nm(id)) + ' ' + chipOf(id) + '</span>'; }).join('') + '</div>';
   const cards = s.courts.map(c => {
     const m = active(s).find(x => x.court === c.id), pr = props[c.id];
     if (m) return '<div class="court busy" data-k="c:' + c.id + ':' + m.id + '"><header><b>' + esc(c.name) + '</b><span class="timer" data-start="' + m.start + '">' + fmtT(Date.now() - m.start) + '</span></header>' +
@@ -355,8 +376,8 @@ function courtsView() {
   const hero = s.players.length ? '' : '<div class="card hero" data-k="hero"><div class="big">🏸</div><h1 style="font-size:22px">Ready when you are</h1><p class="mute" style="margin:4px 0 14px">Add your players, or fill in some sample players to try the queue right now.</p><div class="row" style="justify-content:center"><button class="btn" id="sampleQuick">Try with 20 sample players</button><button class="btn ghost" id="toPlayers">Add my own</button></div></div>';
   return stats + hero + '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams.</div><div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
     '<h2>Courts</h2><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' +
-    '<h2>Up next (' + q.length + ')</h2><div class="card">' + (q.length ? q.map((p, i) => '<div class="q' + (next.has(p.id) ? ' next' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
-      '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
+    '<h2>Up next (' + q.length + ')</h2>' + (selQ && q.some(p => p.id === selQ) ? '<div class="swaphint"><span>Tap another player to swap with <b>' + esc(nm(selQ)) + '</b></span><button id="selCancel">Cancel</button></div>' : '<div class="small mute" style="margin:-4px 2px 8px">Move players by hand: tap a name, then tap another to swap them, or drag the ⠿ handle onto someone.' + (s.manual && s.manual.length ? ' <b>Manual order is on.</b> <a href="#" id="autoOrd" style="color:var(--blue);font-weight:700">Back to automatic</a>' : '') + '</div>') + '<div class="card">' + (q.length ? q.map((p, i) => '<div class="q' + (next.has(p.id) ? ' next' : '') + (selQ === p.id ? ' sel' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
+      '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
 function playersView() {
   const s = view, busy = onCourtIds(s), list = s.players.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -396,7 +417,7 @@ function historyView() {
     (m.s1 != null && m.s2 != null ? '<span class="amt">' + m.s1 + ' - ' + m.s2 + '</span>' : '') + '</div>').join('') : '<div class="mute">Finished games show up here.</div>') + '</div>' +
     '<div class="row" style="margin-top:12px"><button class="btn danger" id="night">Start a fresh queuing (reset games and payments)</button></div>';
 }
-let tabChanged = false, rendered = false, announceOn = false, tabDir = 0, lastThumb = null;
+let selQ = null, lastSwap = null, tabChanged = false, rendered = false, announceOn = false, tabDir = 0, lastThumb = null;
 const TABS = ['courts', 'players', 'fees', 'history'];
 function goTab(k) { if (k === tab || !TABS.includes(k)) return; tabDir = TABS.indexOf(k) > TABS.indexOf(tab) ? 1 : -1; tab = k; tabChanged = true; buzz(8); render(); }
 function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
@@ -420,6 +441,31 @@ function announce(court, t1, t2) {
     if (window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance(court + ': ' + t1.join(' and ') + ' versus ' + t2.join(' and ')));
   } catch (e) {}
 }
+function startDrag(e, id) {
+  if (e.button != null && e.button > 0) return;
+  e.preventDefault();
+  const row = document.querySelector('[data-k="q:' + id + '"]'); if (!row) return;
+  const clone = document.createElement('div'); clone.className = 'dragclone'; clone.innerHTML = row.querySelector('.grow').innerHTML;
+  const r0 = row.getBoundingClientRect(); clone.style.width = Math.min(r0.width, 320) + 'px'; document.body.appendChild(clone);
+  row.classList.add('dragging'); buzz(10);
+  let over = null, scrollV = 0, raf = 0, x = e.clientX, y = e.clientY;
+  const place = () => { clone.style.left = (x - 40) + 'px'; clone.style.top = (y - 22) + 'px'; };
+  const target = () => { clone.style.display = 'none'; const el = document.elementFromPoint(x, y); clone.style.display = ''; const r = el && el.closest ? el.closest('.q[data-k^="q:"]') : null; return r && r.dataset.k.slice(2) !== id ? r : null; };
+  const tick = () => { if (scrollV) window.scrollBy(0, scrollV); const t = target(); if (t !== over) { if (over) over.classList.remove('drop'); over = t; if (over) { over.classList.add('drop'); buzz(4); } } raf = requestAnimationFrame(tick); };
+  const move = ev => { x = ev.clientX; y = ev.clientY; place(); const h = window.innerHeight; scrollV = y < 70 ? -10 : y > h - 70 ? 10 : 0; };
+  const end = ev => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); cancelAnimationFrame(raf);
+    const t = ev.type === 'pointercancel' ? null : over; clone.remove(); row.classList.remove('dragging'); if (over) over.classList.remove('drop');
+    if (t) swapPlayers(id, t.dataset.k.slice(2));
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+  place(); raf = requestAnimationFrame(tick);
+}
+function swapPlayers(a, b) {
+  if (!a || !b || a === b) return;
+  selQ = null; lastSwap = { ids: [a, b], until: Date.now() + 1200 }; buzz([8, 30, 8]);
+  act(M.swapQueue(a, b));
+}
 function render() {
   if (liveCode) return;
   const old = {}; $$('[data-k]').forEach(el => { old[el.dataset.k] = el.getBoundingClientRect(); });
@@ -428,6 +474,7 @@ function render() {
   $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div><div id="tabbody">' + body + '</div>';
   bind();
   rendered = true;
+  if (lastSwap && Date.now() < lastSwap.until) lastSwap.ids.forEach(id => { const el = document.querySelector('[data-k="q:' + id + '"]'); if (el) { el.classList.add('swapped'); setTimeout(() => el.classList.remove('swapped'), Math.max(50, lastSwap ? lastSwap.until - Date.now() : 50)); } });
   placeThumb();
   if (changed) { const tb = $('#tabbody'); if (tb) { tb.style.setProperty('--tx', (tabDir * 44) + 'px'); tb.classList.add('tabin'); } }
   else if (!first) $$('[data-k]').forEach(el => {
@@ -448,6 +495,13 @@ function bind() {
   $$('[data-shuf]').forEach(b => b.onclick = () => act(M.shuffle(b.dataset.shuf)));
   $$('[data-start]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { const pr = proposals(view)[b.dataset.start]; if (!pr) return toast('The queue changed.'); const cn0 = (view.courts.find(c => c.id === b.dataset.start) || { name: 'Court' }).name; buzz([12, 40, 12]); act(M.start(b.dataset.start, pr.t1.map(p => p.id), pr.t2.map(p => p.id))); announce(cn0, pr.t1.map(p => p.name), pr.t2.map(p => p.name)); }; });
   $$('[data-delc]').forEach(b => b.onclick = () => act(M.removeCourt(b.dataset.delc)));
+  // manual swaps: tap a name then another name, or drag the handle
+  const pick = id => { if (!selQ) { selQ = id; buzz(8); render(); } else if (selQ === id) { selQ = null; render(); } else swapPlayers(selQ, id); };
+  $$('.q[data-k^="q:"]').forEach(r => r.onclick = e => { if (e.target.closest('.grip')) return; pick(r.dataset.k.slice(2)); });
+  $$('[data-qp]').forEach(sp => sp.onclick = () => pick(sp.dataset.qp));
+  const sc = $('#selCancel'); if (sc) sc.onclick = () => { selQ = null; render(); };
+  const ao = $('#autoOrd'); if (ao) ao.onclick = e => { e.preventDefault(); act(M.autoOrder()); toast('Back to automatic order.'); };
+  $$('[data-grip]').forEach(g => g.addEventListener('pointerdown', e => startDrag(e, g.dataset.grip)));
   const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
   $$('[data-cancel]').forEach(b => b.onclick = () => { if (confirm('Cancel this game? The players go back to their place in the queue.')) act(M.cancel(b.dataset.cancel)); });
   $$('[data-fin]').forEach(b => b.onclick = () => {
