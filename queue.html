@@ -116,10 +116,15 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .dragclone{position:fixed;z-index:60;pointer-events:none;background:#fff;box-shadow:0 14px 34px rgba(0,0,0,.28);border-radius:14px;padding:10px 14px;display:flex;gap:10px;align-items:center;font-weight:700;transform:scale(1.05) rotate(-1.2deg)}
 @keyframes swapflash{0%{background:rgba(0,122,255,.38);transform:scale(1.035)}60%{transform:scale(1)}100%{background:transparent;transform:none}}
 .q.swapped{animation:swapflash 1.2s cubic-bezier(.2,.8,.2,1)}
-.swaphint{position:sticky;top:6px;z-index:5;background:var(--blue);color:#fff;border-radius:14px;padding:10px 14px;margin:8px 0;font-weight:600;display:flex;gap:10px;align-items:center;box-shadow:0 8px 20px rgba(0,122,255,.3)}.swaphint button{margin-left:auto;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:700}
+.swaphint{position:sticky;top:64px;z-index:5;background:var(--blue);color:#fff;border-radius:14px;padding:10px 14px;margin:8px 0;font-weight:600;display:flex;gap:10px;align-items:center;box-shadow:0 8px 20px rgba(0,122,255,.3)}.swaphint button{margin-left:auto;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:700}
 .team span[data-qp]{cursor:pointer;border-radius:8px;transition:background .15s}.team span[data-qp].sel{background:rgba(0,122,255,.2);outline:2px solid var(--blue)}
 
-.findbox{margin:0 0 10px}
+.qgame{padding:2px 0 12px;margin-bottom:12px;border-bottom:.5px solid var(--line)}
+.qhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.findbox{position:sticky;top:6px;z-index:30;margin:0 0 10px}
+.findbox.docked input{box-shadow:0 8px 24px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.08);background-color:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.findbox.docking{animation:dockin .38s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes dockin{from{transform:translateY(-22px) scale(.97);opacity:.4}to{transform:none;opacity:1}}
 .findbox input{width:100%;padding:11px 14px 11px 38px;border-radius:14px;border:.5px solid var(--line);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 12px center/18px no-repeat;font-size:16px}
 .findbox input:focus{outline:2px solid var(--blue);border-color:transparent}
 .foundrow{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:rgba(0,122,255,.08);border-radius:10px;padding:8px 12px;margin-top:6px;font-size:14px;animation:pop .3s cubic-bezier(.2,.8,.2,1) both}
@@ -224,10 +229,20 @@ function propose(s, taken, seed, salt) {       // a suggested game for one empty
   const rnd = mulberry(seed * 7919 + salt), four = pickFour(q, s.mode, rnd) || base, v2 = splitsFor(four, s.mode), sp = v2[Math.floor(rnd() * v2.length)];
   return { t1: sp[0], t2: sp[1] };
 }
+function queuedGames(s) {                      // games lined up ahead of time; a game drops out if one of its players is no longer waiting
+  const busy = onCourtIds(s), seen = new Set(), out = [];
+  (s.queued || []).forEach(g => {
+    const ids = g.t1.concat(g.t2);
+    if (ids.length === 4 && ids.every(id => { const p = byId(s, id); return p && p.status === 'in' && !busy.has(id) && !seen.has(id); })) { ids.forEach(id => seen.add(id)); out.push(g); }
+  });
+  return out;
+}
 function proposals(s) {
-  const taken = new Set(), out = {};
+  const taken = new Set(), out = {}, qg = queuedGames(s); let qi = 0;
+  qg.forEach(g => g.t1.concat(g.t2).forEach(id => taken.add(id)));
   s.courts.forEach((c, i) => {
     if (active(s).some(m => m.court === c.id)) return;
+    if (qi < qg.length) { const g = qg[qi++]; out[c.id] = { t1: g.t1.map(id => byId(s, id)), t2: g.t2.map(id => byId(s, id)), queued: true }; return; }
     const pr = propose(s, taken, s.seeds[c.id] || 0, i + 1);
     if (pr) { out[c.id] = pr; pr.t1.concat(pr.t2).forEach(p => taken.add(p.id)); }
   });
@@ -245,7 +260,7 @@ const M = {
     if (st === 'in' && p.status !== 'in') p.since = Date.now(); p.status = st; },
   checkInAll: () => s => { let n = 0; s.players.forEach(p => { if (p.status === 'out') { p.status = 'in'; p.since = Date.now() + n++; } }); },
   checkOutAll: () => s => { const busy = onCourtIds(s); s.players.forEach(p => { if (!busy.has(p.id) && p.status !== 'out') p.status = 'out'; }); delete s.manual; },
-  removeAll: () => s => { if (onCourtIds(s).size) throw new Error('Finish or cancel the games on court first.'); s.players = []; delete s.manual; },
+  removeAll: () => s => { if (onCourtIds(s).size) throw new Error('Finish or cancel the games on court first.'); s.players = []; s.queued = []; delete s.manual; },
   removePlayer: id => s => { if (onCourtIds(s).has(id)) throw new Error('That player is on a court.'); s.players = s.players.filter(p => p.id !== id); },
   addCourt: () => s => { if (s.courts.length >= MAX_COURTS) throw new Error('Up to ' + MAX_COURTS + ' courts.');
     const n = Math.max(0, ...s.courts.map(c => parseInt((c.name.match(/\d+/) || [0])[0], 10))) + 1; s.courts.push({ id: uid(), name: 'Court ' + n }); },
@@ -256,13 +271,27 @@ const M = {
     list.forEach((x, i) => { const c = s.courts.find(k => k.id === x.id); if (c) c.name = names[i]; });
   },
   removeCourt: id => s => { if (s.courts.length <= 1) throw new Error('Keep at least one court.'); if (active(s).some(m => m.court === id)) throw new Error('Finish the game on that court first.'); s.courts = s.courts.filter(c => c.id !== id); delete s.seeds[id]; },
+  queueGame: () => s => {
+    const cur = queuedGames(s); if (cur.length >= 4) throw new Error('Up to 4 games can be queued.');
+    const taken = new Set(); cur.forEach(g => g.t1.concat(g.t2).forEach(id => taken.add(id)));
+    const pr = propose(s, taken, 0, 100 + cur.length); if (!pr) throw new Error('Not enough players waiting for another game. Check more players in.');
+    s.queued = cur.concat([{ id: uid(), t1: pr.t1.map(p => p.id), t2: pr.t2.map(p => p.id), seed: 0 }]);
+  },
+  reQueue: id => s => {
+    const cur = queuedGames(s), g = cur.find(x => x.id === id); if (!g) return;
+    const taken = new Set(); cur.forEach(o => { if (o !== g) o.t1.concat(o.t2).forEach(i => taken.add(i)); });
+    g.seed = (g.seed || 0) + 1; const pr = propose(s, taken, g.seed, 200); if (pr) { g.t1 = pr.t1.map(p => p.id); g.t2 = pr.t2.map(p => p.id); }
+    s.queued = cur;
+  },
+  unqueue: id => s => { s.queued = (s.queued || []).filter(g => g.id !== id); },
   setMode: mode => s => { s.mode = mode; s.seeds = {}; },
   shuffle: cid => s => { s.seeds[cid] = (s.seeds[cid] || 0) + 1; },
   start: (cid, t1, t2) => s => {
     if (active(s).some(m => m.court === cid)) throw new Error('That court is already playing.');
     const ids = t1.concat(t2), busy = onCourtIds(s);
     if (new Set(ids).size !== 4 || ids.some(id => !byId(s, id) || byId(s, id).status !== 'in' || busy.has(id))) throw new Error('The queue changed. Check the next game and try again.');
-    s.matches.push({ id: uid(), court: cid, t1, t2, start: Date.now(), end: null, s1: null, s2: null }); s.seeds[cid] = 0; },
+    s.matches.push({ id: uid(), court: cid, t1, t2, start: Date.now(), end: null, s1: null, s2: null }); s.seeds[cid] = 0;
+    s.queued = (s.queued || []).filter(g => !g.t1.concat(g.t2).every(id => ids.includes(id))); },
   finish: (mid, win) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) return; m.end = Date.now();
     m.win = win === 1 || win === 2 ? win : null;
     m.t1.concat(m.t2).forEach(id => { const p = byId(s, id); if (p) { p.games++; p.since = Date.now(); } }); },
@@ -279,7 +308,7 @@ const M = {
     ids[ia] = b; ids[ib] = a; s.manual = ids;
   },
   autoOrder: () => s => { delete s.manual; },
-  newNight: () => s => { delete s.manual; s.matches = []; s.seeds = {}; s.players.forEach(p => { p.games = 0; p.paid = false; p.payBy = null; p.status = 'out'; p.since = Date.now(); }); }
+  newNight: () => s => { delete s.manual; s.queued = []; s.matches = []; s.seeds = {}; s.players.forEach(p => { p.games = 0; p.paid = false; p.payBy = null; p.status = 'out'; p.since = Date.now(); }); }
 };
 
 // ---------------------------------------------------------------- sync engine (guest = this device, cloud = shared live)
@@ -429,15 +458,22 @@ function courtsView() {
       '<div class="teams">' + teamHtml(m.t1) + '<span class="vs">VS</span>' + teamHtml(m.t2) + '</div>' +
       '<div class="row"><button class="btn green grow" data-fin="' + m.id + '">Finish</button><button class="btn ghost" data-swap="' + m.id + '">Swap</button><button class="btn danger" data-cancel="' + m.id + '">Cancel</button></div></div>';
     return '<div class="court free" data-k="c:' + c.id + ':free"><header>' + cname(c) + '<button class="xbtn" data-delc="' + c.id + '" title="Remove court" aria-label="Remove court">\u2715</button></header>' +
-      (pr ? '<div class="small mute">Next game</div><div class="teams">' + teamHtml(pr.t1, 1) + '<span class="vs">VS</span>' + teamHtml(pr.t2, 1) + '</div>' +
+      (pr ? '<div class="small mute">Next game' + (pr.queued ? ' · queued' : '') + '</div><div class="teams">' + teamHtml(pr.t1, 1) + '<span class="vs">VS</span>' + teamHtml(pr.t2, 1) + '</div>' +
         '<div class="row"><button class="btn grow" data-start="' + c.id + '">Start game</button><button class="btn ghost" data-shuf="' + c.id + '">Shuffle</button></div>'
         : '<div class="mute">Waiting for players. ' + (q.length ? q.length + ' in the queue.' : 'Nobody is checked in yet.') + (s.mode !== 'any' ? ' Mode: ' + MODES.find(x => x[0] === s.mode)[1] + '.' : '') + '</div>') + '</div>';
   }).join('');
+  const qAll = queuedGames(s), qg = qAll.slice(Object.values(props).filter(x => x.queued).length);   // games already sitting on a free court show there, not here
+  qAll.forEach(g => g.t1.concat(g.t2).forEach(id => next.add(id)));
+  const queuedHtml = '<h2>Queued next game</h2><div class="card qcard">' +
+    (qg.length ? qg.map((g, i) => '<div class="qgame" data-k="qg:' + g.id + '"><div class="qhead"><span class="small mute">Game ' + (i + 1) + ' · goes to the next free court</span><span class="grow"></span><button class="btn ghost sm" data-qshuf="' + g.id + '">Shuffle</button><button class="xbtn" data-qdel="' + g.id + '" title="Remove queued game" aria-label="Remove queued game">\u2715</button></div>' +
+      '<div class="teams">' + teamHtml(g.t1) + '<span class="vs">VS</span>' + teamHtml(g.t2) + '</div></div>').join('') :
+      '<div class="small mute" style="margin-bottom:10px">Line up the next four while courts are busy. They take the first court that frees up.</div>') +
+    '<button class="btn ghost" id="queueGame">+ Queue next game</button>' + (qAll.length ? '<span class="small mute" style="margin-left:10px">' + qAll.length + ' of 4</span>' : '') + '</div>';
   const here = s.players.filter(p => p.status === 'in').length, playing = active(s).length, doneN = s.matches.filter(m => m.end).length;
   const stats = '<div class="stats"><div class="stat"><b>' + here + '</b><span>Players here</span></div><div class="stat"><b>' + playing + '/' + s.courts.length + '</b><span>Courts playing</span></div><div class="stat"><b>' + doneN + '</b><span>Games played</span></div></div>';
   const hero = s.players.length ? '' : '<div class="card hero" data-k="hero"><div class="big">🏸</div><h1 style="font-size:22px">Ready when you are</h1><p class="mute" style="margin:4px 0 14px">Add your players, or fill in some sample players to try the queue right now.</p><div class="row" style="justify-content:center"><button class="btn" id="sampleQuick">Try with 20 sample players</button><button class="btn ghost" id="toPlayers">Add my own</button></div></div>';
   return stats + hero + '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams.</div><div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
-    '<h2>Courts</h2><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' +
+    '<h2>Courts</h2><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' + queuedHtml +
     '<h2>Up next (' + q.length + ')</h2>' + (selQ && q.some(p => p.id === selQ) ? '<div class="swaphint"><span>Tap another player to swap with <b>' + esc(nm(selQ)) + '</b></span><button id="selCancel">Cancel</button></div>' : '<div class="small mute" style="margin:-4px 2px 8px">Move players by hand: tap a name, then tap another to swap them, or drag the ⠿ handle onto someone.' + (s.manual && s.manual.length ? ' <b>Manual order is on.</b> <a href="#" id="autoOrd" style="color:var(--blue);font-weight:700">Back to automatic</a>' : '') + '</div>') + '<div class="card">' + (q.length ? q.map((p, i) => '<div class="q' + (next.has(p.id) ? ' next' : '') + (selQ === p.id ? ' sel' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
       '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
@@ -467,6 +503,14 @@ function feeOutHtml() {
     '<div class="row small" style="margin-top:6px;gap:14px"><span><b>' + rows.filter(p => p.paid).length + '</b> paid</span><span><b style="color:var(--red)">' + rows.filter(p => !p.paid).length + '</b> unpaid</span><span><b style="color:var(--green)">Cash</b> ' + peso(by('cash')) + '</span><span><b style="color:var(--blue)">GCash</b> ' + peso(by('gcash')) + '</span>' + (by(null) ? '<span class="mute">Not specified ' + peso(by(null)) + '</span>' : '') + '</div>' : '<div class="mute">Amounts appear once players have played games.</div>') + '</div>';
 }
 let findQ = '';
+function updateDock(quiet) {                   // the search bar slides into a floating bar above the lists once you scroll past it
+  const sn = $('#findSent'), f = $('.findbox'); if (!sn || !f) return;
+  const d = sn.getBoundingClientRect().top < -4;
+  if (d === f.classList.contains('docked')) return;
+  f.classList.toggle('docked', d);
+  if (d && !quiet) { f.classList.add('docking'); setTimeout(() => f.classList.remove('docking'), 420); }
+}
+window.addEventListener('scroll', () => updateDock(false), { passive: true });
 function applyFind() {
   const q = findQ.trim().toLowerCase(), info = $('#findInfo'); if (!$('#find')) return;
   const hit = n => !q || String(n).toLowerCase().includes(q);
@@ -601,12 +645,12 @@ function render() {
   const old = {}; $$('[data-k]').forEach(el => { old[el.dataset.k] = el.getBoundingClientRect(); });
   const first = !rendered, changed = tabChanged; tabChanged = false;
   const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'ranking' ? rankingView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' ? '<div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"><div id="findInfo"></div></div>' : '') + '<div id="tabbody">' + body + '</div>';
+  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' ? '<div id="findSent" style="height:1px;margin-bottom:-1px"></div><div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"><div id="findInfo"></div></div>' : '') + '<div id="tabbody">' + body + '</div>';
   bind();
   rendered = true;
   const fi = $('#find'); if (fi) { fi.oninput = () => { findQ = fi.value; applyFind(); }; fi.onkeydown = e => { if (e.key === 'Escape') { fi.value = ''; findQ = ''; applyFind(); } }; applyFind(); }
   if (lastSwap && Date.now() < lastSwap.until) lastSwap.ids.forEach(id => { const el = document.querySelector('[data-k="q:' + id + '"]'); if (el) { el.classList.add('swapped'); setTimeout(() => el.classList.remove('swapped'), Math.max(50, lastSwap ? lastSwap.until - Date.now() : 50)); } });
-  placeThumb();
+  placeThumb(); updateDock(true);
   if (changed) { const tb = $('#tabbody'); if (tb) { tb.style.setProperty('--tx', (tabDir * 44) + 'px'); tb.classList.add('tabin'); } }
   else if (!first) $$('[data-k]').forEach(el => {
     const o = old[el.dataset.k];
@@ -634,6 +678,9 @@ function bind() {
   const ao = $('#autoOrd'); if (ao) ao.onclick = e => { e.preventDefault(); act(M.autoOrder()); toast('Back to automatic order.'); };
   $$('[data-grip]').forEach(g => g.addEventListener('pointerdown', e => startDrag(e, g.dataset.grip)));
   const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
+  const qgb = $('#queueGame'); if (qgb) qgb.onclick = () => { buzz(8); act(M.queueGame()); };
+  $$('[data-qshuf]').forEach(b => b.onclick = () => act(M.reQueue(b.dataset.qshuf)));
+  $$('[data-qdel]').forEach(b => b.onclick = () => act(M.unqueue(b.dataset.qdel)));
   const rcs = $('#renCourts'); if (rcs) rcs.onclick = () => renameCourtsModal();
   $$('[data-ren]').forEach(n => n.onclick = () => renameCourtsModal(n.dataset.ren));
   $$('[data-cancel]').forEach(b => b.onclick = () => { if (confirm('Cancel this game? The players go back to their place in the queue.')) act(M.cancel(b.dataset.cancel)); });
