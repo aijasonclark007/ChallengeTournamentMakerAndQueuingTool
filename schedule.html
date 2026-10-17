@@ -118,6 +118,43 @@ summary{background:var(--chip);border:2px solid var(--blue);color:var(--blue)}
 summary::before{background-color:var(--blue);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
 summary:hover{background:#fff}
 .tag{border-radius:10px}
+/* ---- polish: steps, collapsing, share panel, preview, phones ---- */
+.lockbtn{display:none!important}
+#stepbar{position:sticky;top:0;z-index:20;margin:0 -2px 14px;padding:10px 2px 8px;background:rgba(242,242,247,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+#stepbar .steps{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}#stepbar .steps::-webkit-scrollbar{display:none}
+#stepbar button{flex:none;min-height:40px;padding:6px 14px 6px 8px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06);display:flex;align-items:center;gap:8px;font-size:14px;transition:transform .35s var(--spring,cubic-bezier(.2,.8,.2,1)),background .2s}
+#stepbar button:active{transform:scale(.94)}
+#stepbar button i{font-style:normal;width:24px;height:24px;border-radius:50%;background:var(--chip);color:var(--mute);display:grid;place-items:center;font-size:13px;font-weight:800}
+#stepbar button.done i{background:var(--lime);color:#fff}
+#stepbar button.cur{background:var(--blue);color:#fff}#stepbar button.cur i{background:rgba(255,255,255,.25);color:#fff}
+#stepbar button.off{opacity:.45}
+#stepbar .meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:13px;color:var(--mute)}
+.pill{padding:2px 10px;border-radius:999px;background:var(--chip);font-weight:700;transition:background .3s,color .3s}
+.pill.ok{background:rgba(52,199,89,.16);color:#1F7A35}.pill.busy{background:rgba(0,122,255,.12);color:var(--blue)}.pill.bad{background:rgba(255,59,48,.14);color:#C4001A}
+section,#schedSec,#standSec,#koSec{scroll-margin-top:96px}
+.stepsum{display:none;padding:10px 14px;margin-top:8px;background:#fff;border-radius:14px;box-shadow:var(--shadow);color:var(--mute)}
+.collapsed>:not(.bar):not(.stepsum){display:none!important}.collapsed>.stepsum{display:block}
+.bar .tg{min-height:36px;padding:4px 14px;display:none}.bar .tg.on{display:inline-flex;align-items:center}
+.nextrow{margin:14px 0 4px;display:flex;justify-content:flex-end}.nextrow button{min-width:200px}
+#savePill:empty{display:none}
+#previewBar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:#FFF4D6;color:#5c4100;border-radius:14px;padding:10px 14px;margin-bottom:12px}
+.pvbox{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+#sharePanel{margin:12px 0;padding:16px}#sharePanel h3{margin:0 0 4px;font-size:18px}
+#nowPlay .np{display:flex;gap:10px;align-items:center;padding:10px 12px;background:rgba(255,59,48,.07);border-radius:12px;margin:6px 0;font-weight:600}
+#nowPlay .np b{min-width:70px}#nowPlay .none{color:var(--mute);margin:6px 0}
+#utoast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,40px);opacity:0;pointer-events:none;background:#1C1C1E;color:#fff;border-radius:14px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;z-index:50;transition:all .45s var(--spring,cubic-bezier(.2,.8,.2,1));max-width:92%}
+#utoast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#utoast button{background:rgba(255,255,255,.18);min-height:36px;padding:4px 14px}
+@media (max-width:640px){
+  #table,#koTable{min-width:0!important}#table tbody,#koTable tbody,#table tr,#koTable tr,#table td,#koTable td{display:block}
+  #table tr:first-child,#koTable tr:first-child{display:none}
+  #table tr,#koTable tr{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:10px 14px;margin:8px 0}
+  #table tr.first,#koTable tr.first{margin-top:16px}
+  #table td,#koTable td{border:0;padding:2px 0}#table td.t:empty,#koTable td.t:empty{display:none}
+  #table td.t,#koTable td.t{font-weight:800;color:var(--blue)}
+  #table td:nth-child(2),#table td:nth-child(3),#koTable td:nth-child(2),#koTable td:nth-child(3){display:inline-block;margin-right:10px;color:var(--mute);font-size:13px}
+  .nextrow button{width:100%}
+}
+@media print{#stepbar,#previewBar,#sharePanel,#utoast{display:none!important}}
 </style>
 </head>
 <body>
@@ -137,9 +174,12 @@ summary:hover{background:#fff}
         <div class="row"><button id="aGo" class="go" type="submit">Sign in</button><button id="aUp" class="ghost hidden" type="button">Create account</button><button id="aForgot" class="ghost" type="button">Forgot password?</button></div>
       </form>
       <p id="authErr" class="hint err"></p>
+      <div class="pvbox"><b>Just looking?</b><span class="hint">Try the whole tool with sample players. No account, nothing is saved.</span><button id="pvTry" class="ghost" type="button">Try preview mode</button></div>
     </div>
   </section>
 <div id="toolRoot" class="hidden">
+  <div id="previewBar" class="noprint hidden"><div><b>Preview mode</b> &middot; try everything with sample players. Nothing is saved or shared.</div><div class="tools"><button id="pvAgain" class="ghost" type="button">Start over</button><button id="pvExit" class="go" type="button">Exit preview</button></div></div>
+  <nav id="stepbar" class="noprint hidden" aria-label="Steps"><div class="steps" id="steps"></div><div class="meta"><span id="prog"></span><span id="savePill" class="pill"></span></div></nav>
   <section class="noprint" id="tpanel">
     <div class="bar"><h2>Organizer Dashboard</h2><div class="tools"><span id="acct" class="hint"></span><button id="signOut" class="ghost" type="button">Sign out</button></div></div>
     <div class="card" style="margin-top:12px">
@@ -150,6 +190,7 @@ summary:hover{background:#fff}
         <div style="flex:1;min-width:220px"><label for="tname">Tournament name</label><input id="tname" type="text" placeholder="e.g. November 8 Tournament"></div>
         <button id="tNew" class="go" type="button">Create new</button>
         <button id="tRename" class="ghost" type="button">Rename current</button>
+        <button id="pvOpen" class="ghost" type="button">Preview mode</button>
       </div>
       <p id="saveNote" class="hint"></p>
       <details><summary>Backup and restore</summary>
@@ -172,7 +213,9 @@ summary:hover{background:#fff}
         <div><label for="start">First game</label><input id="start" type="time" value="14:00"></div>
         <button id="drawBtn" class="go">Pair players</button>
         <button id="sample" class="ghost" type="button">Load 72 sample players</button>
+        <button id="toQueue" class="ghost" type="button">Send players to Queue</button>
       </div>
+      <p id="plCount" class="hint"></p>
       <p id="loadMsg" class="hint"></p>
     </div>
   </section>
@@ -1106,7 +1149,7 @@ function renderKo() {
 
 const SECS = { add: '#secAdd', teams: '#secTeams', brackets: '#secBrackets' };
 function applyLock(name) {
-  const sec = $(SECS[name]), on = !!locks[name];
+  const sec = $(SECS[name]), on = false;
   if (on && name === 'teams') { $('#manualTeams').checked = false; selP = null; }
   if (on && name === 'brackets') { $('#manualBrackets').checked = false; selT = null; }
   sec.querySelectorAll('button:not(.lockbtn), input, textarea').forEach(x => { x.disabled = on; });
@@ -1117,11 +1160,11 @@ function applyLock(name) {
 }
 const applyLocks = () => Object.keys(SECS).forEach(applyLock);
 document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('.lockbtn');
-  if (b) { locks[b.dataset.lock] = !locks[b.dataset.lock]; applyLock(b.dataset.lock); }
+  /* lock buttons removed: autosave */
 });
 
 // ----- tournaments saved to the cloud (Supabase), private to the signed-in organizer -----
+let preview = false;
 let tid = null, saveTimer = null, delArm = null, cloudList = [], opening = false;
 const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
 const capture = () => ({ v: 1, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value,
@@ -1136,7 +1179,7 @@ const note = (t, bad) => { const n = $('#saveNote'); n.textContent = t; n.classN
 const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 async function saveNow() {
-  if (!tid || !Platform.user || opening) return;
+  if (!tid || !Platform.user || opening || preview) return;
   clearTimeout(saveTimer);
   const st = capture(), name = $('#tname').value.trim() || 'Untitled tournament', info = describe(st);
   note('Saving to your account...');
@@ -1147,7 +1190,7 @@ async function saveNow() {
     note('Saved to your account at ' + clock() + '.'); renderTList();
   } catch (err) { note('Could not save to the cloud (' + err.message + '). Your work is still on this page. Press Save again, or copy the backup text below.', true); }
 }
-const queueSave = () => { if (!tid || !Platform.user || opening) return; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 2500); };
+const queueSave = () => { if (!tid || !Platform.user || opening || preview) return; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 2500); };
 ['click', 'change', 'input'].forEach(ev => document.addEventListener(ev, queueSave, true));
 // the Save buttons of sections 1 to 3, and Build schedule, upload straight away
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.lockbtn, #genBtn')) setTimeout(saveNow, 60); });
@@ -1169,7 +1212,7 @@ function resetState() {
 }
 function applyState(st) {
   $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00';
-  gopt = st.gopt || {}; locks = Object.assign(locks, st.locks || {}); results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
+  gopt = st.gopt || {}; locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
   if (st.draw) { draw = createDraw(parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
   if (st.sched && draw) { sched = st.sched; renderSchedule(); }
 }
@@ -1263,6 +1306,7 @@ $('#aForgot').onclick = async () => {
 };
 $('#signOut').onclick = async () => { await saveNow(); await Platform.signOut(); };
 Platform.onAuth(user => {
+  if (preview) { if (user) $('#acct').textContent = 'Signed in as ' + user.email; return; }
   clearTimeout(saveTimer);
   if (!user) {
     tid = null; cloudList = []; resetState();
@@ -1392,7 +1436,7 @@ function showPubLink() { $('#pubLinkBox').classList.toggle('hidden', !pubSlug); 
 async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} pubSig = pubSigNow(); showPubLink(); subLive(); }
 // finished matches from the umpires' phones are saved into the scoreboard automatically
 async function pullLive() {
-  if (!pubSlug || !sched || !Platform.user || Date.now() < ingestPause || document.hidden) return;
+  if (preview || !pubSlug || !sched || !Platform.user || Date.now() < ingestPause || document.hidden) return;
   let rows; try { rows = await Platform.getLiveScores(pubSlug); } catch (e) { return; }
   let g = 0, k = 0;
   rows.forEach(r => {
@@ -1412,7 +1456,7 @@ let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pub
 let pubSig = null, pubBusy = false, pubLast = 0;
 const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim()]) : null;
 async function autoPublish() {
-  if (!pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
+  if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
   const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
   pubBusy = true;
   try { await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); pubSig = sig; pubLast = Date.now(); say('#pubMsg', 'Link updated automatically at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'); }
@@ -1421,6 +1465,7 @@ async function autoPublish() {
 }
 setInterval(autoPublish, 10000);
 async function publishNow(msg) {
+  if (preview) return say('#pubMsg', 'Preview mode: sharing is turned off. Exit preview to publish a real schedule.');
   if (!sched) return say('#pubMsg', 'Build the schedule first.');
   if (!Platform.user) return say('#pubMsg', 'Sign in to get a shareable link. You can still download the page.');
   if (!tid) return say('#pubMsg', 'Save this tournament to your account first, then get the link.');
@@ -1433,6 +1478,149 @@ $('#pubUpd').onclick = () => publishNow('Updated. The same link now shows the la
 $('#pubCopy').onclick = async () => { const i = $('#pubUrl'); i.select(); try { await navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); } say('#pubMsg', 'Link copied.'); };
 $('#pubOff').onclick = async () => { if (!pubSlug) return; try { await Platform.unpublishSchedule(pubSlug); pubSlug = null; showPubLink(); say('#pubMsg', 'Sharing stopped. The old link no longer works.'); } catch (e) { say('#pubMsg', e.message); } };
 $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pubBody(false); window.print(); };
+</script>
+<script>
+// ===== polish layer: steps, collapsing, saved indicator, share panel, undo, preview =====
+(function () {
+  const STEPS = [['players', 'Players', '#secAdd'], ['teams', 'Teams', '#secTeams'], ['brackets', 'Brackets', '#secBrackets'], ['schedule', 'Schedule', '#schedSec'], ['standings', 'Standings', '#standSec'], ['knockout', 'Knockout', '#koSec']];
+  const avail = k => ({ players: true, teams: !!draw, brackets: !!draw, schedule: !!sched, standings: !!sched, knockout: !!ko })[k];
+  const isDone = k => ({ players: !!draw, teams: !!draw, brackets: !!sched, schedule: !!sched, standings: Object.values(results).some(r => r.saved), knockout: !!ko && Object.values(koResults).some(r => r.saved) })[k];
+  const hidden = sel => $(sel).classList.contains('hidden') || ($(sel).closest('.hidden') && $(sel).closest('.hidden') !== $('#toolRoot') && $(sel).closest('.hidden').id !== 'toolRoot');
+  let pending = null, prev = { draw: false, sched: false };
+  const tell = k => { try { if (window.parent !== window) window.parent.postMessage({ t: 'tab', tool: 'draw', tab: k }, location.origin); } catch (e) {} };
+
+  function goStep(k, quiet) {
+    const s = STEPS.find(x => x[0] === k); if (!s) return;
+    if (!avail(k)) { pending = k; return; }
+    const el = $(s[2]); el.classList.remove('collapsed'); el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!quiet) tell(k);
+  }
+  window.addEventListener('message', e => { if (e.origin !== location.origin) return; const d = e.data; if (d && d.t === 'goto' && d.tab) { pending = d.tab; refresh(); } });
+
+  // stepbar
+  $('#steps').addEventListener('click', e => { const b = e.target.closest('button'); if (b && !b.classList.contains('off')) goStep(b.dataset.s); });
+  document.addEventListener('click', e => {
+    const n = e.target.closest('[data-next]'); if (n) { goStep(n.dataset.next); return; }
+    const t = e.target.closest('.tg'); if (t) { const sec = t.closest('section'); sec.classList.toggle('collapsed'); refresh(); }
+  });
+
+  // headers: collapse button + summary line on sections 1-3, "next" buttons
+  [['#secAdd', 'players'], ['#secTeams', 'teams'], ['#secBrackets', 'brackets']].forEach(([sel, k]) => {
+    const sec = $(sel), bar = sec.querySelector('.bar'), tools = bar.querySelector('.tools') || bar;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ghost tg'; b.dataset.k = k; tools.appendChild(b);
+    const sum = document.createElement('div'); sum.className = 'stepsum'; sum.id = 'sum-' + k; bar.after(sum);
+  });
+  function addNext(sec, to, label) { const d = document.createElement('div'); d.className = 'nextrow noprint'; d.innerHTML = '<button class="go" type="button" data-next="' + to + '">' + label + '</button>'; $(sec).appendChild(d); }
+  addNext('#secTeams', 'brackets', 'Next: Brackets →');
+  addNext('#secBrackets', 'schedule', '');
+  $('#secBrackets .nextrow button').outerHTML = '<button class="go" type="button" id="genBtn2">Build schedule →</button>';
+  $('#genBtn2').onclick = () => $('#genBtn').click();
+  addNext('#schedSec', 'standings', 'Next: Standings →');
+
+  // share & live panel: one place for the link, umpire links, live games and the preview
+  const panel = document.createElement('div'); panel.id = 'sharePanel'; panel.className = 'card noprint';
+  panel.innerHTML = '<h3>Share &amp; live scores</h3><p class="hint" style="margin:0 0 6px">Get one link for players, one link per court for umpires, and see games being scored right now.</p><div id="nowPlay"></div>';
+  const anchor = $('#schedSec .bar'); anchor.after(panel);
+  ['#pubLinkBox', '#umpBox', '#pubMsg', '#pubDet'].forEach(s => panel.appendChild($(s)));
+  $('#umpBox').setAttribute('open', ''); $('#nowPlay').after($('#pubLinkBox'));
+  const np = { sub: null, t: 0 };
+  async function nowTick() {
+    const box = $('#nowPlay'); if (preview || !pubSlug || !sched) { box.innerHTML = ''; return; }
+    if (document.hidden) return;
+    let rows; try { rows = await Platform.getLiveScores(pubSlug); } catch (e) { return; }
+    const by = {}; try { matchList().forEach(m => { by[m.mid] = m; }); } catch (e) {}
+    const live = rows.filter(r => r.status === 'live' && by[r.match_id]);
+    box.innerHTML = '<b>Now playing</b>' + (live.length ? live.map(r => { const m = by[r.match_id]; return '<div class="np"><b>' + esc(m.court) + '</b><span>' + esc(m.t1) + ' <b style="min-width:0">' + r.s1 + ' - ' + r.s2 + '</b> ' + esc(m.t2) + '</span></div>'; }).join('') : '<div class="none">No games are being scored live right now.</div>');
+  }
+  setInterval(nowTick, 8000);
+
+  // saved indicator
+  const pill = $('#savePill');
+  function pillFrom(t) {
+    t = t || ''; if (preview) { pill.className = 'pill'; pill.textContent = 'Not saved (preview)'; return; }
+    if (/^Saving/.test(t)) { pill.className = 'pill busy'; pill.textContent = 'Saving…'; }
+    else if (/^Saved to your account at (.+)\.$/.test(t)) { pill.className = 'pill ok'; pill.textContent = 'Saved ✓ ' + t.match(/at (.+)\.$/)[1]; }
+    else if (/^Could not save/.test(t)) { pill.className = 'pill bad'; pill.textContent = 'Not saved. Tap to retry'; }
+  }
+  new MutationObserver(() => pillFrom($('#saveNote').textContent)).observe($('#saveNote'), { childList: true, characterData: true, subtree: true });
+  pill.onclick = () => { if (pill.classList.contains('bad')) saveNow(); };
+  document.addEventListener('input', e => { if (!preview && Platform.user && tid && !e.target.closest('#authForm')) { pill.className = 'pill busy'; pill.textContent = 'Saving…'; } }, true);
+
+  // players counter, and "send to Queue"
+  const validPlayers = () => parsePlayers($('#players').value).filter(p => p.name && LEVELS.includes(p.skill));
+  function count() {
+    const n = validPlayers().length, all = parsePlayers($('#players').value).length;
+    $('#plCount').textContent = !all ? 'Paste or type your players, one per line. Or press "Load 72 sample players" to try it.' : n < 4 ? n + ' player' + (n === 1 ? '' : 's') + ' ready. Add at least 4 so there are 2 teams.' : n + ' players ready.' + (all > n ? ' ' + (all - n) + ' line(s) need a level of High, Mid or Low.' : '');
+    $('#toQueue').disabled = !n;
+  }
+  $('#players').addEventListener('input', count);
+  $('#toQueue').onclick = () => {
+    const list = validPlayers().map(p => ({ name: p.name, level: p.skill }));
+    if (!list.length) return;
+    if (window.parent === window) { $('#loadMsg').textContent = 'Open this from the main page to send players to the Queuing Tool.'; return; }
+    window.parent.postMessage({ t: 'sendQueue', players: list }, location.origin);
+  };
+
+  // undo for actions that rearrange or erase work
+  const toast = $('#utoast') || (() => { const d = document.createElement('div'); d.id = 'utoast'; d.innerHTML = '<span id="utxt"></span><button id="uundo" type="button">Undo</button>'; document.body.appendChild(d); return d; })();
+  let utimer = null, usnap = null;
+  function offer(msg, snap) { usnap = snap; $('#utxt').textContent = msg; toast.classList.add('on'); clearTimeout(utimer); utimer = setTimeout(() => toast.classList.remove('on'), 9000); }
+  $('#uundo').onclick = () => { if (!usnap) return; const st = JSON.parse(usnap); usnap = null; toast.classList.remove('on'); resetState(); applyState(st); applyLocks(); prev = { draw: false, sched: false }; refresh(); queueSave(); };
+  const UNDO = { '#shuffleTeams': 'Teams reshuffled', '#shuffleBrackets': 'Brackets redrawn', '#clearScores': 'Scores cleared', '#drawBtn': 'Players paired again' };
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest(Object.keys(UNDO).join(',')); if (!b) return;
+    const snap = JSON.stringify(capture()), msg = UNDO['#' + b.id];
+    setTimeout(() => { if (JSON.stringify(capture()) !== snap && draw) offer(msg + '.', snap); }, 80);
+  }, true);
+
+  // ---- preview mode ----
+  function sampleList() { const o = []; [['High', 8], ['Mid', 8], ['Low', 8]].forEach(([l, n]) => { for (let i = 1; i <= n; i++) o.push(l + ' Player ' + i + ', ' + l); }); return o.join('\n'); }
+  function runDemo() {
+    resetState(); $('#players').value = sampleList(); count();
+    startDraw(); $('#genBtn').click(); prev = { draw: false, sched: false }; refresh();
+    window.scrollTo(0, 0);
+  }
+  async function enterPreview() {
+    if (Platform.user && tid) await saveNow();
+    preview = true; clearTimeout(saveTimer); pubSlug = null; pubKey = null; showPubLink();
+    $('#authGate').classList.add('hidden'); $('#toolRoot').classList.remove('hidden'); $('#tpanel').classList.add('hidden'); $('#previewBar').classList.remove('hidden');
+    runDemo(); pillFrom('');
+  }
+  async function exitPreview() {
+    preview = false; $('#previewBar').classList.add('hidden'); $('#tpanel').classList.remove('hidden'); resetState(); prev = { draw: false, sched: false };
+    if (Platform.user) { $('#authGate').classList.add('hidden'); if (tid) { await openT(tid); } else loadAll(); }
+    else { $('#toolRoot').classList.add('hidden'); $('#authGate').classList.remove('hidden'); }
+    pill.className = 'pill'; pill.textContent = ''; refresh();
+  }
+  $('#pvTry').onclick = enterPreview; $('#pvOpen').onclick = enterPreview; $('#pvExit').onclick = exitPreview; $('#pvAgain').onclick = runDemo;
+
+  // ---- keep everything in sync ----
+  const sums = () => {
+    if (draw) { const st = draw.getState(); $('#sum-players').textContent = validPlayers().length + ' players · ' + gopt.courts + ' courts · first game ' + (gopt.startTime || '');
+      $('#sum-teams').textContent = st.teams.length + ' teams' + (st.unpaired.length ? ' · ' + st.unpaired.length + ' waiting for a partner' : '');
+      $('#sum-brackets').textContent = st.brackets.length + ' brackets' + (sched ? ' · ' + sched.matches.length + ' games scheduled' : ''); }
+  };
+  function refresh() {
+    const toolOn = !$('#toolRoot').classList.contains('hidden');
+    $('#stepbar').classList.toggle('hidden', !toolOn);
+    // collapse finished steps once, when they first become finished
+    if (draw && !prev.draw) $('#secAdd').classList.add('collapsed');
+    if (sched && !prev.sched) { $('#secTeams').classList.add('collapsed'); $('#secBrackets').classList.add('collapsed'); }
+    if (!draw) ['#secAdd', '#secTeams', '#secBrackets'].forEach(s => $(s).classList.remove('collapsed'));
+    prev = { draw: !!draw, sched: !!sched };
+    const cur = (STEPS.find(s => avail(s[0]) && !isDone(s[0])) || STEPS[STEPS.length - 1])[0];
+    let done = 0;
+    $('#steps').innerHTML = STEPS.map((s, i) => { const d = isDone(s[0]), a = avail(s[0]); if (d) done++; return '<button type="button" data-s="' + s[0] + '" class="' + (d ? 'done ' : '') + (s[0] === cur ? 'cur ' : '') + (a ? '' : 'off') + '"><i>' + (d ? '✓' : i + 1) + '</i>' + s[1] + '</button>'; }).join('');
+    $('#prog').textContent = done + ' of ' + STEPS.length + ' steps done';
+    [['players', 'draw'], ['teams', 'draw'], ['brackets', 'draw']].forEach(([k]) => { const sec = $('#' + ({ players: 'secAdd', teams: 'secTeams', brackets: 'secBrackets' })[k]), b = sec.querySelector('.tg'); b.classList.toggle('on', !!draw); b.textContent = sec.classList.contains('collapsed') ? 'Edit' : 'Hide'; });
+    sums();
+    if (pending && avail(pending) && !$(STEPS.find(s => s[0] === pending)[2]).classList.contains('hidden')) { const k = pending; pending = null; setTimeout(() => goStep(k, true), 250); }
+    if (pubSlug && np.sub !== pubSlug) { np.sub = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, nowTick); } catch (e) {} nowTick(); }
+    if (!pubSlug) $('#nowPlay').innerHTML = '';
+  }
+  ['click', 'input', 'change'].forEach(ev => document.addEventListener(ev, () => setTimeout(refresh, 120), true));
+  setInterval(refresh, 1500); count(); refresh();
+})();
 </script>
 </body>
 </html>

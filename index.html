@@ -412,7 +412,11 @@ window.addEventListener('resize', setHdr);
 // the tools tell us when their tab changes, so the address (and the Back button) follows them; links like #/queue/players open that tab
 window.addEventListener('message', e => {
   if (e.origin !== location.origin) return; const d = e.data;
-  if (d && d.t === 'tab' && d.tool === 'queue') { const hh = '#/queue/' + d.tab; if (location.hash !== hh) history.pushState(null, '', hh); }
+  if (d && d.t === 'tab' && (d.tool === 'queue' || d.tool === 'draw')) { const hh = '#/' + d.tool + '/' + d.tab; if (location.hash !== hh) history.pushState(null, '', hh); }
+  if (d && d.t === 'sendQueue' && Array.isArray(d.players)) {      // Draw & Schedule -> Queuing Tool
+    const f = ensureTool('queue'), go = () => { try { f.contentWindow.postMessage({ t: 'import', players: d.players }, location.origin); } catch (x) {} };
+    history.pushState(null, '', '#/queue/players'); route(); if (f.dataset.ready) setTimeout(go, 350); else f.addEventListener('load', () => setTimeout(go, 600), { once: true });
+  }
 });
 function gotoTool(name, arg) {
   const f = ensureTool(name), send = () => { try { f.contentWindow.postMessage({ t: 'goto', tab: arg }, location.origin); } catch (x) {} };
@@ -420,7 +424,7 @@ function gotoTool(name, arg) {
 }
 function showTool(name, arg) {
   ensureTool(name); $('#view').style.display = 'none'; $('#tools').style.display = '';
-  document.documentElement.classList.add('tool-mode'); setHdr(); if (arg && name === 'queue') gotoTool(name, arg);
+  document.documentElement.classList.add('tool-mode'); setHdr(); if (arg) gotoTool(name, arg);
   Object.keys(TOOLS).forEach(n => { const x = $('#tool-' + n); if (x) x.style.display = n === name ? '' : 'none'; });   // going from hidden to shown replays the pop-in
   window.scrollTo(0, 0);
 }
