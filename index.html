@@ -118,6 +118,25 @@ input[type=password]{width:100%;font:inherit;padding:12px 14px;border-radius:12p
 .btn.sm{border:0;font:inherit;font-weight:700;cursor:pointer;border-radius:12px;padding:9px 15px;font-size:14px;text-align:center}
 .mrow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-top:.5px solid var(--line)}.mrow:first-child{border-top:0}.mrow .grow small{display:block;margin-top:3px}
 .authwrap{max-width:460px;margin:12px auto 0}
+.atabs{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--fill,#E9E9EE);border-radius:14px;padding:3px;margin:0 0 12px}
+.atabs button{position:relative;z-index:1;border:0;background:none;font:inherit;font-weight:700;font-size:14px;padding:9px 6px;border-radius:11px;color:var(--mute);cursor:pointer;transition:color .3s}
+.atabs button.on{color:var(--ink)}
+.athumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);background:#fff;border-radius:11px;box-shadow:0 1px 4px rgba(0,0,0,.12);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.atabs[data-on=up] .athumb{transform:translateX(100%)}
+.flip{perspective:1600px}
+.flipin{display:grid;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.25,.8,.25,1)}
+.flipin.flipped{transform:rotateY(180deg)}
+.flipin .face{grid-area:1/1;align-self:start;backface-visibility:hidden;-webkit-backface-visibility:hidden;margin:0}
+.flipin .face.flipback{transform:rotateY(180deg)}
+.pwrow{position:relative}.pwrow input{padding-right:64px}
+.eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--blue);font:inherit;font-weight:700;font-size:13px;padding:8px 10px;cursor:pointer}
+.meter{display:flex;gap:5px;margin:-6px 2px 4px}.meter i{flex:1;height:5px;border-radius:3px;background:#E3E3E8;transition:background .25s}
+.meter i.s1{background:#FF3B30}.meter i.s2{background:#FF9F0A}.meter i.s3{background:#34C759}
+.hint{min-height:18px;margin:0 2px 10px;color:var(--mute)}
+.swap{margin:14px 2px 0;font-size:14px;color:var(--mute)}.swap .linkchip{padding:0;background:none}
+.sentok{text-align:center;padding:10px 0;animation:donepop .45s cubic-bezier(.2,.8,.2,1)}@keyframes donepop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}.sentok .env{font-size:54px;animation:envbob 1.6s ease-in-out infinite}
+@keyframes envbob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-8px) rotate(4deg)}}
+@media (prefers-reduced-motion:reduce){.flipin,.athumb{transition:none}.sentok .env{animation:none}}
 .chk{display:flex;gap:10px;align-items:center;font-size:14px;margin-top:4px}.chk input{width:18px;height:18px}
 .share{display:flex;gap:8px;max-width:520px;margin:0 auto}.share input{flex:1;min-width:0}
 .manage{margin-bottom:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.manage small{width:100%;color:var(--mute)}
@@ -170,6 +189,7 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
 <script src="tournaments.js"></script>
 <script>
 const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const STATUS = { open: 'Registration open', soon: 'Coming soon', done: 'Completed' };
@@ -229,23 +249,66 @@ function listPage() {
 
 // ---------- account (sign in / create account) ----------
 function accountPage(next) {
-  return '<div class="authwrap"><div class="card pad"><h1 style="font-size:28px">Sign in or create an account</h1><p class="lead">' + (next === 'new' ? 'Create a free account to set up your own tournament.' : 'Sign in to manage your tournaments.') + '</p>' +
-    '<form id="af" novalidate><div class="fld"><label class="f" for="ae">Email</label><input id="ae" type="email" autocomplete="username" placeholder="you@example.com"></div>' +
-    '<div class="fld"><label class="f" for="ap">Password</label><input id="ap" type="password" autocomplete="current-password" placeholder="At least 8 characters"></div>' +
-    '<p class="err" id="aerr"></p><div class="acts"><button class="btn sm" id="ain" type="submit">Sign in</button><button class="btn sm ghost" id="aup" type="button">Create account</button><button class="btn sm ghost" id="afg" type="button">Forgot password?</button></div></form></div></div>';
+  const eye = id => '<button class="eye" type="button" data-eye="' + id + '" aria-label="Show password">Show</button>';
+  const pw = (id, label, ph, ac) => '<div class="fld"><label class="f" for="' + id + '">' + label + '</label><div class="pwrow"><input id="' + id + '" type="password" autocomplete="' + ac + '" placeholder="' + ph + '">' + eye(id) + '</div></div>';
+  return '<div class="authwrap"><div class="atabs" id="atabs" role="tablist"><button type="button" data-face="in" role="tab">Sign in</button><button type="button" data-face="up" role="tab">Create account</button><i class="athumb"></i></div>' +
+    '<div class="flip"><div class="flipin" id="flipin">' +
+    '<form class="card pad face" id="fin" novalidate><h1 style="font-size:28px">Welcome back</h1><p class="lead">Sign in to manage your tournaments.</p>' +
+      '<div class="fld"><label class="f" for="ie">Email</label><input id="ie" type="email" autocomplete="username" placeholder="you@example.com"></div>' + pw('ip', 'Password', 'Your password', 'current-password') +
+      '<p class="err" id="ierr"></p><div class="acts"><button class="btn sm" id="isub" type="submit">Sign in</button><button class="btn sm ghost" id="ifg" type="button">Forgot password?</button></div>' +
+      '<p class="swap">New here? <button type="button" class="linkchip" data-face="up">Create an account</button></p></form>' +
+    '<form class="card pad face flipback" id="fup" novalidate><h1 style="font-size:28px">Create your account</h1><p class="lead">A free account to set up your own tournament.</p>' +
+      '<div class="fld"><label class="f" for="ue">Email</label><input id="ue" type="email" autocomplete="username" placeholder="you@example.com"></div>' + pw('up1', 'Password', 'At least 8 characters', 'new-password') +
+      '<div class="meter" id="meter" aria-hidden="true"><i></i><i></i><i></i></div><div class="small hint" id="mtxt"></div>' + pw('up2', 'Re-type password', 'Type it again', 'new-password') + '<div class="small hint" id="mmatch"></div>' +
+      '<p class="err" id="uerr"></p><div class="acts"><button class="btn sm" id="usub" type="submit">Create account</button></div>' +
+      '<p class="swap">Already have an account? <button type="button" class="linkchip" data-face="in">Sign in</button></p></form>' +
+    '</div></div></div>';
 }
 function initAccount(next) {
-  if (!cloud) { $('#aerr').textContent = 'The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.'; return; }
-  const err = (m, ok) => { const e = $('#aerr'); e.textContent = m || ''; e.style.color = ok ? '#1E8E3E' : ''; };
+  const wrap = $('.authwrap'), fl = $('#flipin'), fin = $('#fin'), fup = $('#fup');
+  const ie = $('#ie'), ue = $('#ue');
+  const say = (id, m, ok) => { const e = $(id); if (!e) return; e.textContent = m || ''; e.style.color = ok ? '#1E8E3E' : ''; };
+  let face = next === 'new' ? 'up' : 'in';
+  const show = (f, quiet) => {                                  // flip the card over to the other side
+    if (!quiet) { if (f === 'up' && ie.value && !ue.value) ue.value = ie.value; if (f === 'in' && ue.value && !ie.value) ie.value = ue.value; }
+    face = f; fl.classList.toggle('flipped', f === 'up');
+    fin.inert = f === 'up'; fup.inert = f === 'in'; fin.setAttribute('aria-hidden', f === 'up'); fup.setAttribute('aria-hidden', f === 'in');
+    $$('#atabs button').forEach(b => b.classList.toggle('on', b.dataset.face === f)); $('#atabs').dataset.on = f;
+    say('#ierr', ''); say('#uerr', '');
+    if (!quiet) setTimeout(() => { const el = f === 'up' ? (ue.value ? $('#up1') : ue) : (ie.value ? $('#ip') : ie); el.focus({ preventScroll: true }); }, 480);
+  };
+  $$('[data-face]').forEach(b => b.onclick = () => show(b.dataset.face));
+  $$('[data-eye]').forEach(b => b.onclick = () => { const i = $('#' + b.dataset.eye), on = i.type === 'password'; i.type = on ? 'text' : 'password'; b.textContent = on ? 'Hide' : 'Show'; b.setAttribute('aria-label', on ? 'Hide password' : 'Show password'); });
+  show(face, true);
+  // live feedback while creating the account: strength and match
+  const strength = p => (p.length >= 8 ? 1 : 0) + (/[A-Z]/.test(p) && /[a-z]/.test(p) ? 1 : 0) + (/\d/.test(p) || /[^A-Za-z0-9]/.test(p) ? 1 : 0) + (p.length >= 12 ? 0 : 0);
+  const feel = () => {
+    const p = $('#up1').value, q = $('#up2').value, st = p.length < 8 ? 0 : Math.max(1, strength(p)), lab = ['', 'Weak', 'Okay', 'Strong'];
+    $$('#meter i').forEach((b, k) => { b.className = k < st ? 's' + st : ''; });
+    $('#mtxt').textContent = !p ? '' : p.length < 8 ? (8 - p.length) + ' more character' + (8 - p.length === 1 ? '' : 's') + ' needed' : lab[st] + ' password';
+    const m = $('#mmatch'); m.textContent = !q ? '' : q === p ? '✓ Passwords match' : 'Passwords do not match yet'; m.style.color = !q ? '' : q === p ? '#1E8E3E' : '#D70015';
+  };
+  $('#up1').oninput = feel; $('#up2').oninput = feel;
+  if (!cloud) { say('#ierr', 'The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.'); say('#uerr', 'The cloud is not connected yet.'); return; }
   const go = async () => { await new Promise(r => { const i = setInterval(() => { if (P.user) { clearInterval(i); r(); } }, 50); setTimeout(() => { clearInterval(i); r(); }, 3000); }); location.hash = '#/' + (next || 'mine'); };
-  $('#af').addEventListener('submit', async e => { e.preventDefault(); err('');
-    if (!$('#ae').value.trim() || !$('#ap').value) return err('Enter your email and password.');
-    $('#ain').disabled = true; try { await P.signIn($('#ae').value, $('#ap').value); await go(); } catch (x) { err(x.message); } $('#ain').disabled = false; });
-  $('#aup').onclick = async () => { err('');
-    if (!$('#ae').value.trim() || !$('#ap').value) return err('Enter your email and a password (8+ characters), then press Create account.');
-    try { const r = await P.signUp($('#ae').value, $('#ap').value); if (r === 'signed-in') await go(); else err('Almost there! We sent a confirmation link to your email. Open it, then come back and sign in.', true); } catch (x) { err(x.message); } };
-  $('#afg').onclick = async () => { err(''); if (!$('#ae').value.trim()) return err('Type your email first, then press Forgot password.');
-    try { await P.resetPassword($('#ae').value); err('If that email has an account, a reset link is on its way.', true); } catch (x) { err(x.message); } };
+  fin.addEventListener('submit', async e => { e.preventDefault(); say('#ierr', '');
+    if (!ie.value.trim() || !$('#ip').value) return say('#ierr', 'Enter your email and password.');
+    $('#isub').disabled = true; try { await P.signIn(ie.value, $('#ip').value); await go(); } catch (x) { say('#ierr', x.message); } $('#isub').disabled = false; });
+  fup.addEventListener('submit', async e => { e.preventDefault(); say('#uerr', '');
+    const em = ue.value.trim(), p = $('#up1').value, q = $('#up2').value;
+    if (!/^\S+@\S+\.\S+$/.test(em)) return say('#uerr', 'Enter a valid email.');
+    if (p.length < 8) return say('#uerr', 'Your password needs at least 8 characters.');
+    if (p !== q) return say('#uerr', 'The two passwords do not match.');
+    $('#usub').disabled = true;
+    try {
+      const r = await P.signUp(em, p);
+      if (r === 'signed-in') { await go(); return; }
+      fup.innerHTML = '<div class="sentok"><div class="env">✉️</div><h1 style="font-size:26px">Check your email</h1><p class="lead">We sent a confirmation link to <b>' + esc(em) + '</b>. Open it, then come back and sign in.</p><div class="acts" style="justify-content:center"><button class="btn sm" id="backin" type="button">Back to sign in</button></div></div>';
+      $('#backin').onclick = () => { ie.value = em; show('in'); };
+    } catch (x) { say('#uerr', x.message); $('#usub').disabled = false; }
+  });
+  $('#ifg').onclick = async () => { say('#ierr', ''); if (!ie.value.trim()) return say('#ierr', 'Type your email first, then press Forgot password.');
+    try { await P.resetPassword(ie.value); say('#ierr', 'If that email has an account, a reset link is on its way.', true); } catch (x) { say('#ierr', x.message); } };
 }
 // pages that need a signed-in user
 function needUser(next) {
