@@ -56,6 +56,18 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 #ov .row{display:flex;gap:10px}#ov .row button{flex:1;padding:14px;border-radius:14px;font-weight:800;background:#EEF1F7}#ov .row .go{background:var(--navy);color:#fff}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:all .3s;z-index:40;pointer-events:none;max-width:90%;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
+/* phone held sideways (umpire facing the court): the two teams sit side by side */
+@media (orientation:landscape) and (max-height:560px){
+  #score{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  .sbar{padding:6px 12px}.sbar button{padding:6px 12px}.sbar .mid{font-size:12px}
+  .sides{flex-direction:row;gap:10px;padding:8px 12px}
+  .side{min-width:0;justify-content:space-evenly;padding:6px 0}
+  .side .nm{font-size:16px;line-height:1.2;padding:0 10px;max-height:2.4em;overflow:hidden}
+  .side .pt{font-size:clamp(60px,34vh,150px)}
+  .side .hint{position:static;font-size:11px}
+  .banner{padding:6px 12px;font-size:13px}
+  .acts{padding:2px 12px 8px}.acts button{padding:10px 8px}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -95,7 +107,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   let flushing = null, netErr = false;
   function paintNet() {
     const n = pendingN(), off = !navigator.onLine || netErr;
-    const msg = n ? (off ? 'Offline. ' : 'Sending. ') + n + (n === 1 ? ' score is' : ' scores are') + ' saved on this phone' + (off ? ' and will be sent when you are back online.' : '...') : (!navigator.onLine ? 'Offline. Showing the saved schedule.' : '');
+    const msg = off ? (n ? 'Offline. ' + n + (n === 1 ? ' score is' : ' scores are') + ' saved on this phone and will be sent when you are back online.' : (!navigator.onLine ? 'Offline. Showing the saved schedule.' : '')) : '';   // quiet while online: scores still save and send in the background
     ['#netbar', '#netbar2'].forEach(sel => { const e = $(sel); if (e) { e.textContent = msg; e.classList.toggle('on', !!msg); e.classList.toggle('warn', off); } });
     dot(n && off ? 'err' : n ? 'off' : (off ? 'err' : ''));
   }
