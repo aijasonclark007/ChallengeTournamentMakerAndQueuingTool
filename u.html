@@ -14,6 +14,8 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulat
 .top{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
 .top h1{margin:0;font-size:17px;flex:1;line-height:1.2}.top small{display:block;font-weight:500;opacity:.75;font-size:13px}
 .dot{width:10px;height:10px;border-radius:50%;background:#7bd88f;flex:none;transition:background .2s}.dot.off{background:#ffb703}.dot.err{background:var(--red)}
+.netbar,#netbar{display:none;margin:0;padding:8px 16px;background:#E8F0FE;color:#0B4EA2;font-size:14px;font-weight:600;text-align:center}
+.netbar.on,#netbar.on{display:block}.netbar.warn,#netbar.warn{background:#FFF1D6;color:#8A5300}
 .wrap{padding:14px 14px 40px;max-width:560px;margin:0 auto}
 .msg{padding:40px 20px;text-align:center;color:var(--mute)}
 .card{background:#fff;border:0;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);border-radius:18px;padding:14px;margin:10px 0;display:block;width:100%;text-align:left;transition:transform .15s,box-shadow .2s}
@@ -59,10 +61,12 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 </head>
 <body>
 <div class="top"><h1 id="ttl">Umpire scoring<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
+<div id="netbar" role="status"></div>
 <div class="wrap" id="list"><div class="msg">Loading...</div></div>
 
 <div id="score" aria-live="polite">
   <div class="sbar"><button id="back">Back</button><div class="mid" id="smid"></div><button id="swap">Swap sides</button></div>
+  <div id="netbar2" class="netbar" role="status"></div>
   <div class="sides" id="sides"></div>
   <div class="banner" id="ban"></div>
   <div class="acts"><button id="undo">Undo</button><button id="rst">Cancel live</button><button class="fin" id="fin">Finish match</button></div>
@@ -83,11 +87,53 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   const toast = (t) => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
   const dot = k => { $('#dot').className = 'dot' + (k ? ' ' + k : ''); };
 
+  // ----- offline safety: every score is written to this phone first, then sent whenever there is a connection -----
+  const OUT = 'ump.out.' + slug, CACHE = 'ump.data.' + slug + '.' + key;
+  const readOut = () => { try { return JSON.parse(localStorage.getItem(OUT) || '{}') || {}; } catch (e) { return {}; } };
+  const writeOut = o => { try { if (Object.keys(o).length) localStorage.setItem(OUT, JSON.stringify(o)); else localStorage.removeItem(OUT); } catch (e) {} };
+  const pendingN = () => Object.keys(readOut()).length;
+  let flushing = null, netErr = false;
+  function paintNet() {
+    const n = pendingN(), off = !navigator.onLine || netErr;
+    const msg = n ? (off ? 'Offline. ' : 'Sending. ') + n + (n === 1 ? ' score is' : ' scores are') + ' saved on this phone' + (off ? ' and will be sent when you are back online.' : '...') : (!navigator.onLine ? 'Offline. Showing the saved schedule.' : '');
+    ['#netbar', '#netbar2'].forEach(sel => { const e = $(sel); if (e) { e.textContent = msg; e.classList.toggle('on', !!msg); e.classList.toggle('warn', off); } });
+    dot(n && off ? 'err' : n ? 'off' : (off ? 'err' : ''));
+  }
+  function enqueue(op) { const o = readOut(); op.seq = ((o[op.id] && o[op.id].seq) || 0) + 1; o[op.id] = op; writeOut(o); paintNet(); flush(); }
+  function applyOutbox() { const o = readOut(); Object.keys(o).forEach(id => { const x = o[id]; if (x.op === 'reset') delete scores[id]; else scores[id] = { id, s1: x.s1, s2: x.s2, status: x.status }; }); }
+  const permanent = e => /finished|valid|tie|Bad/i.test((e && e.message) || '');       // the server said no: retrying will not help
+  function flush() {
+    if (flushing) return flushing;
+    flushing = (async () => {
+      let resync = false;
+      for (;;) {
+        const o = readOut(), ids = Object.keys(o); if (!ids.length) break;
+        const id = ids[0], x = o[id];
+        try {
+          if (x.op === 'reset') await P.umpireReset(slug, key, id); else await P.umpireScore(slug, key, id, x.s1, x.s2, x.status);
+          netErr = false; try { P.liveChannel('slive-' + slug).ping(); } catch (e) {}
+        } catch (e) {
+          if (!permanent(e)) { netErr = true; break; }                                  // offline: keep it and try again later
+          toast(e.message); resync = true;
+        }
+        const now = readOut(); if (now[id] && now[id].seq === x.seq) { delete now[id]; writeOut(now); }   // unless a newer score arrived meanwhile
+      }
+      if (resync && !cur) load();
+    })().finally(() => { flushing = null; paintNet(); if (!cur && data && !pendingN()) renderList(); });
+    return flushing;
+  }
+
   async function load() {
     try {
-      data = await P.umpireGet(slug, key); scores = {}; (data.scores || []).forEach(x => { scores[x.id] = x; }); dot('');
-      if (!cur) renderList();
-    } catch (e) { dot('err'); if (!data) $('#list').innerHTML = '<div class="msg">' + esc(e.message) + '</div>'; }
+      const d = await P.umpireGet(slug, key); data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; });
+      try { localStorage.setItem(CACHE, JSON.stringify(d)); } catch (e) {}
+      netErr = false; applyOutbox(); if (!cur) renderList();
+    } catch (e) {
+      netErr = true;
+      if (!data) { try { const c = JSON.parse(localStorage.getItem(CACHE) || 'null'); if (c) { data = c; scores = {}; (c.scores || []).forEach(x => { scores[x.id] = x; }); applyOutbox(); if (!cur) renderList(); } } catch (x) {} }
+      if (!data) $('#list').innerHTML = '<div class="msg">' + (navigator.onLine ? esc(e.message) : 'You are offline. Open this link once with a connection to load the matches, then it keeps working without one.') + '</div>';
+    }
+    paintNet();
   }
   const mine = () => (data.matches || []).filter(m => !court || m.court === court).sort((a, b) => (a.slot - b.slot) || String(a.court).localeCompare(String(b.court)));
   function state(m) { const s = scores[m.mid]; if (s) return s.status; if (m.res) return 'done'; return 'up'; }
@@ -98,8 +144,9 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     const card = m => {
       const st = state(m), s = scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null), ready = m.t1 && m.t2;
       let next = false; if (!nextFound && st !== 'done' && ready) { next = true; nextFound = true; }
+      const wait = readOut()[m.mid] ? '<span style="color:#8A5300;font-weight:700">Saved on phone</span>' : '';
       const badge = st === 'live' ? '<span class="badge live">LIVE</span>' : st === 'done' ? '<span class="badge done">FINAL</span>' : '<span class="badge up">' + (ready ? (next ? 'UP NEXT' : 'UPCOMING') : 'TO BE DECIDED') + '</span>';
-      return '<button class="card' + (next ? ' next' : '') + '" data-m="' + esc(m.mid) + '"' + (ready || st !== 'up' ? '' : ' disabled') + '><div class="t">' + badge + '<span>' + esc(m.time) + '</span>' + (court ? '' : '<span>' + esc(m.court) + '</span>') + '<span>' + esc(m.bracket) + '</span></div>' +
+      return '<button class="card' + (next ? ' next' : '') + '" data-m="' + esc(m.mid) + '"' + (ready || st !== 'up' ? '' : ' disabled') + '><div class="t">' + badge + wait + '<span>' + esc(m.time) + '</span>' + (court ? '' : '<span>' + esc(m.court) + '</span>') + '<span>' + esc(m.bracket) + '</span></div>' +
         '<div class="v">' + esc(m.t1 || 'TBD') + '<i>vs</i>' + esc(m.t2 || 'TBD') + (s ? '<div style="margin-top:4px;font-size:22px">' + s.s1 + ' - ' + s.s2 + '</div>' : '') + '</div></button>';
     };
     $('#list').innerHTML = (court ? '' : '<p class="msg" style="padding:0 0 6px;text-align:left">Tip: ask the organizer for your court link to see only your court.</p>') + '<h2>Your matches</h2>' + ms.map(card).join('');
@@ -107,18 +154,11 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   }
 
   // ----- scoring screen -----
-  let pushing = false, dirty = null, lastErr = false;
-  async function push(final) {
-    dirty = { s1, s2, status: final ? 'done' : 'live', id: cur.mid };
-    if (pushing) return pushing;
-    pushing = (async () => {
-      while (dirty) {
-        const d = dirty; dirty = null; dot('off');
-        try { await P.umpireScore(slug, key, d.id, d.s1, d.s2, d.status); dot(''); try { P.liveChannel('slive-' + slug).ping(); } catch (x) {} lastErr = false; scores[d.id] = { id: d.id, s1: d.s1, s2: d.s2, status: d.status }; }
-        catch (e) { dot('err'); lastErr = true; if (/finished|valid|tie|Bad/i.test(e.message)) { toast(e.message); dirty = null; throw e; } dirty = dirty || d; await new Promise(r => setTimeout(r, 2000)); }
-      }
-    })().finally(() => { pushing = false; });
-    return pushing;
+  function save(final) {                       // newest score for the match wins, so only the latest needs to be kept and sent
+    const st = final ? 'done' : 'live';
+    scores[cur.mid] = { id: cur.mid, s1, s2, status: st };
+    enqueue({ id: cur.mid, op: 'score', s1, s2, status: st });
+    try { localStorage.setItem('ump.' + slug + '.' + cur.mid, JSON.stringify({ s1, s2, hist })); } catch (e) {}
   }
   function paint(bump) {
     const m = cur, done = state(m) === 'done' && scores[m.mid] && scores[m.mid].status === 'done';
@@ -136,8 +176,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   function add(i) {
     if (s1 >= TARGET || s2 >= TARGET) return buzz(30);
     hist.push([s1, s2]); if (i === 0) s1++; else s2++;
-    buzz(10); paint(i); push(false).catch(() => {});
-    try { localStorage.setItem('ump.' + slug + '.' + cur.mid, JSON.stringify({ s1, s2, hist })); } catch (e) {}
+    buzz(10); save(false); paint(i);
   }
   async function openMatch(mid) {
     cur = (data.matches || []).find(m => m.mid === mid); if (!cur) return;
@@ -148,14 +187,15 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     $('#score').classList.add('on'); paint();
     if (!sv || sv.status !== 'done') { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
   }
-  async function resetLive(quiet) {
+  function resetLive(quiet) {
     if (!cur) return; const id = cur.mid;
-    try { await P.umpireReset(slug, key, id); try { P.liveChannel('slive-' + slug).ping(); } catch (x) {} delete scores[id]; s1 = 0; s2 = 0; hist = []; try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {} if (!quiet) toast('Match taken off LIVE.'); }
-    catch (e) { toast(e.message); throw e; }
+    enqueue({ id, op: 'reset' }); delete scores[id]; s1 = 0; s2 = 0; hist = [];
+    try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {}
+    if (!quiet) toast('Match taken off LIVE.');
   }
   async function closeMatch() {
     // leaving a match nobody has scored in: take it off LIVE so it is not shown as playing
-    if (cur && s1 === 0 && s2 === 0 && scores[cur.mid] && scores[cur.mid].status === 'live') { try { if (pushing) await pushing; await resetLive(true); } catch (e) {} }
+    if (cur && s1 === 0 && s2 === 0 && scores[cur.mid] && scores[cur.mid].status === 'live') resetLive(true);
     $('#score').classList.remove('on'); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
   $('#back').onclick = () => closeMatch();
   $('#rst').onclick = async () => {
@@ -164,24 +204,29 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     const has = s1 > 0 || s2 > 0;
     const ok = await ask('Cancel live scoring?', has ? 'This discards the current score (' + s1 + ' - ' + s2 + ') and takes the match off LIVE. You can start it again later.' : 'This takes the match off LIVE.', 'Cancel live');
     if (!ok) return;
-    try { if (pushing) await pushing; await resetLive(false); paint(); closeMatch(); } catch (e) {}
+    resetLive(false); paint(); closeMatch();
   };
   $('#swap').onclick = () => { flipped = !flipped; buzz(8); paint(); };
-  $('#undo').onclick = () => { if (!hist.length) return; [s1, s2] = hist.pop(); buzz(8); paint(); push(false).catch(() => {}); };
+  $('#undo').onclick = () => { if (!hist.length) return; [s1, s2] = hist.pop(); buzz(8); save(false); paint(); };
   const ask = (t, p, yes) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
   $('#fin').onclick = async () => {
     if (!cur || s1 === s2) return;
     const lead = s1 > s2 ? cur.t1 : cur.t2, reached = s1 >= TARGET || s2 >= TARGET;
     const ok = await ask('Finish this match?', (reached ? '' : 'Nobody has reached ' + TARGET + ' yet. ') + lead + ' wins ' + Math.max(s1, s2) + ' - ' + Math.min(s1, s2) + '. The score is saved to the scoreboard and cannot be changed from here.', 'Finish');
     if (!ok) return;
-    try { await push(true); buzz([20, 60, 20]); toast('Saved. Final score ' + s1 + ' - ' + s2); closeMatch(); } catch (e) { /* toast already shown */ }
+    save(true); buzz([20, 60, 20]);
+    toast(navigator.onLine && !netErr ? 'Saved. Final score ' + s1 + ' - ' + s2 : 'Saved on this phone. It will be sent when you are back online.'); closeMatch();
   };
-  window.addEventListener('online', () => { if (cur) push(false).catch(() => {}); });
+  window.addEventListener('online', () => { paintNet(); flush(); });
+  window.addEventListener('offline', paintNet);
   document.addEventListener('visibilitychange', async () => { if (!document.hidden && cur && !wake) { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} } });
 
   if (!slug || !key) { $('#list').innerHTML = '<div class="msg">This link is incomplete. Ask the organizer for your court link.</div>'; return; }
   if (!P || !P.configured) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
-  load(); timer = setInterval(() => { if (!cur && !document.hidden) load(); }, 12000);
+  flush(); load();
+  timer = setInterval(() => { if (document.hidden) return; if (pendingN()) flush(); if (!cur) load(); }, 12000);
+  setInterval(() => { if (!document.hidden && pendingN()) flush(); }, 4000);
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});   // lets this page open again with no signal
 })();
 </script>
 </body>
