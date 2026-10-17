@@ -279,7 +279,9 @@ function watch() {
   if (backend.type !== 'cloud') return;
   unsub = P.subscribeQueue(backend.id, takeRemote); pollTimer = setInterval(poll, 4000);
 }
-function safeRender() { const a = document.activeElement; if (a && /INPUT|SELECT|TEXTAREA/.test(a.tagName) && $('#root').contains(a)) { pendingRender = true; return; } render(); }
+let renderSig = '';
+function safeRender() { if (rendered && JSON.stringify(view) === renderSig) return;     // nothing changed since the last draw: skip the second redraw (it made new items blink twice)
+  const a = document.activeElement; if (a && /INPUT|SELECT|TEXTAREA/.test(a.tagName) && $('#root').contains(a)) { pendingRender = true; return; } render(); }
 document.addEventListener('focusout', () => { if (pendingRender) setTimeout(() => { const a = document.activeElement; if (!(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) { pendingRender = false; render(); } }, 50); });
 
 // ---------------------------------------------------------------- small UI helpers
@@ -468,6 +470,7 @@ function swapPlayers(a, b) {
 }
 function render() {
   if (liveCode) return;
+  renderSig = JSON.stringify(view);
   const old = {}; $$('[data-k]').forEach(el => { old[el.dataset.k] = el.getBoundingClientRect(); });
   const first = !rendered, changed = tabChanged; tabChanged = false;
   const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'fees' ? feesView() : historyView();
