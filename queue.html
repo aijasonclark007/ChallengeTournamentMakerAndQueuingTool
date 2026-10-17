@@ -85,6 +85,21 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .hero{text-align:center;padding:26px 14px}.hero .big{font-size:42px}
 #root{animation:tabin .35s ease both}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+:root{--spring:cubic-bezier(.2,.8,.2,1)}
+@supports (transition-timing-function:linear(0,1)){:root{--spring:linear(0.0, 0.064, 0.214, 0.4, 0.586, 0.75, 0.881, 0.976, 1.037, 1.071, 1.083, 1.081, 1.07, 1.055, 1.039, 1.025, 1.013, 1.004, 0.998, 0.995, 0.993, 0.993, 0.994, 0.995, 0.996, 0.998, 0.999, 0.999, 1.0, 1.0, 1.001, 1.001, 1.001, 1.0, 1.0, 1.0, 1)}}
+.pop{animation:pop .5s var(--spring) both}
+@keyframes tabin{from{opacity:0;transform:translateX(var(--tx,0px)) translateY(8px)}to{opacity:1;transform:none}}
+.tabin{animation:tabin .5s var(--spring) both}
+#ov .sheet{transition:transform .45s var(--spring);position:relative;touch-action:pan-y}
+#ov .sheet:before{content:"";display:block;width:38px;height:5px;border-radius:3px;background:rgba(60,60,67,.25);margin:-8px auto 12px}
+@media(min-width:600px){#ov .sheet:before{display:none}}
+.btn:active,.seg button:active,.pill:active{transition-duration:.08s}
+.btn,.seg button,.pill{transition-timing-function:var(--spring)}
+#tabs{position:relative}
+#tabs .thumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform,width}
+#tabs button{position:relative;z-index:1}#tabs button.on{background:none;box-shadow:none}
+#root{touch-action:pan-y pinch-zoom}
 </style>
 </head>
 <body>
@@ -252,10 +267,51 @@ function modal(title, body, buttons) {
   $('#sheet').innerHTML = '<h3>' + esc(title) + '</h3>' + body + '<div class="row" style="margin-top:14px;justify-content:flex-end" id="mbtn"></div>';
   const bar = $('#mbtn'); (buttons || []).concat([{ label: 'Close', cls: 'ghost', fn: () => true }]).forEach(b => {
     const el = document.createElement('button'); el.className = 'btn ' + (b.cls || ''); el.textContent = b.label; el.onclick = () => { if (b.fn($('#sheet')) !== false) closeModal(); }; bar.appendChild(el); });
+  const sh0 = $('#sheet'); sh0.style.transition = ''; sh0.style.transform = ''; $('#ov').style.background = '';
   $('#ov').classList.add('on');
 }
 function closeModal() { $('#ov').classList.remove('on'); }
 $('#ov').addEventListener('click', e => { if (e.target.id === 'ov') closeModal(); });
+// iOS-style drag down to close a sheet
+(function () {
+  const sh = $('#sheet'), ov = $('#ov'); let y0 = 0, x0 = 0, t0 = 0, dy = 0, lock = '', on = false;
+  sh.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; on = sh.scrollTop <= 0; y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; t0 = Date.now(); dy = 0; lock = ''; }, { passive: true });
+  sh.addEventListener('touchmove', e => {
+    if (!on) return; const t = e.touches[0], ddy = t.clientY - y0, ddx = t.clientX - x0;
+    if (!lock) { if (Math.abs(ddy) < 8 && Math.abs(ddx) < 8) return; lock = (ddy > 0 && Math.abs(ddy) > Math.abs(ddx)) ? 'v' : 'x'; }
+    if (lock !== 'v') return; dy = Math.max(0, ddy);
+    sh.style.transition = 'none'; sh.style.transform = 'translateY(' + dy + 'px)'; ov.style.background = 'rgba(0,0,0,' + (.35 * Math.max(0, 1 - dy / 420)).toFixed(3) + ')';
+  }, { passive: true });
+  sh.addEventListener('touchend', () => {
+    if (lock !== 'v') return; const vel = dy / Math.max(1, Date.now() - t0); lock = '';
+    if (dy > 110 || vel > .7) { sh.style.transition = 'transform .28s ease-in'; sh.style.transform = 'translateY(105%)'; buzz(6); setTimeout(() => { closeModal(); }, 200); }
+    else { sh.style.transition = 'transform .5s ' + SPRING; sh.style.transform = ''; ov.style.background = ''; }
+  });
+})();
+// iOS-style swipe between tabs
+(function () {
+  const root = $('#root'); let x0 = 0, y0 = 0, lock = '', tb = null, ok = false;
+  root.addEventListener('touchstart', e => {
+    const t = e.touches[0]; tb = $('#tabbody');
+    ok = e.touches.length === 1 && t.clientX > 24 && !liveCode && tb && !$('#ov').classList.contains('on') && !e.target.closest('input,select,textarea,.noswipe');
+    x0 = t.clientX; y0 = t.clientY; lock = '';
+  }, { passive: true });
+  root.addEventListener('touchmove', e => {
+    if (!ok) return; const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if (!lock) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return; lock = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'h' : 'v'; }
+    if (lock !== 'h') return;
+    const i = TABS.indexOf(tab), edge = (dx > 0 && i === 0) || (dx < 0 && i === TABS.length - 1);
+    tb.style.transition = 'none'; tb.style.transform = 'translateX(' + (dx * (edge ? .18 : .55)).toFixed(1) + 'px)'; tb.style.opacity = String(1 - Math.min(.35, Math.abs(dx) / 500));
+  }, { passive: true });
+  root.addEventListener('touchend', e => {
+    if (!ok || lock !== 'h') return; lock = '';
+    const dx = e.changedTouches[0].clientX - x0, i = TABS.indexOf(tab), next = TABS[i + (dx < 0 ? 1 : -1)];
+    if (Math.abs(dx) > 60 && next) { goTab(next); return; }
+    tb.style.transition = 'transform .5s ' + SPRING + ', opacity .3s'; tb.style.transform = ''; tb.style.opacity = '';
+    if (Math.abs(dx) > 60) buzz(5);
+  });
+})();
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.btn,.pill,.seg button')) buzz(6); });
 const nm = id => { const p = byId(view, id); return p ? p.name : '?'; };
 const chipOf = id => { const p = byId(view, id); return p ? '<span class="chip ' + p.level + '">' + p.level + '</span>' : ''; };
 const names = ids => ids.map(nm).join(' & ');
@@ -340,7 +396,21 @@ function historyView() {
     (m.s1 != null && m.s2 != null ? '<span class="amt">' + m.s1 + ' - ' + m.s2 + '</span>' : '') + '</div>').join('') : '<div class="mute">Finished games show up here.</div>') + '</div>' +
     '<div class="row" style="margin-top:12px"><button class="btn danger" id="night">Start a fresh queuing (reset games and payments)</button></div>';
 }
-let tabChanged = false, rendered = false, announceOn = false;
+let tabChanged = false, rendered = false, announceOn = false, tabDir = 0, lastThumb = null;
+const TABS = ['courts', 'players', 'fees', 'history'];
+function goTab(k) { if (k === tab || !TABS.includes(k)) return; tabDir = TABS.indexOf(k) > TABS.indexOf(tab) ? 1 : -1; tab = k; tabChanged = true; buzz(8); render(); }
+function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.2,.8,.2,1)';
+function placeThumb() {
+  const th = $('#thumb') || $('#tabs .thumb'), on = $('#tabs button.on'); if (!th || !on) return;
+  const x = on.offsetLeft, w = on.offsetWidth;
+  if (lastThumb && (lastThumb.x !== x || lastThumb.w !== w)) {
+    th.style.transition = 'none'; th.style.width = lastThumb.w + 'px'; th.style.transform = 'translateX(' + lastThumb.x + 'px)'; th.offsetWidth;
+    th.style.transition = 'transform .5s ' + SPRING + ', width .5s ' + SPRING;
+  } else th.style.transition = 'none';
+  th.style.width = w + 'px'; th.style.transform = 'translateX(' + x + 'px)';
+  lastThumb = { x, w };
+}
 try { announceOn = localStorage.getItem('queue.ann') === '1'; } catch (e) {}
 function announce(court, t1, t2) {
   if (!announceOn) return;
@@ -355,27 +425,28 @@ function render() {
   const old = {}; $$('[data-k]').forEach(el => { old[el.dataset.k] = el.getBoundingClientRect(); });
   const first = !rendered, changed = tabChanged; tabChanged = false;
   const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div id="tabbody">' + body + '</div>';
+  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div><div id="tabbody">' + body + '</div>';
   bind();
   rendered = true;
-  if (changed) { const tb = $('#tabbody'); if (tb) tb.classList.add('tabin'); }
+  placeThumb();
+  if (changed) { const tb = $('#tabbody'); if (tb) { tb.style.setProperty('--tx', (tabDir * 44) + 'px'); tb.classList.add('tabin'); } }
   else if (!first) $$('[data-k]').forEach(el => {
     const o = old[el.dataset.k];
     if (!o) { el.classList.add('pop'); return; }
     const n = el.getBoundingClientRect(), dx = o.left - n.left, dy = o.top - n.top;
-    if (Math.abs(dx) + Math.abs(dy) > 2 && el.animate) el.animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    if (Math.abs(dx) + Math.abs(dy) > 2 && el.animate) el.animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }], { duration: 500, easing: SPRING });
   });
 }
 
 // ---------------------------------------------------------------- events
 function bind() {
-  $$('[data-tab]').forEach(b => b.onclick = () => { if (tab !== b.dataset.tab) { tab = b.dataset.tab; tabChanged = true; render(); } });
+  $$('[data-tab]').forEach(b => b.onclick = () => { goTab(b.dataset.tab); });
   const si = $('#si'); if (si) si.onclick = e => { e.preventDefault(); goSignIn(); };
   const gr = $('#gReset'); if (gr) gr.onclick = () => { if (confirm('Clear the preview session on this device?')) { server = { state: blank(), version: 0 }; pending = []; saveGuest(); recompute(); render(); } };
   // courts
   $$('[data-mode]').forEach(b => b.onclick = () => act(M.setMode(b.dataset.mode)));
   $$('[data-shuf]').forEach(b => b.onclick = () => act(M.shuffle(b.dataset.shuf)));
-  $$('[data-start]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { const pr = proposals(view)[b.dataset.start]; if (!pr) return toast('The queue changed.'); const cn0 = (view.courts.find(c => c.id === b.dataset.start) || { name: 'Court' }).name; act(M.start(b.dataset.start, pr.t1.map(p => p.id), pr.t2.map(p => p.id))); announce(cn0, pr.t1.map(p => p.name), pr.t2.map(p => p.name)); }; });
+  $$('[data-start]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { const pr = proposals(view)[b.dataset.start]; if (!pr) return toast('The queue changed.'); const cn0 = (view.courts.find(c => c.id === b.dataset.start) || { name: 'Court' }).name; buzz([12, 40, 12]); act(M.start(b.dataset.start, pr.t1.map(p => p.id), pr.t2.map(p => p.id))); announce(cn0, pr.t1.map(p => p.name), pr.t2.map(p => p.name)); }; });
   $$('[data-delc]').forEach(b => b.onclick = () => act(M.removeCourt(b.dataset.delc)));
   const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
   $$('[data-cancel]').forEach(b => b.onclick = () => { if (confirm('Cancel this game? The players go back to their place in the queue.')) act(M.cancel(b.dataset.cancel)); });
@@ -402,7 +473,7 @@ function bind() {
     $$('[data-sn]').forEach(b => b.onclick = () => { const list = sampleList(parseInt(b.dataset.sn, 10)); closeModal(); act(M.addPlayers(list)); toast('Added ' + list.length + ' sample players'); });
   };
   const sq = $('#sampleQuick'); if (sq) sq.onclick = () => { const list = sampleList(20); act(M.addPlayers(list)); toast('Added 20 sample players. Tap Start on a court!'); };
-  const tp = $('#toPlayers'); if (tp) tp.onclick = () => { tab = 'players'; tabChanged = true; render(); };
+  const tp = $('#toPlayers'); if (tp) tp.onclick = () => { goTab('players'); };
   const pcl = $('#pclr'); if (pcl) pcl.onclick = () => act(M.removeSamples());
   const an = $('#ann'); if (an) an.onclick = () => { announceOn = !announceOn; try { localStorage.setItem('queue.ann', announceOn ? '1' : '0'); } catch (e) {} an.textContent = announceOn ? '🔔 Announcements on' : '🔕 Announcements off'; if (announceOn) announce('Test court', ['Ana'], ['Ben']); };
   const pall = $('#pall'); if (pall) pall.onclick = () => act(M.checkInAll());
