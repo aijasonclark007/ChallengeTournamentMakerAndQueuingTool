@@ -168,6 +168,20 @@
     needSb(); const r = await sb.rpc('get_public_queue', { p_code: String(code || '') });
     if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
   }
+  // ---------- published schedule links ----------
+  async function publishSchedule(drawId, name, html) {
+    need(); const r = await sb.rpc('publish_schedule', { p_draw: drawId, p_name: name, p_html: html });
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function myPublishedSchedule(drawId) {
+    need(); const r = await sb.from('published_schedules').select('slug, updated_at').eq('draw_id', drawId).maybeSingle();
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function unpublishSchedule(slug) { need(); const r = await sb.from('published_schedules').delete().eq('slug', slug); if (r.error) fail(r.error); }
+  async function getPublicSchedule(slug) {
+    needSb(); const r = await sb.rpc('get_public_schedule', { p_slug: String(slug || '') });
+    if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
+  }
   function subscribeQueue(id, cb) {                         // live pushes; the page also polls as a safety net
     try {
       const ch = sb.channel('queue-' + id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: QT, filter: 'id=eq.' + id }, p => { if (p && p.new) cb(p.new); }).subscribe();
@@ -181,7 +195,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue,
+    listQueueSessions, getQueueSession, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, unpublishSchedule, getPublicSchedule,
     whenReady: () => readyP,
     get user() { return user; }
   };
