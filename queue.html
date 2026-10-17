@@ -495,7 +495,7 @@ function courtsView() {
   return stats + hero + '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams.</div><div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
     '<h2>Courts</h2><div class="small mute" style="margin:-4px 2px 8px">Tap a player\'s name to swap them.</div><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' + queuedHtml +
     '<div class="row" style="margin:20px 4px 8px"><h2 style="margin:0">Up next (' + q.length + ')</h2><span class="grow"></span><div class="seg sortseg" id="sortSeg">' + [['queue', 'Order'], ['least', 'Fewest games'], ['most', 'Most']].map(([k, l]) => '<button data-sort="' + k + '" class="' + (sortMode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>' + (selQ && q.some(p => p.id === selQ) ? '<div class="swaphint"><span>Tap another player to swap with <b>' + esc(nm(selQ)) + '</b></span><button id="selCancel">Cancel</button></div>' : '<div class="small mute" style="margin:-4px 2px 8px">Move players by hand: tap a name, then tap another to swap them, or drag the ⠿ handle onto someone.' + (s.manual && s.manual.length ? ' <b>Manual order is on.</b> <a href="#" id="autoOrd" style="color:var(--blue);font-weight:700">Back to automatic</a>' : '') + '</div>') + '<div class="card">' + (q.length ? shown.map(({ p, i }) => '<div class="q' + (next.has(p.id) ? ' next' : '') + (selQ === p.id ? ' sel' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
-      '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><button class="btn ghost sm wsw" data-wswap="' + p.id + '">\u21C4 Swap</button><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
+      '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
 function playersView() {
   const recs = records(view), s = view, busy = onCourtIds(s), list = s.players.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -710,20 +710,13 @@ function bind() {
   $$('[data-delc]').forEach(b => b.onclick = () => { const c = view.courts.find(x => x.id === b.dataset.delc); if (confirm('Remove ' + (c ? c.name : 'this court') + '?')) act(M.removeCourt(b.dataset.delc)); });
   // manual swaps: tap a name then another name, or drag the handle
   const pick = id => { if (!selQ) { selQ = id; buzz(8); render(); } else if (selQ === id) { selQ = null; render(); } else swapPlayers(selQ, id); };
-  $$('.q[data-k^="q:"]').forEach(r => r.onclick = e => { if (e.target.closest('.grip,.wsw')) return; pick(r.dataset.k.slice(2)); });
+  $$('.q[data-k^="q:"]').forEach(r => r.onclick = e => { if (e.target.closest('.grip')) return; pick(r.dataset.k.slice(2)); });
   $$('[data-sw]').forEach(sp => sp.onclick = () => swapSheet(sp.dataset.sw));
   const sc = $('#selCancel'); if (sc) sc.onclick = () => { selQ = null; render(); };
   const ao = $('#autoOrd'); if (ao) ao.onclick = e => { e.preventDefault(); act(M.autoOrder()); toast('Back to automatic order.'); };
   $$('[data-grip]').forEach(g => g.addEventListener('pointerdown', e => startDrag(e, g.dataset.grip)));
   const ac = $('#addCourt'); if (ac) ac.onclick = () => act(M.addCourt());
   const qgb = $('#queueGame'); if (qgb) qgb.onclick = () => { buzz(8); act(M.queueGame()); };
-  $$('[data-wswap]').forEach(b => b.onclick = () => {
-    const id = b.dataset.wswap, q = queueOrder(view), me = q.findIndex(x => x.id === id);
-    if (q.length < 2) return toast('Need at least two waiting players to swap.');
-    modal('Swap ' + nm(id), '<div class="small mute" style="margin-bottom:8px">Swap places with:</div><div class="swaplist">' + q.map((p, i) => p.id === id ? '' : '<button class="swrow" data-wto="' + p.id + '"><span><b>' + (i + 1) + '. ' + esc(p.name) + '</b> ' + chipOf(p.id) + '</span><span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + '</span></button>').join('') + '</div>', []);
-    $$('[data-wto]').forEach(o => o.onclick = () => { closeModal(); swapPlayers(id, o.dataset.wto); });
-  });
-  $$('[data-sort]').forEach(b => b.onclick = () => { sortMode = b.dataset.sort; buzz(6); render(); });
   $$('[data-qshuf]').forEach(b => b.onclick = () => act(M.reQueue(b.dataset.qshuf)));
   $$('[data-qdel]').forEach(b => b.onclick = () => act(M.unqueue(b.dataset.qdel)));
   const rcs = $('#renCourts'); if (rcs) rcs.onclick = () => renameCourtsModal();
