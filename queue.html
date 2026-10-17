@@ -117,6 +117,12 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .findbox input:focus{outline:2px solid var(--blue);border-color:transparent}
 .foundrow{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:rgba(0,122,255,.08);border-radius:10px;padding:8px 12px;margin-top:6px;font-size:14px;animation:pop .3s cubic-bezier(.2,.8,.2,1) both}
 .team span.hit{background:#FFF3B0;border-radius:8px;outline:2px solid #FFC20E}
+
+.winbtn{display:flex;align-items:center;gap:12px;width:100%;margin:8px 0;padding:18px 16px;border:2px solid var(--line);border-radius:18px;background:#fff;font-size:18px;text-align:left;transition:transform .15s cubic-bezier(.2,.8,.2,1),background .2s,border-color .2s,box-shadow .2s}
+.winbtn span{font-size:26px;filter:grayscale(1);opacity:.5;transition:all .25s}
+.winbtn:hover{border-color:var(--green)}.winbtn:active{transform:scale(.97)}
+.winbtn.picked{background:rgba(52,199,89,.16);border-color:var(--green);box-shadow:0 6px 18px rgba(52,199,89,.3);animation:pop .4s cubic-bezier(.2,.8,.2,1)}
+.winbtn.picked span{filter:none;opacity:1;transform:scale(1.25) rotate(-8deg)}
 </style>
 </head>
 <body>
@@ -225,8 +231,8 @@ const M = {
     const ids = t1.concat(t2), busy = onCourtIds(s);
     if (new Set(ids).size !== 4 || ids.some(id => !byId(s, id) || byId(s, id).status !== 'in' || busy.has(id))) throw new Error('The queue changed. Check the next game and try again.');
     s.matches.push({ id: uid(), court: cid, t1, t2, start: Date.now(), end: null, s1: null, s2: null }); s.seeds[cid] = 0; },
-  finish: (mid, s1, s2) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) return; m.end = Date.now();
-    m.s1 = Number.isFinite(s1) ? s1 : null; m.s2 = Number.isFinite(s2) ? s2 : null;
+  finish: (mid, win) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) return; m.end = Date.now();
+    m.win = win === 1 || win === 2 ? win : null;
     m.t1.concat(m.t2).forEach(id => { const p = byId(s, id); if (p) { p.games++; p.since = Date.now(); } }); },
   cancel: mid => s => { s.matches = s.matches.filter(m => m.id !== mid || m.end); },
   swap: (mid, outId, inId) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) throw new Error('That game already ended.');
@@ -443,7 +449,7 @@ function feesView() {
 function historyView() {
   const done = view.matches.filter(m => m.end).sort((a, b) => b.end - a.end), cn = id => (view.courts.find(c => c.id === id) || { name: 'Court' }).name;
   return '<div class="card">' + (done.length ? done.map(m => '<div class="q"><div class="grow"><b>' + esc(names(m.t1)) + '</b> <span class="mute">vs</span> <b>' + esc(names(m.t2)) + '</b><div class="small mute">' + esc(cn(m.court)) + ' · ' + fmtT(m.end - m.start) + ' · ' + new Date(m.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</div></div>' +
-    (m.s1 != null && m.s2 != null ? '<span class="amt">' + m.s1 + ' - ' + m.s2 + '</span>' : '') + '</div>').join('') : '<div class="mute">Finished games show up here.</div>') + '</div>' +
+    (m.win ? '<span class="amt" style="font-size:14px;text-align:right">🏆 ' + esc(names(m.win === 1 ? m.t1 : m.t2)) + '</span>' : m.s1 != null && m.s2 != null ? '<span class="amt">' + m.s1 + ' - ' + m.s2 + '</span>' : '') + '</div>').join('') : '<div class="mute">Finished games show up here.</div>') + '</div>' +
     '<div class="row" style="margin-top:12px"><button class="btn danger" id="night">Start a fresh queuing (reset games and payments)</button></div>';
 }
 let selQ = null, lastSwap = null, tabChanged = false, rendered = false, announceOn = false, tabDir = 0, lastThumb = null;
@@ -537,8 +543,14 @@ function bind() {
   $$('[data-cancel]').forEach(b => b.onclick = () => { if (confirm('Cancel this game? The players go back to their place in the queue.')) act(M.cancel(b.dataset.cancel)); });
   $$('[data-fin]').forEach(b => b.onclick = () => {
     const m = view.matches.find(x => x.id === b.dataset.fin); if (!m) return;
-    modal('Finish game', '<div class="two"><div><label class="lab">' + esc(names(m.t1)) + '</label><input id="f1" type="number" min="0" max="99" inputmode="numeric" placeholder="Score"></div><div><label class="lab">' + esc(names(m.t2)) + '</label><input id="f2" type="number" min="0" max="99" inputmode="numeric" placeholder="Score"></div></div><div class="small mute" style="margin-top:8px">Scores are optional.</div>',
-      [{ label: 'Save result', cls: 'green', fn: sh => { act(M.finish(m.id, parseInt(sh.querySelector('#f1').value, 10), parseInt(sh.querySelector('#f2').value, 10))); } }]);
+    modal('Who won?', '<div class="small mute" style="margin-bottom:10px">Tap the winning team. The game is saved right away.</div>' +
+      [1, 2].map(w => '<button class="winbtn" data-w="' + w + '"><span>🏆</span><b>' + esc(names(w === 1 ? m.t1 : m.t2)) + '</b></button>').join(''),
+      [{ label: 'No winner', cls: 'ghost', fn: () => { act(M.finish(m.id, 0)); } }]);
+    $$('#sheet .winbtn').forEach(wb => wb.onclick = () => {
+      if (wb.dataset.done) return; $$('#sheet .winbtn').forEach(x => { x.dataset.done = '1'; }); wb.classList.add('picked'); buzz([10, 40, 10]);
+      act(M.finish(m.id, +wb.dataset.w)); toast(names(+wb.dataset.w === 1 ? m.t1 : m.t2) + ' won!');
+      setTimeout(closeModal, 380);
+    });
   });
   $$('[data-swap]').forEach(b => b.onclick = () => {
     const m = view.matches.find(x => x.id === b.dataset.swap); if (!m) return;
