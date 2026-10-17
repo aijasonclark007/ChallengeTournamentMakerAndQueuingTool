@@ -515,7 +515,9 @@ function courtsView() {
   const qAll = queuedGames(s), qg = qAll.slice(Object.values(props).filter(x => x.queued).length);   // games already sitting on a free court show there, not here
   qAll.forEach(g => g.t1.concat(g.t2).forEach(id => next.add(id)));
   const qBtn = '<button class="btn ghost" id="queueGame">+ Queue next game</button>' + (qAll.length ? '<span class="small mute">' + qAll.length + ' of 4</span>' : '');
-  const queuedHtml = '<h2>Queued next game</h2>' + (qg.length ?
+  const onCourts = qAll.length - qg.length;           // queued games that already took a free court
+  const courtNote = onCourts ? '<div class="small mute" style="margin:0 2px 10px">' + onCourts + ' queued game' + (onCourts === 1 ? ' is' : 's are') + ' already on a free court above (marked "Next game · queued"), ready to start.</div>' : '';
+  const queuedHtml = '<h2>Queued next game</h2>' + courtNote + (qg.length ?
     '<div class="qgrid">' + qg.map((g, i) => '<div class="qgame" data-k="qg:' + g.id + '"><div class="qhead"><b>Game ' + (i + 1) + '</b><span class="small mute">next free court</span><span class="grow"></span><button class="btn ghost sm" data-qshuf="' + g.id + '">Shuffle</button><button class="xbtn" data-qdel="' + g.id + '" title="Remove queued game" aria-label="Remove queued game">\u2715</button></div>' +
       '<div class="teams">' + teamHtml(g.t1, 0, 'q:' + g.id) + '<span class="vs">VS</span>' + teamHtml(g.t2, 0, 'q:' + g.id) + '</div></div>').join('') + '</div><div class="row" style="margin-top:10px">' + qBtn + '</div>' :
     '<div class="card qempty"><div class="small mute" style="margin-bottom:10px">Line up the next four while courts are busy. They take the first court that frees up.</div><div class="row">' + qBtn + '</div></div>');
