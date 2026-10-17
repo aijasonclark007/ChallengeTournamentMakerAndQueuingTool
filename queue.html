@@ -656,8 +656,7 @@ function bind() {
   // players
   const add = () => { const n = $('#pn').value.trim(); if (!n) return toast('Type a name first.'); act(M.addPlayers([{ name: n, level: $('#pl').value }])); const e = $('#pn'); if (e) e.focus(); };
   const pa = $('#padd'); if (pa) { pa.onclick = add; $('#pn').addEventListener('keydown', e => { if (e.key === 'Enter') add(); }); }
-  const pb = $('#pbulk'); if (pb) pb.onclick = () => modal('Add many players', '<div class="small mute">One per line. Add the level after a comma, like <b>Ana, High</b>. No level means Mid.</div><textarea id="bt" rows="8" style="margin-top:8px" placeholder="Ana, High&#10;Ben, Mid&#10;Carla, Low"></textarea>',
-    [{ label: 'Add them', fn: sh => { const list = sh.querySelector('#bt').value.split('\n').map(l => { const p = l.split(/[,\t;|]/).map(x => x.trim()); const lv = LEVELS.find(x => x.toLowerCase() === (p[1] || '').toLowerCase()); return { name: p[0], level: lv || 'Mid' }; }).filter(x => x.name); if (!list.length) { toast('Nothing to add.'); return false; } act(M.addPlayers(list)); } }]);
+  const pb = $('#pbulk'); if (pb) pb.onclick = async () => { let pool = []; if (backend.type === 'cloud') { try { pool = await P.fetchPlayerPool(); } catch (e) {} } openPaste(pool, '', { status: 'out', title: 'Add many players' }); };
   const sampleModal = () => modal('Add sample players', '<div class="small mute">Random names with a mix of High, Mid and Low levels, all checked in. Great for trying the queue. You can clear them later.</div><div class="row" style="margin-top:12px">' + [12, 20, 32, 48].map(n => '<button class="btn ghost" data-sn="' + n + '">' + n + '</button>').join('') + '</div>', []);
   const pbs = $('#psample'); if (pbs) pbs.onclick = () => {
     sampleModal();
@@ -705,11 +704,12 @@ function parseNames(text) {
   String(text).replace(/([^\s\d])\s*(\d{1,3}[.)])\s+(?=[@\p{L}])/gu, '$1\n$2 ').split(/\r?\n/).forEach(line => {
     let t = line.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu, ' ').replace(/^\s*\d+\s*[.):\-]*\s*/, '').replace(/@/g, '').trim();
     if (!t || /:\s*$/.test(t)) return;
+    let lvl = null; const lm = t.match(/(?:[,;|\t]|\s[-\u2013])\s*(high|mid|low)\s*$/i); if (lm) { lvl = lm[1][0].toUpperCase() + lm[1].slice(1).toLowerCase(); t = t.slice(0, lm.index).trim(); }
     t.split(/\s*(?:\/|&|\+|\band\b)\s*/i).forEach(part => {
       let nm = part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}.'\-]+$/gu, '').replace(/\s+/g, ' ').trim();
       if (!/\p{L}/u.test(nm) || nm.length < 2) return;
       if (nm === nm.toLowerCase()) nm = nm.replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
-      const k = nrm(nm); if (!k || seen.has(k)) return; seen.add(k); out.push({ name: nm, split: part !== t });
+      const k = nrm(nm); if (!k || seen.has(k)) return; seen.add(k); out.push({ name: nm, split: part !== t, level: lvl });
     });
   });
   return out;
@@ -726,21 +726,22 @@ function matchName(nm, pool, tonight) {
     if (d <= Math.max(tol, d === 0.5 ? 1 : 0) && d < bd) { bd = d; best = p; } });
   return best ? { kind: 'maybe', match: best } : { kind: 'new' };
 }
-function openPaste(pool, prefill) {
-  const back = () => { modal('Paste a list', '<div class="small mute">Paste the names, one per line. Numbers, @ and extra symbols are ignored. A line like "Efren / Joval" becomes two players.</div><textarea id="pasteBox" rows="9" style="width:100%;margin-top:8px" placeholder="1. @Nin Cas Ort&#10;2. Julius&#10;3. Ron">' + esc(prefill || '') + '</textarea>',
+function openPaste(pool, prefill, opts) {
+  opts = opts || {}; const STATUS = opts.status || 'in', TITLE = opts.title || 'Paste a list', CLOUD = backend.type === 'cloud';
+  const back = () => { modal(TITLE, '<div class="small mute">Paste or type the names, one per line. Numbers, @ and extra symbols are ignored. A line like "Efren / Joval" becomes two players. You can add a level like <b>Ana, High</b>; otherwise you choose it next.</div><textarea id="pasteBox" rows="9" style="width:100%;margin-top:8px" placeholder="1. @Nin Cas Ort&#10;2. Julius&#10;3. Ron">' + esc(prefill || '') + '</textarea>',
     [{ label: 'Find players', fn: sh => { const txt = sh.querySelector('#pasteBox').value, names = parseNames(txt); if (!names.length) { toast('No names found. Paste one name per line.'); return false; } review(txt, names); return false; } }]);
     setTimeout(() => { const b = $('#pasteBox'); if (b) b.focus(); }, 350); };
   const review = (txt, names) => {
-    const tonight = view.players, items = names.map(x => Object.assign({ name: x.name, split: x.split, on: true, level: 'Mid' }, matchName(x.name, pool, tonight)));
+    const tonight = view.players, items = names.map(x => Object.assign({ name: x.name, split: x.split, on: true, level: x.level || 'Mid' }, matchName(x.name, pool, tonight)));
     const chip = l => '<span class="chip ' + l + '">' + l + '</span>';
     const row = (it, i) => it.kind === 'found' ? '<label class="q" data-r="' + i + '"><input type="checkbox" data-c="' + i + '"' + (it.on ? ' checked' : '') + ' style="width:20px;height:20px"><div class="grow"><b>' + esc(it.match.name) + '</b></div>' + chip(it.match.level) + '</label>'
       : it.kind === 'maybe' ? '<div class="q" data-r="' + i + '"><input type="checkbox" data-c="' + i + '"' + (it.on ? ' checked' : '') + ' style="width:20px;height:20px"><div class="grow"><b>' + esc(it.name) + '</b> → <b>' + esc(it.match.name) + '</b>?<div class="small mute">Same person? <button type="button" class="linkbtn" data-new="' + i + '">No, add as new</button></div></div>' + chip(it.match.level) + '</div>'
       : '<div class="q" data-r="' + i + '"><input type="checkbox" data-c="' + i + '"' + (it.on ? ' checked' : '') + ' style="width:20px;height:20px"><div class="grow"><b>' + esc(it.name) + '</b>' + (it.split ? '<div class="small mute">split from a pair</div>' : '') + '</div><div class="seg lvl" data-lv="' + i + '">' + ['High', 'Mid', 'Low'].map(l => '<button type="button" data-l="' + l + '" class="' + (it.level === l ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>';
     const sec = (title, kind, note) => { const r = items.map((it, i) => [it, i]).filter(([it]) => (kind === 'new' ? it.kind === 'new' : it.kind === kind)); return r.length ? '<div class="paste-h" data-sec="' + kind + '"><b>' + title + '</b> <span class="mute small">' + note + '</span></div>' + r.map(([it, i]) => row(it, i)).join('') : ''; };
     const here = items.filter(it => it.kind === 'here').map(it => esc(it.name));
-    const body = () => '<div class="small mute">' + items.length + ' names read from your list.</div>' +
+    const body = () => '<div class="small mute">' + items.length + ' names read from your list. They will be added as <b>' + (STATUS === 'in' ? 'here' : 'not here yet') + '</b>.</div>' +
       sec('Found in your saved players', 'found', 'ticked, ready to add') + sec('Check these', 'maybe', 'looks like a saved player') + sec('New players', 'new', 'pick their level') +
-      (items.some(it => it.kind === 'new') ? '<div class="row small" style="margin:8px 0;gap:8px;align-items:center"><span class="mute">Set all new to</span><button type="button" class="btn ghost sm" data-all="High">High</button><button type="button" class="btn ghost sm" data-all="Mid">Mid</button><button type="button" class="btn ghost sm" data-all="Low">Low</button></div><label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="pasteSave" checked style="width:18px;height:18px"> Also save new players to my pool</label>' : '') +
+      (items.some(it => it.kind === 'new') ? '<div class="row small" style="margin:8px 0;gap:8px;align-items:center"><span class="mute">Set all new to</span><button type="button" class="btn ghost sm" data-all="High">High</button><button type="button" class="btn ghost sm" data-all="Mid">Mid</button><button type="button" class="btn ghost sm" data-all="Low">Low</button></div>' + (CLOUD ? '<label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="pasteSave" checked style="width:18px;height:18px"> Also save new players to my pool</label>' : '') : '') +
       (here.length ? '<div class="small mute" style="margin-top:10px">Already on tonight\'s list: ' + here.join(', ') + '</div>' : '') +
       '<div class="row" style="margin-top:12px;position:sticky;bottom:-1px;background:#fff;padding:8px 0;gap:8px"><button type="button" class="btn ghost sm" id="pasteBack">‹ Edit list</button><span class="grow"></span><button type="button" class="btn" id="pasteAdd"></button></div>';
     modal('Check your list', body(), []);
@@ -754,7 +755,7 @@ function openPaste(pool, prefill) {
       const al = e.target.closest('[data-all]'); if (al) { items.forEach((it, i) => { if (it.kind === 'new') { it.level = al.dataset.all; sh.querySelectorAll('[data-lv="' + i + '"] button').forEach(x => x.classList.toggle('on', x.dataset.l === it.level)); } }); return; }
       if (e.target.closest('#pasteBack')) { back(); return; }
       if (e.target.closest('#pasteAdd')) {
-        const pick = items.filter(it => it.kind !== 'here' && it.on), add = pick.map(it => ({ name: it.kind === 'new' ? it.name : it.match.name, level: it.kind === 'new' ? it.level : it.match.level, status: 'in' }));
+        const pick = items.filter(it => it.kind !== 'here' && it.on), add = pick.map(it => ({ name: it.kind === 'new' ? it.name : it.match.name, level: it.kind === 'new' ? it.level : it.match.level, status: STATUS }));
         const fresh = pick.filter(it => it.kind === 'new'), save = sh.querySelector('#pasteSave') && sh.querySelector('#pasteSave').checked;
         closeModal(); act(M.addPlayers(add)); toast('Added ' + add.length + ' player' + (add.length === 1 ? '' : 's') + (fresh.length ? ' (' + fresh.length + ' new)' : ''));
         if (save && fresh.length) (async () => { try { for (const it of fresh) await P.savePlayerToPool(it.name, it.level); } catch (x) {} })();
