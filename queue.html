@@ -26,7 +26,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px}
 .seg button{flex:1;border:0;background:none;padding:7px 8px;border-radius:9px;font-weight:600;font-size:13px;white-space:nowrap}
 .seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
-.seg.pay button{min-height:38px;padding:6px 12px}.seg.pay button.on.cash{background:var(--green);color:#fff}.seg.pay button.on.gcash{background:var(--blue);color:#fff}
+.seg.pay{max-width:150px;margin-left:auto}.seg.pay button{min-height:30px;padding:4px 10px;font-size:13px}.seg.pay button.on.cash{background:var(--green);color:#fff}.seg.pay button.on.gcash{background:var(--blue);color:#fff}
 .banner{background:#fff;border-radius:16px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .banner.info{background:rgba(0,122,255,.08);box-shadow:none}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px}.dot.off{background:var(--orange)}.dot.guest{background:#8E8E93}
@@ -471,7 +471,18 @@ function applyFind() {
     return '<div class="foundrow"><span>' + esc(p.name) + ' <span class="chip ' + p.level + '">' + p.level + '</span></span><span>' + where + ' · ' + p.games + ' game' + (p.games === 1 ? '' : 's') + '</span></div>';
   }).join('') : '<div class="foundrow">No player named "' + esc(findQ.trim()) + '".</div>';
 }
-function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); applyFind(); $$('[data-pay]').forEach(b => b.onclick = () => { buzz(8); act(M.pay(b.dataset.pay, b.dataset.m), true); }); }
+function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); applyFind(); $$('[data-pay]').forEach(b => b.onclick = () => {
+    const id = b.dataset.pay, m = b.dataset.m, p = view.players.find(x => x.id === id), name = p ? p.name : 'this player', L = { cash: 'Cash', gcash: 'GCash' };
+    if (p && p.paid && p.payBy && p.payBy !== m) {                       // switching the method of a payment that was already recorded
+      return modal('Change payment method?', '<div><b>' + esc(name) + '</b> is marked as paid by <b>' + L[p.payBy] + '</b>.</div><div class="small mute" style="margin-top:6px">Change it to <b>' + L[m] + '</b>? Only do this if it was recorded by mistake.</div>',
+        [{ label: 'Change to ' + L[m], fn: () => { closeModal(); buzz(8); act(M.pay(id, m), true); } }]);
+    }
+    if (p && p.paid && p.payBy === m) {                                  // tapping the active one undoes the payment
+      return modal('Mark as not paid?', '<div><b>' + esc(name) + '</b> will be marked as <b>not paid</b> (was ' + L[m] + ').</div>',
+        [{ label: 'Mark not paid', fn: () => { closeModal(); buzz(8); act(M.pay(id, m), true); } }]);
+    }
+    buzz(8); act(M.pay(id, m), true);
+  }); }
 function feesView() {
   const f = view.fees;
   const num = (k, lab) => '<div><label class="lab">' + lab + '</label><input type="number" min="0" step="any" data-fee="' + k + '" value="' + (f[k] || '') + '" placeholder="0"></div>';
