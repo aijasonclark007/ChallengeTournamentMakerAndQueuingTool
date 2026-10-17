@@ -131,7 +131,7 @@ summary:hover{background:#fff}
 #stepbar .meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:13px;color:var(--mute)}
 .pill{padding:2px 10px;border-radius:999px;background:var(--chip);font-weight:700;transition:background .3s,color .3s}
 .pill.ok{background:rgba(52,199,89,.16);color:#1F7A35}.pill.busy{background:rgba(0,122,255,.12);color:var(--blue)}.pill.bad{background:rgba(255,59,48,.14);color:#C4001A}
-section,#schedSec,#standSec,#koSec{scroll-margin-top:96px}
+
 .stepsum{display:none;padding:10px 14px;margin-top:8px;background:#fff;border-radius:14px;box-shadow:var(--shadow);color:var(--mute)}
 .collapsed>:not(.bar):not(.stepsum){display:none!important}.collapsed>.stepsum{display:block}
 .bar .tg{min-height:36px;padding:4px 14px;display:none}.bar .tg.on{display:inline-flex;align-items:center}
@@ -861,7 +861,7 @@ function startDraw() {
   $('#loadMsg').textContent = skipped ? skipped + ' line(s) skipped: each line needs a name and a level of High, Mid or Low.' : '';
   $('#drawSec').classList.remove('hidden'); hideResults();
   applyLocks();
-  $('#drawSec').scrollIntoView({ behavior: 'smooth' });
+  window.goStepNow && goStepNow('teams');
 }
 $('#drawBtn').onclick = startDraw;
 
@@ -942,7 +942,7 @@ $('#genBtn').onclick = () => {
   if (blocked('#hintB') || !draw) return;
   sched = draw.generate(); results = {}; ko = null; koSched = null; koResults = {}; coin = {};
   say('#gMsg', ''); renderSchedule();
-  $('#schedSec').scrollIntoView({ behavior: 'smooth' });
+  window.goStepNow && goStepNow('schedule');
 };
 
 function renderSchedule() {
@@ -1077,7 +1077,7 @@ document.addEventListener('click', e => {
 $('#koBtn').onclick = () => {
   say('#kMsg', ''); makeKnockout(); koResults = {};
   $('#koSec').classList.remove('hidden'); renderKo();
-  $('#koSec').scrollIntoView({ behavior: 'smooth' });
+  window.goStepNow && goStepNow('knockout');
 };
 
 function koChart(level, rs, sch, seedOf, result) {
@@ -1491,8 +1491,18 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   function goStep(k, quiet) {
     const s = STEPS.find(x => x[0] === k); if (!s) return;
     if (!avail(k)) { pending = k; return; }
-    const el = $(s[2]); el.classList.remove('collapsed'); el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const el = $(s[2]); el.classList.remove('collapsed');
+    if (k === 'teams') $('#secAdd').classList.add('collapsed');
+    if (k === 'schedule') { $('#secTeams').classList.add('collapsed'); $('#secBrackets').classList.add('collapsed'); }
+    settle(el); refresh();
     if (!quiet) tell(k);
+  }
+  window.goStepNow = k => { if (!window.__quiet) goStep(k, true); };
+  // Put the step's heading right under the step bar. Finished steps fold up while we scroll, so the page height changes: scroll once, then correct the position after the layout settles.
+  function settle(el) {
+    const top = () => Math.max(0, el.getBoundingClientRect().top + window.scrollY - ($('#stepbar').offsetHeight || 0) - 8);
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: top(), behavior: 'smooth' })));
+    [450, 900].forEach(ms => setTimeout(() => { const d = top() - window.scrollY; if (Math.abs(d) > 3) window.scrollTo({ top: top(), behavior: 'auto' }); }, ms));
   }
   window.addEventListener('message', e => { if (e.origin !== location.origin) return; const d = e.data; if (d && d.t === 'goto' && d.tab) { pending = d.tab; refresh(); } });
 
@@ -1572,6 +1582,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   // ---- preview mode ----
   function sampleList() { const o = []; [['High', 8], ['Mid', 8], ['Low', 8]].forEach(([l, n]) => { for (let i = 1; i <= n; i++) o.push(l + ' Player ' + i + ', ' + l); }); return o.join('\n'); }
   function runDemo() {
+    window.__quiet = true; setTimeout(() => { window.__quiet = false; }, 1500);
     resetState(); $('#players').value = sampleList(); count();
     startDraw(); $('#genBtn').click(); prev = { draw: false, sched: false }; refresh();
     window.scrollTo(0, 0);
