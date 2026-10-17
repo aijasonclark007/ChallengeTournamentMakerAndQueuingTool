@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0A2547">
 <title>Umpire Scoring</title>
 <style>
@@ -58,15 +58,14 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 #toast.on{opacity:1;transform:translate(-50%,0)}
 /* phone held sideways (umpire facing the court): the two teams sit side by side */
 @media (orientation:landscape) and (max-height:560px){
-  #score{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
-  .sbar{padding:6px 12px}.sbar button{padding:6px 12px}.sbar .mid{font-size:12px}
-  .sides{flex-direction:row;gap:10px;padding:8px 12px}
+  .sbar{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left))}.sbar button{padding:6px 12px}.sbar .mid{font-size:12px}
+  .sides{flex-direction:row;gap:10px;padding:8px max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left))}
   .side{min-width:0;justify-content:space-evenly;padding:6px 0}
   .side .nm{font-size:16px;line-height:1.2;padding:0 10px;max-height:2.4em;overflow:hidden}
   .side .pt{font-size:clamp(60px,34vh,150px)}
   .side .hint{position:static;font-size:11px}
-  .banner{padding:6px 12px;font-size:13px}
-  .acts{padding:2px 12px 8px}.acts button{padding:10px 8px}
+  .banner{padding:6px 12px;font-size:13px;margin:0 max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left))}
+  .acts{padding:2px max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}.acts button{padding:10px 8px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
