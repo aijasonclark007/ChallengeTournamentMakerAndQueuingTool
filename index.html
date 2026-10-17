@@ -28,7 +28,15 @@ a{color:inherit;text-decoration:none}
 .seg a.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14),0 0 0 .5px rgba(0,0,0,.04)}
 main{max-width:1100px;margin:0 auto;padding:20px 16px 56px}
 main.wide{max-width:1280px;padding-top:12px}
-.view{opacity:0;transform:translateY(8px)}.view.in{opacity:1;transform:none;transition:opacity .28s ease,transform .28s ease}
+:root{--spring:cubic-bezier(.2,.8,.2,1)}
+@supports (transition-timing-function:linear(0,1)){:root{--spring:linear(0,.009,.035 2.1%,.141 4.4%,.281 6.7%,.723 12.9%,.938 16.7%,1.017 19.4%,1.077 22.4%,1.121 25.1%,1.139 27.7%,1.131 31.1%,1.087 36.3%,1.034 42.4%,1.001 49.4%,.987 56.1%,.985 62%,.996 71.6%,1.002 82%,1)}}
+.view{opacity:0;transform:translateX(var(--tx,0px)) translateY(8px)}.view.in{opacity:1;transform:none;transition:opacity .3s ease,transform .55s var(--spring)}
+nav.seg{position:relative}
+nav.seg .nthumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14),0 0 0 .5px rgba(0,0,0,.04);pointer-events:none;will-change:transform,width}
+nav.seg a{position:relative;z-index:1}nav.seg a.on{background:none;box-shadow:none}
+.seg a:active{transform:scale(.96)}
+@keyframes toolin{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+.tool{animation:toolin .6s var(--spring) both}
 h1{font-size:clamp(30px,6vw,40px);letter-spacing:-.03em;line-height:1.08;margin:6px 0 4px;font-weight:800}
 h2{font-size:13px;color:var(--mute);font-weight:600;margin:28px 0 8px 16px;letter-spacing:.01em;text-transform:none}
 .lead{color:var(--mute);margin:0 0 8px;max-width:60ch}
@@ -138,6 +146,7 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
     <a href="#/tournaments" data-p="tournaments">Tournaments</a>
     <a href="#/draw" data-p="draw">Draw &amp; Schedule</a>
     <a href="#/queue" data-p="queue">Queuing Tool</a>
+    <i class="nthumb"></i>
   </nav>
   <div id="acct" class="acct"></div>
 </div></header>
@@ -385,11 +394,25 @@ const drawPage = () => '<iframe id="tool" class="tool" src="schedule.html" title
 const queuePage = () => '<iframe id="tool" class="tool" src="queue.html" title="Queuing Tool"></iframe>';
 
 // ---------- router (no page reloads, so the bar stays and switching feels instant) ----------
+let prevTab = 'tournaments', lastNav = null;
+function placeNavThumb(animate) {
+  const th = document.querySelector('.nthumb'), on = document.querySelector('nav.seg a.on'); if (!th || !on) return;
+  const x = on.offsetLeft, w = on.offsetWidth;
+  if (animate && lastNav && (lastNav.x !== x || lastNav.w !== w)) {
+    th.style.transition = 'none'; th.style.width = lastNav.w + 'px'; th.style.transform = 'translateX(' + lastNav.x + 'px)'; th.offsetWidth;
+    th.style.transition = 'transform .55s var(--spring), width .55s var(--spring)';
+  } else th.style.transition = 'none';
+  th.style.width = w + 'px'; th.style.transform = 'translateX(' + x + 'px)'; lastNav = { x, w };
+}
+window.addEventListener('resize', () => placeNavThumb(false));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeNavThumb(false));
 async function route() {
   clearInterval(timer);
   const tok = ++rt, parts = (location.hash.replace(/^#\/?/, '') || 'tournaments').split('/'), page = parts[0], arg = parts[1] ? decodeURIComponent(parts[1]) : '';
   const tab = ['draw', 'queue'].includes(page) ? page : 'tournaments';
   document.querySelectorAll('.seg a').forEach(a => a.classList.toggle('on', a.dataset.p === tab));
+  const order = ['tournaments', 'draw', 'queue'], dir = Math.sign(order.indexOf(tab) - order.indexOf(prevTab)); prevTab = tab;
+  $('#view').style.setProperty('--tx', (dir * 48) + 'px'); placeNavThumb(true);
   $('#main').classList.toggle('wide', page === 'draw' || page === 'queue');
   const titleFor = x => (x ? x + ' · ' : '') + 'Challenge - Tournament Management by Ai Jason Clark';
   document.title = titleFor('');
