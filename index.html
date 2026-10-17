@@ -150,7 +150,7 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
   </nav>
   <div id="acct" class="acct"></div>
 </div></header>
-<main id="main"><div id="view" class="view"></div></main>
+<main id="main"><div id="view" class="view"></div><div id="tools" style="display:none"></div></main>
 <footer>&copy; <span id="yr"></span> Challenge - Tournament Management by Ai Jason Clark</footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
@@ -191,7 +191,7 @@ function tcard(t, link) {
   return '<a class="tcard card" ' + (link ? 'href="#/t/' + esc(t.id) + '"' : '') + '>' + cover(t) + '<div class="tbody"><b>' + esc(t.name) + '</b><small>' + esc(t.venue) + (t.venue && t.dateText ? ' · ' : '') + esc(t.dateText) +
     '</small><div class="trow"><span class="pill ' + t.status + '">' + STATUS[t.status] + '</span>' + (t.published === false ? '<span class="pill done">Draft</span>' : '') + '<span class="chev">›</span></div></div></a>';
 }
-const setView = (html) => { const v = $('#view'); v.className = 'view'; v.innerHTML = html; requestAnimationFrame(() => v.classList.add('in')); window.scrollTo(0, 0); };
+const setView = (html) => { hideTools(); const v = $('#view'); v.className = 'view'; v.innerHTML = html; requestAnimationFrame(() => v.classList.add('in')); window.scrollTo(0, 0); };
 const loadingHtml = '<div class="card soon-card"><div class="big">🏸</div><p class="lead" style="margin:6px auto 0">Loading…</p></div>';
 
 // ---------- Tournaments tab ----------
@@ -390,8 +390,24 @@ function initEvent(t) {
 }
 
 // ---------- the other tabs ----------
-const drawPage = () => '<iframe id="tool" class="tool" src="schedule.html" title="Draw & Schedule tool"></iframe>';
-const queuePage = () => '<iframe id="tool" class="tool" src="queue.html" title="Queuing Tool"></iframe>';
+// The two tools live in their own pages. They are loaded once, in the background, and then only shown or hidden,
+// so switching tabs is instant and keeps whatever you were doing.
+const TOOLS = { draw: ['schedule.html', 'Draw & Schedule tool'], queue: ['queue.html', 'Queuing Tool'] };
+function ensureTool(name) {
+  let f = $('#tool-' + name);
+  if (!f) {
+    f = document.createElement('iframe'); f.id = 'tool-' + name; f.className = 'tool'; f.title = TOOLS[name][1]; f.style.display = 'none';
+    f.addEventListener('load', () => { try { f.contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} });
+    f.src = TOOLS[name][0]; $('#tools').appendChild(f);
+  }
+  return f;
+}
+function showTool(name) {
+  ensureTool(name); $('#view').style.display = 'none'; $('#tools').style.display = '';
+  Object.keys(TOOLS).forEach(n => { const x = $('#tool-' + n); if (x) x.style.display = n === name ? '' : 'none'; });   // going from hidden to shown replays the pop-in
+  window.scrollTo(0, 0);
+}
+function hideTools() { $('#tools').style.display = 'none'; $('#view').style.display = ''; }
 
 // ---------- router (no page reloads, so the bar stays and switching feels instant) ----------
 let prevTab = 'tournaments', lastNav = null;
@@ -418,8 +434,7 @@ async function route() {
   document.title = titleFor('');
   if (cloud && ['mine', 'new', 'edit', 'regs'].includes(page)) await P.whenReady();   // wait until we know who is signed in
   if (tok !== rt) return;
-  if (page === 'draw') { setView(drawPage()); $('#tool').addEventListener('load', () => { try { $('#tool').contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} }); return; }
-  if (page === 'queue') { setView(queuePage()); $('#tool').addEventListener('load', () => { try { $('#tool').contentDocument.documentElement.dataset.theme = 'light'; } catch (e) {} }); return; }
+  if (page === 'draw' || page === 'queue') { showTool(page); return; }
   if (page === 'account') { setView(accountPage(arg)); return initAccount(arg); }
   if (page === 'mine') {
     if (!needUser('mine')) return; setView(loadingHtml);
@@ -450,6 +465,7 @@ async function route() {
   setView(loadingHtml); await loadPublic(); if (tok !== rt) return; setView(listPage());
 }
 window.addEventListener('hashchange', route);
+setTimeout(() => Object.keys(TOOLS).forEach(ensureTool), 1200);     // warm up both tools while the person looks at the first page
 
 // ---------- account chip in the header ----------
 function chip() {
