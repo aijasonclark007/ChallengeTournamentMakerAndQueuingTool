@@ -179,8 +179,12 @@ async function loadPublic() {
   // The public Tournaments page only lists the sample. Tournaments people create are shared by their registration link
   // (#/t/<slug>) and shown to their owner under "My tournaments", never in this public list.
   const sample = window.TOURNAMENTS || [];           // tournaments.js
-  if (cloud) { try { const rows = (await P.listPublicTournaments()).map(rowToT).filter(t => t.id === 'example'); T = rows.length ? rows : sample; return; } catch (e) { console.warn(e); } }
-  T = sample;
+  let list = sample;
+  if (cloud) { try { const rows = (await P.listPublicTournaments()).map(rowToT).filter(t => t.id === 'example'); list = rows.length ? rows : sample; } catch (e) { console.warn(e); } }
+  if (cloud && P.user) {                             // signed in: also show my own tournaments (nobody else's)
+    try { const mine = (await P.listMyTournaments()).map(rowToT), have = new Set(mine.map(t => t.id)); list = list.filter(t => !have.has(t.id)).concat(mine); } catch (e) { console.warn(e); }
+  }
+  T = list;
 }
 const shareUrl = slug => location.origin + location.pathname + '#/t/' + slug;
 const canManage = t => !!(cloud && P.user && (t.owner === P.user.id || isOrg));
@@ -204,10 +208,11 @@ const loadingHtml = '<div class="card soon-card"><div class="big">🏸</div><p c
 
 // ---------- Tournaments tab ----------
 function listPage() {
-  const up = T.filter(t => t.status !== 'done'), past = T.filter(t => t.status === 'done'), grid = l => '<div class="tgrid">' + l.map(t => tcard(t, true)).join('') + '</div>';
+  const mineId = P.user ? P.user.id : null, mine = T.filter(t => mineId && t.owner === mineId), pub = T.filter(t => !(mineId && t.owner === mineId));
+  const up = pub.filter(t => t.status !== 'done'), past = pub.filter(t => t.status === 'done'), grid = l => '<div class="tgrid">' + l.map(t => tcard(t, true)).join('') + '</div>';
   const mk = cloud ? (P.user ? '<div class="acts"><a class="btn sm ghost" href="#/mine">My tournaments</a><a class="btn sm" href="#/new">+ Create a tournament</a></div>' : '<a class="btn sm" href="#/account/new">+ Create a tournament</a>') : '';
   return '<div class="head"><div><h1>Tournaments</h1><p class="lead">Tap one to see the details and register. Want to run your own? Create a free account and set one up in minutes.</p></div>' + mk + '</div>' +
-    (up.length ? '<h2>Upcoming</h2>' + grid(up) : '') + (past.length ? '<h2>Past</h2>' + grid(past) : '') +
+    (mine.length ? '<h2>Your tournaments</h2>' + grid(mine) : '') + (up.length ? '<h2>' + (mine.length ? 'Sample' : 'Upcoming') + '</h2>' + grid(up) : '') + (past.length ? '<h2>Past</h2>' + grid(past) : '') +
     (!T.length ? '<div class="card soon-card">No tournaments yet.</div>' : '');
 }
 
@@ -497,7 +502,7 @@ function chip() {
   c.innerHTML = P.user ? '<a href="#/mine">My tournaments</a><span class="em">' + esc(P.user.email) + '</span><button id="so" type="button">Sign out</button>' : '<a href="#/account">Sign in</a><a class="reg" href="#/account/new">Create account</a>';
   const b = $('#so'); if (b) b.onclick = async () => { await P.signOut(); location.hash = '#/tournaments'; };
 }
-if (cloud) P.onAuth(async () => { try { isOrg = await P.isOrganizer(); } catch (e) { isOrg = false; } chip(); if (/^#\/(tournaments|t\/.*|tournament\/.*)?$/.test(location.hash)) route(); });
+if (cloud) P.onAuth(async () => { try { isOrg = await P.isOrganizer(); } catch (e) { isOrg = false; } chip(); if (/^(#\/?)?(tournaments|t\/.*|tournament\/.*)?$/.test(location.hash)) route(); });
 chip();
 route();
 </script>
