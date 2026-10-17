@@ -140,6 +140,7 @@ section,#schedSec,#standSec,#koSec{scroll-margin-top:96px}
 #previewBar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:#FFF4D6;color:#5c4100;border-radius:14px;padding:10px 14px;margin-bottom:12px}
 .pvbox{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 #sharePanel{margin:12px 0;padding:16px}#sharePanel h3{margin:0 0 4px;font-size:18px}
+#shareIntro .how{margin:8px 0 12px;padding-left:22px;color:var(--ink)}#shareIntro .how li{margin:6px 0}
 #nowPlay .np{display:flex;gap:10px;align-items:center;padding:10px 12px;background:rgba(255,59,48,.07);border-radius:12px;margin:6px 0;font-weight:600}
 #nowPlay .np b{min-width:70px}#nowPlay .none{color:var(--mute);margin:6px 0}
 #utoast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,40px);opacity:0;pointer-events:none;background:#1C1C1E;color:#fff;border-radius:14px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;z-index:50;transition:all .45s var(--spring,cubic-bezier(.2,.8,.2,1));max-width:92%}
@@ -1518,7 +1519,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
 
   // share & live panel: one place for the link, umpire links, live games and the preview
   const panel = document.createElement('div'); panel.id = 'sharePanel'; panel.className = 'card noprint';
-  panel.innerHTML = '<h3>Share &amp; live scores</h3><p class="hint" style="margin:0 0 6px">Get one link for players, one link per court for umpires, and see games being scored right now.</p><div id="nowPlay"></div>';
+  panel.innerHTML = '<h3>Share &amp; live scores</h3><p class="hint" style="margin:0 0 6px">Get one link for players, one link per court for umpires, and see games being scored right now.</p><div id="shareIntro"><ol class="how"><li><b>Get the shareable link.</b> Players open it on their phones to see the schedule, search their name and watch live scores.</li><li><b>Umpire links appear.</b> You get one link and QR code per court. Umpires score on their phones.</li><li><b>Scores save themselves.</b> When an umpire taps Finish match, the result lands in Standings and the link updates.</li></ol><button id="introGet" class="go" type="button">Get shareable link</button></div><div id="nowPlay"></div>';
   const anchor = $('#schedSec .bar'); anchor.after(panel);
   ['#pubLinkBox', '#umpBox', '#pubMsg', '#pubDet'].forEach(s => panel.appendChild($(s)));
   $('#umpBox').setAttribute('open', ''); $('#nowPlay').after($('#pubLinkBox'));
@@ -1532,6 +1533,10 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     box.innerHTML = '<b>Now playing</b>' + (live.length ? live.map(r => { const m = by[r.match_id]; return '<div class="np"><b>' + esc(m.court) + '</b><span>' + esc(m.t1) + ' <b style="min-width:0">' + r.s1 + ' - ' + r.s2 + '</b> ' + esc(m.t2) + '</span></div>'; }).join('') : '<div class="none">No games are being scored live right now.</div>');
   }
   setInterval(nowTick, 8000);
+  $('#introGet').onclick = () => $('#pubLink').click();
+  // a status line belongs to one tournament: clear it whenever another one opens or the state resets
+  const _lpl = loadPubLink; loadPubLink = async function () { $('#pubMsg').textContent = ''; return _lpl.apply(this, arguments); };
+  const _rs = resetState; resetState = function () { $('#pubMsg').textContent = ''; return _rs.apply(this, arguments); };
 
   // saved indicator
   const pill = $('#savePill');
@@ -1616,6 +1621,8 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     if (pending && avail(pending) && !$(STEPS.find(s => s[0] === pending)[2]).classList.contains('hidden')) { const k = pending; pending = null; setTimeout(() => goStep(k, true), 250); }
     if (pubSlug && np.sub !== pubSlug) { np.sub = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, nowTick); } catch (e) {} nowTick(); }
     if (!pubSlug) $('#nowPlay').innerHTML = '';
+    $('#shareIntro').classList.toggle('hidden', !!pubSlug || preview);
+    $('#sharePanel h3').nextElementSibling.classList.toggle('hidden', !!pubSlug);
   }
   ['click', 'input', 'change'].forEach(ev => document.addEventListener(ev, () => setTimeout(refresh, 120), true));
   setInterval(refresh, 1500); count(); refresh();
