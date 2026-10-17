@@ -145,6 +145,8 @@ body.live select{background:#fff;color:#1C1C1E}
 .poolbar input{width:100%;margin-bottom:6px}.poolbar .row{gap:12px;align-items:center}
 .linkbtn{border:0;background:none;color:var(--blue);font-weight:600;font-size:13px;padding:6px 2px;min-height:32px}
 .prow[hidden]{display:none!important}
+.paste-h{margin:14px 0 4px;padding-top:8px;border-top:1px solid var(--line)}.q .seg.lvl{width:auto;flex:none}.q .seg.lvl button{padding:5px 9px;font-size:12px}
+.seg.lvl button.on{background:var(--blue);color:#fff}
 </style>
 </head>
 <body>
@@ -693,17 +695,86 @@ function bind() {
   const gm = $('#gMove'); if (gm) gm.onclick = async () => { try { const g = loadGuest(); g.players.forEach(p => { p.status = 'out'; }); g.matches = []; await createSession('Preview session', g); localStorage.setItem('queue.guest.moved', '1'); toast('Saved to your account.'); } catch (e) { toast(e.message); } };
   const gs = $('#gSkip'); if (gs) gs.onclick = () => { try { localStorage.setItem('queue.guest.moved', '1'); } catch (e) {} render(); };
 }
+// ----- paste a whole list (for example from Messenger), match it to saved players, and add everyone in one go -----
+const nrm = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+function lev(a, b) { const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9; const d = Array.from({ length: m + 1 }, (_, i) => [i]); for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[m][n]; }
+function parseNames(text) {
+  const out = [], seen = new Set();
+  String(text).split(/\r?\n/).forEach(line => {
+    let t = line.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu, ' ').replace(/^\s*\d+\s*[.):\-]*\s*/, '').replace(/@/g, '').trim();
+    if (!t || /:\s*$/.test(t)) return;
+    t.split(/\s*(?:\/|&|\+|\band\b)\s*/i).forEach(part => {
+      let nm = part.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}.'\-]+$/gu, '').replace(/\s+/g, ' ').trim();
+      if (!/\p{L}/u.test(nm) || nm.length < 2) return;
+      if (nm === nm.toLowerCase()) nm = nm.replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
+      const k = nrm(nm); if (!k || seen.has(k)) return; seen.add(k); out.push({ name: nm, split: part !== t });
+    });
+  });
+  return out;
+}
+function matchName(nm, pool, tonight) {
+  const n = nrm(nm), tok = n.split(' ');
+  if (tonight.some(p => nrm(p.name) === n)) return { kind: 'here' };
+  const ex = pool.find(p => nrm(p.name) === n); if (ex) return { kind: 'found', match: ex };
+  let best = null, bd = 99;
+  pool.forEach(p => { const pn = nrm(p.name), pt = pn.split(' '), tol = n.length >= 8 ? 2 : n.length >= 4 ? 1 : 0;
+    let d = 99;
+    if (n.length >= 3 && (pn.startsWith(n + ' ') || pn.startsWith(n) || n.startsWith(pn + ' '))) d = 0.5;
+    else d = Math.min(lev(n, pn), lev(tok[0], pt[0]) + (tok.length > 1 && pt.length > 1 ? lev(tok[tok.length - 1], pt[pt.length - 1]) : tok.length === 1 ? 0 : 1));
+    if (d <= Math.max(tol, d === 0.5 ? 1 : 0) && d < bd) { bd = d; best = p; } });
+  return best ? { kind: 'maybe', match: best } : { kind: 'new' };
+}
+function openPaste(pool, prefill) {
+  const back = () => { modal('Paste a list', '<div class="small mute">Paste the names, one per line. Numbers, @ and extra symbols are ignored. A line like "Efren / Joval" becomes two players.</div><textarea id="pasteBox" rows="9" style="width:100%;margin-top:8px" placeholder="1. @Nin Cas Ort&#10;2. Julius&#10;3. Ron">' + esc(prefill || '') + '</textarea>',
+    [{ label: 'Find players', fn: sh => { const txt = sh.querySelector('#pasteBox').value, names = parseNames(txt); if (!names.length) { toast('No names found. Paste one name per line.'); return false; } review(txt, names); return false; } }]);
+    setTimeout(() => { const b = $('#pasteBox'); if (b) b.focus(); }, 350); };
+  const review = (txt, names) => {
+    const tonight = view.players, items = names.map(x => Object.assign({ name: x.name, split: x.split, on: true, level: 'Mid' }, matchName(x.name, pool, tonight)));
+    const chip = l => '<span class="chip ' + l + '">' + l + '</span>';
+    const row = (it, i) => it.kind === 'found' ? '<label class="q" data-r="' + i + '"><input type="checkbox" data-c="' + i + '"' + (it.on ? ' checked' : '') + ' style="width:20px;height:20px"><div class="grow"><b>' + esc(it.match.name) + '</b></div>' + chip(it.match.level) + '</label>'
+      : it.kind === 'maybe' ? '<div class="q" data-r="' + i + '"><input type="checkbox" data-c="' + i + '"' + (it.on ? ' checked' : '') + ' style="width:20px;height:20px"><div class="grow"><b>' + esc(it.name) + '</b> → <b>' + esc(it.match.name) + '</b>?<div class="small mute">Same person? <button type="button" class="linkbtn" data-new="' + i + '">No, add as new</button></div></div>' + chip(it.match.level) + '</div>'
+      : '<div class="q" data-r="' + i + '"><input type="checkbox" data-c="' + i + '"' + (it.on ? ' checked' : '') + ' style="width:20px;height:20px"><div class="grow"><b>' + esc(it.name) + '</b>' + (it.split ? '<div class="small mute">split from a pair</div>' : '') + '</div><div class="seg lvl" data-lv="' + i + '">' + ['High', 'Mid', 'Low'].map(l => '<button type="button" data-l="' + l + '" class="' + (it.level === l ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>';
+    const sec = (title, kind, note) => { const r = items.map((it, i) => [it, i]).filter(([it]) => (kind === 'new' ? it.kind === 'new' : it.kind === kind)); return r.length ? '<div class="paste-h" data-sec="' + kind + '"><b>' + title + '</b> <span class="mute small">' + note + '</span></div>' + r.map(([it, i]) => row(it, i)).join('') : ''; };
+    const here = items.filter(it => it.kind === 'here').map(it => esc(it.name));
+    const body = () => '<div class="small mute">' + items.length + ' names read from your list.</div>' +
+      sec('Found in your saved players', 'found', 'ticked, ready to add') + sec('Check these', 'maybe', 'looks like a saved player') + sec('New players', 'new', 'pick their level') +
+      (items.some(it => it.kind === 'new') ? '<div class="row small" style="margin:8px 0;gap:8px;align-items:center"><span class="mute">Set all new to</span><button type="button" class="btn ghost sm" data-all="High">High</button><button type="button" class="btn ghost sm" data-all="Mid">Mid</button><button type="button" class="btn ghost sm" data-all="Low">Low</button></div><label class="row small" style="gap:8px;align-items:center"><input type="checkbox" id="pasteSave" checked style="width:18px;height:18px"> Also save new players to my pool</label>' : '') +
+      (here.length ? '<div class="small mute" style="margin-top:10px">Already on tonight\'s list: ' + here.join(', ') + '</div>' : '') +
+      '<div class="row" style="margin-top:12px;position:sticky;bottom:-1px;background:#fff;padding:8px 0;gap:8px"><button type="button" class="btn ghost sm" id="pasteBack">‹ Edit list</button><span class="grow"></span><button type="button" class="btn" id="pasteAdd"></button></div>';
+    modal('Check your list', body(), []);
+    const sh = $('#sheet'), count = () => { const n = items.filter(it => it.kind !== 'here' && it.on).length, b = sh.querySelector('#pasteAdd'); b.textContent = n ? 'Add ' + n + ' player' + (n === 1 ? '' : 's') : 'Nothing ticked'; b.disabled = !n; };
+    const rerow = i => { const el = sh.querySelector('[data-r="' + i + '"]'); const tmp = document.createElement('div'); tmp.innerHTML = row(items[i], i); const nw = tmp.firstChild; if (items[i].kind === 'new' && !sh.querySelector('[data-sec="new"]')) { sh.querySelector('#pasteAdd').closest('.row').before(Object.assign(document.createElement('div'), { className: 'paste-h', innerHTML: '<b>New players</b> <span class="mute small">pick their level</span>' })); }
+      const host = sh.querySelector('[data-sec="new"]') || sh.querySelector('.paste-h:last-of-type'); if (items[i].kind === 'new') { el.remove(); const anchor = sh.querySelector('[data-sec="new"]'); if (anchor) { let last = anchor; while (last.nextElementSibling && last.nextElementSibling.matches('[data-r]')) last = last.nextElementSibling; last.after(nw); } else sh.querySelector('#pasteAdd').closest('.row').before(nw); } else el.replaceWith(nw); };
+    sh.onchange = e => { const c = e.target.closest && e.target.closest('[data-c]'); if (c) { items[+c.dataset.c].on = c.checked; count(); } };
+    sh.onclick = e => {
+      const nb = e.target.closest('[data-new]'); if (nb) { const i = +nb.dataset.new; items[i].kind = 'new'; items[i].match = null; items[i].level = 'Mid'; if (!sh.querySelector('[data-sec="new"]')) { const h = document.createElement('div'); h.className = 'paste-h'; h.dataset.sec = 'new'; h.innerHTML = '<b>New players</b> <span class="mute small">pick their level</span>'; sh.querySelector('#pasteAdd').closest('.row').before(h); } rerow(i); count(); return; }
+      const lb = e.target.closest('[data-lv] button'); if (lb) { const i = +lb.closest('[data-lv]').dataset.lv; items[i].level = lb.dataset.l; lb.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === lb)); return; }
+      const al = e.target.closest('[data-all]'); if (al) { items.forEach((it, i) => { if (it.kind === 'new') { it.level = al.dataset.all; sh.querySelectorAll('[data-lv="' + i + '"] button').forEach(x => x.classList.toggle('on', x.dataset.l === it.level)); } }); return; }
+      if (e.target.closest('#pasteBack')) { back(); return; }
+      if (e.target.closest('#pasteAdd')) {
+        const pick = items.filter(it => it.kind !== 'here' && it.on), add = pick.map(it => ({ name: it.kind === 'new' ? it.name : it.match.name, level: it.kind === 'new' ? it.level : it.match.level, status: 'in' }));
+        const fresh = pick.filter(it => it.kind === 'new'), save = sh.querySelector('#pasteSave') && sh.querySelector('#pasteSave').checked;
+        closeModal(); act(M.addPlayers(add)); toast('Added ' + add.length + ' player' + (add.length === 1 ? '' : 's') + (fresh.length ? ' (' + fresh.length + ' new)' : ''));
+        if (save && fresh.length) (async () => { try { for (const it of fresh) await P.savePlayerToPool(it.name, it.level); } catch (x) {} })();
+      }
+    };
+    count();
+  };
+  back();
+}
 async function openPool() {
   let pool = []; try { pool = await P.fetchPlayerPool(); } catch (e) { return toast(e.message); }
   const have = new Set(view.players.map(p => p.name.toLowerCase())), list = pool.filter(p => !have.has(p.name.toLowerCase()));
-  modal('My saved players', list.length ? '<div class="small mute">Tick the players who showed up tonight.</div><div class="poolbar"><input id="poolQ" type="search" placeholder="Search players" autocomplete="off"><div class="row small"><span id="poolCount" class="mute"></span><span class="grow"></span><button type="button" class="linkbtn" id="poolAll">Select shown</button><button type="button" class="linkbtn" id="poolNone">Clear shown</button></div></div><div id="poolList">' + list.map((p, i) => '<label class="q prow" data-name="' + esc(p.name.toLowerCase()) + '" style="cursor:pointer"><input type="checkbox" data-pi="' + i + '" checked style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>'
-    : '<div class="mute">' + (pool.length ? 'Everyone in your pool is already on tonight\'s list.' : 'Your pool is empty. Add players, then use Save all to my pool.') + '</div>',
+  modal('My saved players', '<div class="row" style="margin:0 0 8px"><button class="btn ghost sm" id="poolPaste" type="button">Paste a list\u2026</button><span class="small mute">e.g. from Messenger</span></div>' + (list.length ? '<div class="small mute">Tick the players who showed up tonight.</div><div class="poolbar"><input id="poolQ" type="search" placeholder="Search players" autocomplete="off"><div class="row small"><span id="poolCount" class="mute"></span><span class="grow"></span><button type="button" class="linkbtn" id="poolAll">Select shown</button><button type="button" class="linkbtn" id="poolNone">Clear shown</button></div></div><div id="poolList">' + list.map((p, i) => '<label class="q prow" data-name="' + esc(p.name.toLowerCase()) + '" style="cursor:pointer"><input type="checkbox" data-pi="' + i + '" checked style="width:20px;height:20px"><div class="grow"><b>' + esc(p.name) + '</b></div><span class="chip ' + p.level + '">' + p.level + '</span></label>').join('') + '</div>'
+    : '<div class="mute">' + (pool.length ? 'Everyone in your pool is already on tonight\'s list.' : 'Your pool is empty. Add players, then use Save all to my pool.') + '</div>'),
     list.length ? [{ label: 'Add selected', fn: sh => { const pick = [...sh.querySelectorAll('[data-pi]')].filter(c => c.checked).map(c => list[+c.dataset.pi]); if (!pick.length) return; act(M.addPlayers(pick.map(p => ({ name: p.name, level: p.level, status: 'in' })))); } }] : []);
-  const sh = $('#sheet'), q = sh.querySelector('#poolQ'); if (!q) return;
+  const sh = $('#sheet'), pb = sh.querySelector('#poolPaste'); if (pb) pb.onclick = () => openPaste(pool);
+  const q = sh.querySelector('#poolQ'); if (!q) return;
   const rows = () => [...sh.querySelectorAll('.prow')], shown = () => rows().filter(r => !r.hidden);
   const upd = () => { const n = rows().filter(r => r.querySelector('input').checked).length, v = shown().length; sh.querySelector('#poolCount').textContent = n + ' selected' + (v < rows().length ? ' · showing ' + v : ''); let e = sh.querySelector('#poolNone2'); if (!v) { if (!e) { e = document.createElement('div'); e.id = 'poolNone2'; e.className = 'mute'; e.style.padding = '14px 4px'; e.textContent = 'No saved player matches that search.'; sh.querySelector('#poolList').appendChild(e); } } else if (e) e.remove(); };
   q.oninput = () => { const t = q.value.trim().toLowerCase(); rows().forEach(r => { r.hidden = !!t && !r.dataset.name.includes(t); }); upd(); };
-  sh.addEventListener('change', e => { if (e.target.matches('[data-pi]')) upd(); });
+  sh.onchange = e => { if (e.target.matches('[data-pi]')) upd(); };
   sh.querySelector('#poolAll').onclick = () => { shown().forEach(r => { r.querySelector('input').checked = true; }); upd(); };
   sh.querySelector('#poolNone').onclick = () => { shown().forEach(r => { r.querySelector('input').checked = false; }); upd(); };
   upd(); setTimeout(() => { try { q.focus({ preventScroll: true }); } catch (x) {} }, 350);
