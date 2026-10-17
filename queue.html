@@ -126,6 +126,10 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 
 .cname{cursor:pointer;border-radius:8px;padding:2px 4px;margin-left:-4px;transition:background .15s}.cname:hover{background:var(--fill)}
 .cname .pen{opacity:.4;font-size:13px;font-weight:400}.cname:hover .pen{opacity:.9}
+
+table.rank{width:100%;border-collapse:collapse}table.rank th{text-align:left;color:var(--mute);font-size:12px;padding:4px 6px}table.rank td{padding:10px 6px;border-top:.5px solid var(--line)}
+table.rank td.rk{font-weight:800;font-size:18px;text-align:center}
+table.rank tr.top td{background:rgba(255,194,14,.10)}
 </style>
 </head>
 <body>
@@ -418,13 +422,13 @@ function courtsView() {
       '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
 function playersView() {
-  const s = view, busy = onCourtIds(s), list = s.players.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const recs = records(view), s = view, busy = onCourtIds(s), list = s.players.slice().sort((a, b) => a.name.localeCompare(b.name));
   const status = p => busy.has(p.id) ? 'court' : p.status;
   const label = { court: 'On court', in: 'Here', break: 'Break', out: 'Not here' };
   return '<div class="card"><div class="two"><div><label class="lab" for="pn">Player name</label><input id="pn" type="text" maxlength="40" placeholder="Juan Dela Cruz"></div><div><label class="lab" for="pl">Level</label><select id="pl">' + LEVELS.map(l => '<option' + (l === 'Mid' ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div></div>' +
     '<div class="row" style="margin-top:10px"><button class="btn" id="padd">Add player</button><button class="btn ghost" id="pbulk">Add many</button><button class="btn ghost" id="psample">Sample players</button>' + (s.players.some(p => p.sample) ? '<button class="btn ghost" id="pclr">Clear samples</button>' : '') + (backend.type === 'cloud' ? '<button class="btn ghost" id="ppool">From my saved players</button>' : '') + '</div></div>' +
     '<div class="row" style="margin:12px 2px"><b>' + s.players.length + ' players</b><span class="mute small">' + s.players.filter(p => p.status === 'in').length + ' here</span><span class="grow"></span><button class="btn ghost sm" id="pall">Check everyone in</button><button class="btn ghost sm" id="pnone">Mark everyone not here</button><button class="btn ghost sm" id="psave">Save all to my pool</button><button class="btn danger sm" id="prem">Remove all</button></div>' +
-    '<div class="card">' + (list.length ? list.map(p => '<div class="q" data-name="' + esc(p.name.toLowerCase()) + '"><div class="grow"><b>' + esc(p.name) + '</b><div class="small mute">' + p.games + ' games</div></div>' +
+    '<div class="card">' + (list.length ? list.map(p => '<div class="q" data-name="' + esc(p.name.toLowerCase()) + '"><div class="grow"><b>' + esc(p.name) + '</b><div class="small mute">' + p.games + ' games · ' + (recs[p.id] ? recs[p.id].w : 0) + ' wins</div></div>' +
       '<select data-lv="' + p.id + '" style="width:92px">' + LEVELS.map(l => '<option' + (p.level === l ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
       '<button class="pill ' + status(p) + '" data-st="' + p.id + '" style="min-width:76px;padding:7px 10px">' + label[status(p)] + '</button><button class="btn danger sm" data-rm="' + p.id + '">✕</button></div>').join('') : '<div class="mute">No players yet. Add a few above, or use Add many.</div>') + '</div>' +
     '<div class="small mute" style="margin:8px 4px">Tap a status to switch between Not here, Here and Break. Only players marked Here join the queue.</div>';
@@ -468,6 +472,28 @@ function feesView() {
     '<div class="small mute" style="margin-top:8px">' + (f.mode === 'equal' ? 'The total is shared equally by everyone who played at least one game.' : f.mode === 'perGame' ? 'Each player pays the fee for every game they played.' : 'The total is shared in proportion to games played.') + '</div></div>' +
     '<h2>Who owes what</h2><div id="feeOut">' + feeOutHtml() + '</div>';
 }
+// wins and losses per player, from finished games where a winner was picked (older games with scores still count)
+function records(s) {
+  const r = {}; s.players.forEach(p => { r[p.id] = { w: 0, l: 0 }; });
+  s.matches.filter(m => m.end).forEach(m => {
+    const win = m.win || (m.s1 != null && m.s2 != null && m.s1 !== m.s2 ? (m.s1 > m.s2 ? 1 : 2) : 0); if (!win) return;
+    (win === 1 ? m.t1 : m.t2).forEach(id => { if (r[id]) r[id].w++; }); (win === 1 ? m.t2 : m.t1).forEach(id => { if (r[id]) r[id].l++; });
+  });
+  return r;
+}
+let rankLv = 'All';
+function rankingView() {
+  const rec = records(view), rows = view.players.filter(p => (rec[p.id].w + rec[p.id].l) > 0 && (rankLv === 'All' || p.level === rankLv))
+    .map(p => ({ p, w: rec[p.id].w, l: rec[p.id].l })).sort((a, b) => (b.w - a.w) || ((b.w / (b.w + b.l)) - (a.w / (a.w + a.l))) || ((b.w + b.l) - (a.w + a.l)) || a.p.name.localeCompare(b.p.name));
+  let rank = 0, prev = null; rows.forEach((r, i) => { const key = r.w + '-' + r.l; if (key !== prev) { rank = i + 1; prev = key; } r.rank = rank; });
+  const medal = n => n === 1 ? '🥇' : n === 2 ? '🥈' : n === 3 ? '🥉' : n;
+  const seg = '<div class="seg" id="rankLv" style="margin-bottom:10px">' + ['All', 'High', 'Mid', 'Low'].map(l => '<button data-rl="' + l + '" class="' + (rankLv === l ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
+  const played = view.matches.filter(m => m.end && (m.win || m.s1 != null)).length;
+  return seg + '<div class="card">' + (rows.length ? '<table class="rank"><tr><th style="width:44px">#</th><th>Player</th><th>Wins</th><th>Losses</th><th>Win %</th></tr>' +
+    rows.map(r => '<tr data-name="' + esc(r.p.name.toLowerCase()) + '" class="' + (r.rank <= 3 ? 'top' : '') + '"><td class="rk">' + medal(r.rank) + '</td><td><b>' + esc(r.p.name) + '</b> <span class="chip ' + r.p.level + '">' + r.p.level + '</span></td><td><b>' + r.w + '</b></td><td>' + r.l + '</td><td>' + Math.round(100 * r.w / (r.w + r.l)) + '%</td></tr>').join('') + '</table>'
+    : '<div class="mute">The ranking appears after the first game is finished with a winner picked.</div>') + '</div>' +
+    '<div class="small mute" style="margin:8px 4px">' + played + ' finished game' + (played === 1 ? '' : 's') + ' counted. Ranked by wins, then win %. Games finished with "No winner" are not counted.</div>';
+}
 function historyView() {
   const done = view.matches.filter(m => m.end).sort((a, b) => b.end - a.end), cn = id => (view.courts.find(c => c.id === id) || { name: 'Court' }).name;
   return '<div class="card">' + (done.length ? done.map(m => '<div class="q"><div class="grow"><b>' + esc(names(m.t1)) + '</b> <span class="mute">vs</span> <b>' + esc(names(m.t2)) + '</b><div class="small mute">' + esc(cn(m.court)) + ' · ' + fmtT(m.end - m.start) + ' · ' + new Date(m.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</div></div>' +
@@ -475,7 +501,7 @@ function historyView() {
     '<div class="row" style="margin-top:12px"><button class="btn danger" id="night">Start a fresh queuing (reset games and payments)</button></div>';
 }
 let selQ = null, lastSwap = null, tabChanged = false, rendered = false, announceOn = false, tabDir = 0, lastThumb = null;
-const TABS = ['courts', 'players', 'fees', 'history'];
+const TABS = ['courts', 'players', 'ranking', 'fees', 'history'];
 function goTab(k) { if (k === tab || !TABS.includes(k)) return; tabDir = TABS.indexOf(k) > TABS.indexOf(tab) ? 1 : -1; tab = k; tabChanged = true; buzz(8); render(); }
 function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.2,.8,.2,1)';
@@ -528,8 +554,8 @@ function render() {
   renderSig = JSON.stringify(view);
   const old = {}; $$('[data-k]').forEach(el => { old[el.dataset.k] = el.getBoundingClientRect(); });
   const first = !rendered, changed = tabChanged; tabChanged = false;
-  const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' ? '<div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"><div id="findInfo"></div></div>' : '') + '<div id="tabbody">' + body + '</div>';
+  const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'ranking' ? rankingView() : tab === 'fees' ? feesView() : historyView();
+  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' ? '<div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"><div id="findInfo"></div></div>' : '') + '<div id="tabbody">' + body + '</div>';
   bind();
   rendered = true;
   const fi = $('#find'); if (fi) { fi.oninput = () => { findQ = fi.value; applyFind(); }; fi.onkeydown = e => { if (e.key === 'Escape') { fi.value = ''; findQ = ''; applyFind(); } }; applyFind(); }
@@ -608,6 +634,7 @@ function bind() {
     try { for (const p of view.players) await P.savePlayerToPool(p.name, p.level); toast('Saved ' + view.players.length + ' players to your pool.'); } catch (e) { toast(e.message); } };
   // fees
   $$('[data-fee]').forEach(i => i.onchange = () => act(M.fee(i.dataset.fee, parseFloat(i.value) || 0), true));
+  $$('[data-rl]').forEach(b => b.onclick = () => { rankLv = b.dataset.rl; render(); });
   $$('[data-fm]').forEach(b => b.onclick = () => act(M.fee('mode', b.dataset.fm)));
   feeOutRender();
   const nt = $('#night'); if (nt) nt.onclick = () => { if (confirm('Reset everyone\'s games and payments for a fresh queuing? Players stay on the list.')) act(M.newNight()); };
