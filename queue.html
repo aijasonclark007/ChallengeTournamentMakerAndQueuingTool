@@ -23,6 +23,7 @@ h2{font-size:13px;color:var(--mute);font-weight:600;margin:20px 4px 8px}
 .btn:disabled{opacity:.45;cursor:default}.btn.sm{padding:6px 11px;font-size:13px;border-radius:10px}
 input[type=text],input[type=number],select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:.5px solid var(--line);background:#F7F7FA;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.15);background:#fff}
+.sportbadge{display:inline-block;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;background:var(--fill);color:var(--mute);font-size:12px;font-weight:700}
 .seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px}
 .seg button{flex:1;border:0;background:none;padding:7px 8px;border-radius:9px;font-weight:600;font-size:13px;white-space:nowrap}
 .seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
@@ -193,7 +194,9 @@ function sampleList(n) {                                  // random names, level
 }
 
 // ---------------------------------------------------------------- state & rules
-const blank = () => ({ v: 1, courts: [{ id: uid(), name: 'Court 1' }], players: [], matches: [], mode: 'any', seeds: {}, fees: { courtCost: 0, shuttles: 0, shuttlePrice: 0, mode: 'equal', perGame: 0 } });
+const getSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };   // the site-wide default, chosen on the Sports tab
+const spOf = s => (s && s.sport) === 'pickleball' ? { key: 'pickleball', name: 'Pickleball', icon: '\uD83C\uDFD3', ball: 'ball', balls: 'Balls' } : { key: 'badminton', name: 'Badminton', icon: '\uD83C\uDFF8', ball: 'shuttle', balls: 'Shuttles' };
+const blank = sport => ({ v: 1, sport: sport || getSport(), courts: [{ id: uid(), name: 'Court 1' }], players: [], matches: [], mode: 'any', seeds: {}, fees: { courtCost: 0, shuttles: 0, shuttlePrice: 0, mode: 'equal', perGame: 0 } });
 const active = s => s.matches.filter(m => !m.end);
 const onCourtIds = s => new Set(active(s).flatMap(m => m.t1.concat(m.t2)));
 const byId = (s, id) => s.players.find(p => p.id === id);
@@ -540,7 +543,7 @@ function courtsView() {
   if (sortMode !== 'queue') shown.sort((a, b) => (sortMode === 'least' ? a.p.games - b.p.games : b.p.games - a.p.games) || (a.i - b.i));
   const here = s.players.filter(p => p.status === 'in').length, playing = active(s).length, doneN = s.matches.filter(m => m.end).length;
   const stats = '<div class="stats"><div class="stat"><b>' + here + '</b><span>Players here</span></div><div class="stat"><b>' + playing + '/' + s.courts.length + '</b><span>Courts playing</span></div><div class="stat"><b>' + doneN + '</b><span>Games played</span></div></div>';
-  const hero = s.players.length ? '' : '<div class="card hero" data-k="hero"><div class="big">🏸</div><h1 style="font-size:22px">Ready when you are</h1><p class="mute" style="margin:4px 0 14px">Add your players, or fill in some sample players to try the queue right now.</p><div class="row" style="justify-content:center"><button class="btn" id="sampleQuick">Try with 20 sample players</button><button class="btn ghost" id="toPlayers">Add my own</button></div></div>';
+  const hero = s.players.length ? '' : '<div class="card hero" data-k="hero"><div class="big">' + spOf(s).icon + '</div><h1 style="font-size:22px">Ready when you are</h1><p class="mute" style="margin:4px 0 14px">Add your players, or fill in some sample players to try the queue right now.</p><div class="row" style="justify-content:center"><button class="btn" id="sampleQuick">Try with 20 sample players</button><button class="btn ghost" id="toPlayers">Add my own</button></div></div>';
   return stats + hero + '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams.</div><div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
     '<h2>Courts</h2><div class="small mute" style="margin:-4px 2px 8px">Tap a player\'s name to swap them.</div><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' + queuedHtml +
     '<!--FIND--><div class="row" style="margin:20px 4px 8px"><h2 style="margin:0">Up next (' + q.length + ')</h2><span class="grow"></span><div class="seg sortseg" id="sortSeg">' + [['queue', 'Order'], ['least', 'Fewest games'], ['most', 'Most']].map(([k, l]) => '<button data-sort="' + k + '" class="' + (sortMode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>' + (selQ && q.some(p => p.id === selQ) ? '<div class="swaphint"><span>Tap another player to swap with <b>' + esc(nm(selQ)) + '</b></span><button id="selCancel">Cancel</button></div>' : '<div class="small mute" style="margin:-4px 2px 8px">Move players by hand: tap a name, then tap another to swap them, or drag the ⠿ handle onto someone.' + (s.manual && s.manual.length ? ' <b>Manual order is on.</b> <a href="#" id="autoOrd" style="color:var(--blue);font-weight:700">Back to automatic</a>' : '') + '</div>') + '<div class="card">' + (q.length ? shown.map(({ p, i }) => '<div class="q' + (next.has(p.id) ? ' next' : '') + (selQ === p.id ? ' sel' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
@@ -604,7 +607,7 @@ function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = 
 function feesView() {
   const f = view.fees;
   const num = (k, lab) => '<div><label class="lab">' + lab + '</label><input type="number" min="0" step="any" data-fee="' + k + '" value="' + (f[k] || '') + '" placeholder="0"></div>';
-  return '<div class="card"><div class="two">' + num('courtCost', 'Court rental (total)') + num('shuttles', 'Shuttles used') + num('shuttlePrice', 'Price per shuttle') + (f.mode === 'perGame' ? num('perGame', 'Fee per game (each player)') : '') + '</div>' +
+  return '<div class="card"><div class="two">' + num('courtCost', 'Court rental (total)') + num('shuttles', spOf(view).balls + ' used') + num('shuttlePrice', 'Price per ' + spOf(view).ball) + (f.mode === 'perGame' ? num('perGame', 'Fee per game (each player)') : '') + '</div>' +
     '<label class="lab">How to split</label><div class="seg" id="fmode">' + [['equal', 'Equal split'], ['perGame', 'Per game'], ['equity', 'By games played']].map(([k, l]) => '<button data-fm="' + k + '" class="' + (f.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     '<div class="small mute" style="margin-top:8px">' + (f.mode === 'equal' ? 'The total is shared equally by everyone who played at least one game.' : f.mode === 'perGame' ? 'Each player pays the fee for every game they played.' : 'The total is shared in proportion to games played.') + '</div></div>' +
     '<h2>Who owes what</h2><div id="feeOut">' + feeOutHtml() + '</div>';
@@ -757,7 +760,7 @@ function render() {
   const oldFind = $('.findbox'), oldFindTop = oldFind ? oldFind.getBoundingClientRect().top : null;
   const findHtml = '<div id="findSent" style="height:1px;margin-bottom:-1px"></div><div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"></div>';
   const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'ranking' ? rankingView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool</h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' && tab !== 'courts' && tab !== 'players' ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
+  $('#root').innerHTML = '<h1>Queuing Tool <span class="sportbadge">' + spOf(view).icon + ' ' + spOf(view).name + '</span></h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' && tab !== 'courts' && tab !== 'players' ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
   bind();
   rendered = true;
   const fi = $('#find'); if (fi) { fi.oninput = () => { findQ = fi.value; applyFind(); }; fi.onkeydown = e => { if (e.key === 'Escape') { fi.value = ''; findQ = ''; applyFind(); } }; applyFind(); }
@@ -849,7 +852,7 @@ function bind() {
   const nt = $('#night'); if (nt) nt.onclick = () => { if (confirm('Reset everyone\'s games and payments for a fresh queuing? Players stay on the list.')) act(M.newNight()); };
   // cloud session bar
   const sess = $('#sess'); if (sess) sess.onchange = () => openSession(sess.value);
-  const sn = $('#sNew'); if (sn) sn.onclick = () => modal('New queuing', '<label class="lab" for="nn">Name</label><input id="nn" type="text" maxlength="60" value="' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })) + '">', [{ label: 'Create', fn: async sh => { const name = sh.querySelector('#nn').value.trim() || 'Session'; await createSession(name, blank()); } }]);
+  const sn = $('#sNew'); if (sn) sn.onclick = () => modal('New queuing', '<label class="lab" for="nn">Name</label><input id="nn" type="text" maxlength="60" value="' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })) + '"><label class="lab" for="nsp" style="margin-top:10px">Sport</label><select id="nsp"><option value="badminton"' + (getSport() === 'badminton' ? ' selected' : '') + '>\uD83C\uDFF8 Badminton</option><option value="pickleball"' + (getSport() === 'pickleball' ? ' selected' : '') + '>\uD83C\uDFD3 Pickleball</option></select>', [{ label: 'Create', fn: async sh => { const name = sh.querySelector('#nn').value.trim() || 'Session'; await createSession(name, blank(sh.querySelector('#nsp').value)); } }]);
   const sr = $('#sRen'); if (sr) sr.onclick = () => { const c = sessions.find(x => x.id === backend.id); if (!c) return;
     modal('Rename this queuing', '<label class="lab" for="rn">Name</label><input id="rn" type="text" maxlength="60" value="' + esc(c.name) + '">',
       [{ label: 'Save', fn: async sh => { const name = sh.querySelector('#rn').value.trim(); if (!name) { toast('Type a name first.'); return false; } try { await P.renameQueueSession(backend.id, name); c.name = name; render(); toast('Renamed.'); } catch (e) { toast(e.message); } } }]); };
@@ -1017,7 +1020,7 @@ function renderMe(s, q, courtOf) {
   let status = '', key = 'none';
   if (mine) {
     const m = active(s).find(x => x.t1.concat(x.t2).includes(mine.id)), pos = q.findIndex(x => x.id === mine.id);
-    if (m) { key = 'playing'; status = '🏸 Your game is on <b>' + esc(courtOf(m.court)) + '</b>. Go now!'; if (meLast && meLast !== 'playing') alertMe('Your game is ready!', 'Head to ' + courtOf(m.court) + '.'); }
+    if (m) { key = 'playing'; status = spOf(view).icon + ' Your game is on <b>' + esc(courtOf(m.court)) + '</b>. Go now!'; if (meLast && meLast !== 'playing') alertMe('Your game is ready!', 'Head to ' + courtOf(m.court) + '.'); }
     else if (pos >= 0 && pos < 4) { key = 'next'; status = '⏳ You are <b>up next</b> (#' + (pos + 1) + '). Get ready!'; if (meLast && meLast !== 'next') alertMe("You're up next!", 'Get ready, you are #' + (pos + 1) + ' in line.'); }
     else if (pos >= 0) { key = 'wait'; status = 'You are <b>#' + (pos + 1) + '</b> in the queue.'; }
     else { key = 'off'; status = 'You are not in the queue right now.'; }

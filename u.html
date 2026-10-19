@@ -60,7 +60,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 #toast.on{opacity:1;transform:translate(-50%,0)}
 /* serving */
 .srvbar{display:none;align-items:center;gap:8px;margin:8px 12px 0;padding:8px 12px;border-radius:14px;background:#fff;border:1.5px solid var(--lime);font-size:14px;font-weight:700}
-.srvbar.on{display:flex}.srvbar span{flex:1;min-width:0}.srvbar small{display:block;font-weight:600;color:var(--mute);font-size:12px}
+.callb{display:inline-block;margin-left:4px;padding:1px 9px;border-radius:999px;background:var(--navy);color:#fff;font-size:12.5px;font-weight:800;white-space:nowrap}.srvbar.on{display:flex}.srvbar span{flex:1;min-width:0}.srvbar small{display:block;font-weight:600;color:var(--mute);font-size:12px}
 .srvbar button{background:var(--fill,#EEF1F7);border-radius:999px;padding:7px 12px;font-weight:800;font-size:13px}
 .tag{display:inline-block;margin-top:8px;padding:5px 12px;border-radius:999px;font-size:13px;font-weight:800;max-width:92%}
 .tag.s{background:var(--lime);color:#0B1B33}.tag.r{background:#fff;border:1.5px solid var(--lime);color:#2E7D32}
@@ -98,6 +98,13 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   .side .nm{font-size:18px;padding:0 10px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.qform{background:#fff;border-radius:20px;padding:16px;margin:10px 0 6px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06)}
+.qform h3{margin:0 0 10px;font-size:18px}.qform label{display:block;font-size:12px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 5px}
+.qform input,.qform select{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;font:inherit;font-size:16px;margin-bottom:6px}
+.qform .sp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qform .sp button{padding:14px 8px;border-radius:14px;background:#EEF1F7;font-weight:800;font-size:16px;border:2px solid transparent;transition:transform .35s cubic-bezier(.22,1,.36,1),background .2s,border-color .2s}
+.qform .sp button.on{background:#fff;border-color:var(--blue,#007AFF);box-shadow:0 0 0 4px rgba(0,122,255,.12)}.qform .sp button:active{transform:scale(.96)}
+.qform .go{width:100%;margin-top:12px;padding:15px;border-radius:14px;background:var(--lime);color:#0B1B33;font-weight:900;font-size:17px}
+.qclr{display:block;margin:18px auto 0;background:none;color:var(--mute);font-weight:700;padding:10px}
 </style>
 <style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
 <body>
@@ -122,8 +129,14 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 <script src="platform.js"></script>
 <script>
 (() => {
-  const $ = s => document.querySelector(s), P = window.Platform, TARGET = 31, MID = 16;   // first to 31 wins, sudden death
-  const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k'), court = q.get('c');
+  const q = new URLSearchParams(location.search), quick = q.get('quick') === '1';           // quick = the Scoring tab: type the players' names and score, no tournament or account needed
+  const slug = quick ? 'quick' : q.get('s'), key = quick ? 'quick' : q.get('k'), court = quick ? null : q.get('c');
+  const QK = 'quick.v1', qload = () => { try { return JSON.parse(localStorage.getItem(QK) || 'null') || { matches: [], scores: {} }; } catch (e) { return { matches: [], scores: {} }; } }, qsave = d => { try { localStorage.setItem(QK, JSON.stringify(d)); } catch (e) {} };
+  const P = quick ? { configured: true, umpireGet: async () => { const d = qload(); return { name: 'Scoring', matches: d.matches, scores: Object.values(d.scores) }; },
+    umpireScore: async (sl, k, id, a, b, st) => { const d = qload(); d.scores[id] = { id, s1: a, s2: b, status: st }; qsave(d); },
+    umpireReset: async (sl, k, id) => { const d = qload(); delete d.scores[id]; qsave(d); }, liveChannel: () => ({ ping() {} }) } : window.Platform;
+  const $ = s => document.querySelector(s), TARGET = 31, MID = 16;   // first to 31 wins, sudden death
+  const defSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
   let swapAsked = false, data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
@@ -180,9 +193,34 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   }
   const mine = () => (data.matches || []).filter(m => !court || m.court === court).sort((a, b) => (a.slot - b.slot) || String(a.court).localeCompare(String(b.court)));
   function state(m) { const s = scores[m.mid]; if (s) return s.status; if (m.res) return 'done'; return 'up'; }
+  // ----- quick match scorer (Scoring tab) -----
+  let qSport = null;
+  const qNames = () => { try { return JSON.parse(localStorage.getItem('quick.names') || '[]'); } catch (e) { return []; } };
+  function quickForm() {
+    const sp = qSport || defSport(), nm = qNames();
+    const inp = (id, ph) => '<input id="' + id + '" type="text" maxlength="30" list="qn" autocomplete="off" placeholder="' + ph + '">';
+    return '<div class="qform"><h3>New match</h3><label>Sport</label><div class="sp"><button type="button" data-qs="badminton" class="' + (sp === 'badminton' ? 'on' : '') + '">\uD83C\uDFF8 Badminton</button><button type="button" data-qs="pickleball" class="' + (sp === 'pickleball' ? 'on' : '') + '">\uD83C\uDFD3 Pickleball</button></div>' +
+      '<label>Team 1 players</label>' + inp('qa1', 'Player 1') + inp('qa2', 'Partner (leave empty for singles)') + '<label>Team 2 players</label>' + inp('qb1', 'Player 1') + inp('qb2', 'Partner (leave empty for singles)') +
+      '<datalist id="qn">' + nm.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="go" id="qgo" type="button">Start scoring</button></div>';
+  }
+  function bindQuick() {
+    $('#list').querySelectorAll('[data-qs]').forEach(b => b.onclick = () => { qSport = b.dataset.qs; try { localStorage.setItem('sport', qSport); } catch (e) {} $('#list').querySelectorAll('[data-qs]').forEach(x => x.classList.toggle('on', x === b)); buzz(8); });
+    const go = $('#qgo'); if (go) go.onclick = () => {
+      const v = id => ($('#' + id).value || '').trim(), t1 = [v('qa1'), v('qa2')].filter(Boolean), t2 = [v('qb1'), v('qb2')].filter(Boolean);
+      if (!t1.length || !t2.length) return toast('Type at least one player for each team.');
+      if (t1.length !== t2.length) return toast('Both teams need the same number of players.');
+      const d = qload(), mid = 'q' + Date.now(), sport = qSport || defSport(), now = new Date();
+      d.matches.push({ mid, court: 'Quick', slot: -Date.now(), time: now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), bracket: sport === 'pickleball' ? 'Pickleball' : 'Badminton', t1: t1.join(' / '), t2: t2.join(' / '), sport });
+      d.matches = d.matches.slice(-30); qsave(d);
+      try { localStorage.setItem('quick.names', JSON.stringify([...new Set(t1.concat(t2).concat(qNames()))].slice(0, 80))); } catch (e) {}
+      load().then(() => openMatch(mid));
+    };
+    const cl = $('#qclr'); if (cl) cl.onclick = () => { if (!confirm('Remove all matches from this phone?')) return; qsave({ matches: [], scores: {} }); load(); };
+  }
   function renderList() {
-    $('#ttl').innerHTML = esc(data.name) + '<small>' + (court ? esc(court) : 'All courts') + ' · live scoring</small>';
+    $('#ttl').innerHTML = esc(data.name) + '<small>' + (quick ? 'Type the players, then score' : (court ? esc(court) : 'All courts') + ' · live scoring') + '</small>';
     const ms = mine(); let nextFound = false;
+    if (quick && !ms.length) { $('#list').innerHTML = quickForm(); bindQuick(); return; }
     if (!ms.length) { $('#list').innerHTML = '<div class="msg">No matches on ' + esc(court || 'this schedule') + ' yet. The organizer needs to publish the schedule again.</div>'; return; }
     const card = m => {
       const st = state(m), s = scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null), ready = m.t1 && m.t2;
@@ -192,8 +230,9 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       return '<button class="card' + (next ? ' next' : '') + '" data-m="' + esc(m.mid) + '"' + (ready || st !== 'up' ? '' : ' disabled') + '><div class="t">' + badge + wait + '<span>' + esc(m.time) + '</span>' + (court ? '' : '<span>' + esc(m.court) + '</span>') + '<span>' + esc(m.bracket) + '</span></div>' +
         '<div class="v">' + esc(m.t1 || 'TBD') + '<i>vs</i>' + esc(m.t2 || 'TBD') + (s ? '<div style="margin-top:4px;font-size:22px">' + s.s1 + ' - ' + s.s2 + '</div>' : '') + '</div></button>';
     };
-    $('#list').innerHTML = (court ? '' : '<p class="msg" style="padding:0 0 6px;text-align:left">Tip: ask the organizer for your court link to see only your court.</p>') + '<h2>Your matches</h2>' + ms.map(card).join('');
+    $('#list').innerHTML = (quick ? quickForm() : court ? '' : '<p class="msg" style="padding:0 0 6px;text-align:left">Tip: ask the organizer for your court link to see only your court.</p>') + '<h2>' + (quick ? 'Recent matches' : 'Your matches') + '</h2>' + ms.map(card).join('') + (quick ? '<button class="qclr" id="qclr">Clear all matches</button>' : '');
     $('#list').querySelectorAll('[data-m]').forEach(b => b.onclick = () => openMatch(b.dataset.m));
+    if (quick) bindQuick();
   }
 
   // ----- scoring screen -----
@@ -207,24 +246,36 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   // sv = { k: serving side (0 or 1), pos: [{R,L},{R,L}] } where pos is each side's players by service court (doubles).
   // The server stands in the right court when their side's score is even, the left when odd, and serves diagonally.
   // If the serving side wins the rally, its two players swap courts and the same player serves again. If the other side wins, service is over and it serves next.
+  // pickleball (traditional side-out): only the serving side scores; the side that wins the rally is tapped. State adds n = server number (1/2), first = the team that serves first (it only gets one server).
+  const isPB = () => ((cur && cur.sport) || (data && data.sport)) === 'pickleball';
+  const won = (a = s1, b = s2) => isPB() ? Math.max(a, b) >= 11 && Math.abs(a - b) >= 2 : Math.max(a, b) >= TARGET;     // pickleball: 11, win by 2
+  const goal = () => isPB() ? 'first to 11, win by 2' : 'first to ' + TARGET;
+  const ICON = () => isPB() ? '\uD83C\uDFD3' : '\uD83C\uDFF8';
   const parts = n => String(n || '').split(/\s*\/\s*/).filter(Boolean);
   const isDbl = () => cur && parts(cur.t1).length > 1 && parts(cur.t2).length > 1;
   const CT = c => c === 'R' ? 'right' : 'left';
   function svWho(x, a, b) {
-    const sc = [a, b], court = sc[x.k] % 2 === 0 ? 'R' : 'L', o = 1 - x.k, nm = [cur.t1, cur.t2];
+    const sc = [a, b], par = sc[x.k] % 2 === 0 ? 'R' : 'L', court = isPB() && !x.first && x.n === 2 ? (par === 'R' ? 'L' : 'R') : par, o = 1 - x.k, nm = [cur.t1, cur.t2];
     return isDbl() ? { server: x.pos[x.k][court], recv: x.pos[o][court], court } : { server: nm[x.k], recv: nm[o], court };
   }
   function svStep(x, i) {                      // the state after side i wins a rally (does not change the score)
     const y = JSON.parse(JSON.stringify(x));
+    if (isPB()) {
+      if (i === y.k) { if (y.pos) { const p = y.pos[i]; y.pos[i] = { R: p.L, L: p.R }; } }
+      else if (y.pos && !y.first && y.n === 1) y.n = 2;                       // first server lost the rally: the partner serves
+      else { y.k = i; y.n = 1; y.first = false; }                              // side out
+      return y;
+    }
     if (i === y.k) { if (y.pos) { const p = y.pos[i]; y.pos[i] = { R: p.L, L: p.R }; } } else y.k = i;
     return y;
   }
-  function svBuild(k, server, recv) {          // set up from "this player serves, that player receives" at the current score
-    const sc = [s1, s2], court = sc[k] % 2 === 0 ? 'R' : 'L', other = court === 'R' ? 'L' : 'R', o = 1 - k;
-    if (!isDbl()) return { k, pos: null };
+  function svBuild(k, server, recv, n) {       // set up from "this player serves, that player receives" at the current score (pickleball: n = server number, left out at the start of a game)
+    const pb = isPB(), first = pb && n === undefined; if (first) n = 2;
+    const sc = [s1, s2], par = sc[k] % 2 === 0 ? 'R' : 'L', court = pb && !first && n === 2 ? (par === 'R' ? 'L' : 'R') : par, other = court === 'R' ? 'L' : 'R', o = 1 - k;
+    if (!isDbl()) return pb ? { k, pos: null, n: 1, first: false } : { k, pos: null };
     const tk = parts([cur.t1, cur.t2][k]), to = parts([cur.t1, cur.t2][o]), pk = {}, po = {};
     pk[court] = server; pk[other] = tk.find(n => n !== server); po[court] = recv; po[other] = to.find(n => n !== recv);
-    const pos = []; pos[k] = pk; pos[o] = po; return { k, pos };
+    const pos = []; pos[k] = pk; pos[o] = po; return pb ? { k, pos, n, first } : { k, pos };
   }
   function chooseServe() {
     const sh = $('#sv'), O = $('#svO'), nm = [cur.t1, cur.t2], fresh = !(s1 + s2), D = isDbl();
@@ -239,7 +290,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
         O.querySelectorAll('button').forEach(b => b.onclick = () => pick(b, () => onPick(opts[+b.dataset.i])));
       };
       const sub = n => D ? ' <small style="font-weight:600;color:var(--mute)">\u00B7 ' + esc(n) + '</small>' : '';
-      const receiver = (k, server) => show('Who receives?', server + ' serves. Tap the opponent who receives.', parts(nm[1 - k]).map(n => ({ h: esc(n), n })), o => end(svBuild(k, server, o.n)));
+      const receiver = (k, server) => show('Who receives?', server + ' serves. Tap the opponent who receives.', parts(nm[1 - k]).map(n => ({ h: esc(n), n })), o => (isPB() && D && !fresh) ? show('Which server?', server + ' serves. Is that the first or the second server of the team?', [{ h: 'First server', n: 1 }, { h: 'Second server', n: 2 }], c => end(svBuild(k, server, o.n, c.n))) : end(svBuild(k, server, o.n)));
       const server = (k, title) => D
         ? show(title || 'Who serves?', 'Tap the player of ' + nm[k] + ' who serves.', parts(nm[k]).map(n => ({ h: esc(n), n })), o => receiver(k, o.n))
         : end(svBuild(k, nm[k], nm[1 - k]));
@@ -249,10 +300,10 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       } else {                                                                   // the coin is tossed on court; the app records the result
         show('Toss a coin', 'Toss a coin with both teams on court. Who won the toss?', [0, 1].map(k => ({ k, h: '\uD83E\uDE99 ' + esc(nm[k]) })),
           t => show(nm[t.k] + ' won the toss', 'The winner chooses to serve, to receive, or which end to start on. The other team takes what is left.',
-            [{ h: '\uD83C\uDFF8 Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }, { h: 'Choose the end' }],
+            [{ h: ICON() + ' Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }, { h: 'Choose the end' }],
             c => c.serve !== undefined ? server(c.serve ? t.k : 1 - t.k, 'Who serves first?')            // winner serves or receives, the other team gets the end
               : show(nm[1 - t.k] + ' choose', nm[t.k] + ' chose the end. ' + nm[1 - t.k] + ' now choose to serve or receive.',    // winner took the end, so the other team picks serve / receive
-                  [{ h: '\uD83C\uDFF8 Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }], d => server(d.serve ? 1 - t.k : t.k, 'Who serves first?'))));
+                  [{ h: ICON() + ' Serve first', serve: 1 }, { h: 'Receive first', serve: 0 }], d => server(d.serve ? 1 - t.k : t.k, 'Who serves first?'))));
       }
       sh.classList.add('on');
     });
@@ -273,35 +324,39 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     const m = cur, done = state(m) === 'done' && scores[m.mid] && scores[m.mid].status === 'done';
     const a = flipped ? 1 : 0, names = [m.t1, m.t2], pts = [s1, s2];
     const order = flipped ? [1, 0] : [0, 1];
-    const who = sv && !done && s1 < TARGET && s2 < TARGET ? svWho(sv, s1, s2) : null;
-    const tag = i => !who ? '' : i === sv.k ? '<div class="tag s">\uD83C\uDFF8 Serving: ' + esc(who.server) + ' \u00B7 ' + CT(who.court) + ' court</div>' : '<div class="tag r">Receiving: ' + esc(who.recv) + ' \u00B7 ' + CT(who.court) + ' court</div>';
-    $('#sides').innerHTML = order.map(i => '<div class="side' + (pts[i] >= TARGET ? ' win' : '') + (who && i === sv.k ? ' serving' : '') + '" data-i="' + i + '"><div class="nm">' + esc(names[i]) + '</div>' + tag(i) + '<div class="pt">' + pts[i] + '</div>' + (done ? '' : '<div class="hint">tap anywhere to add a point</div>') + '</div>').join('');
-    const sb = $('#srvbar'), live = !done && s1 < TARGET && s2 < TARGET;
+    const who = sv && !done && !won() ? svWho(sv, s1, s2) : null;
+    const tag = i => !who ? '' : i === sv.k ? '<div class="tag s">' + ICON() + ' Serving: ' + esc(who.server) + ' \u00B7 ' + CT(who.court) + ' court</div>' : '<div class="tag r">Receiving: ' + esc(who.recv) + ' \u00B7 ' + CT(who.court) + ' court</div>';
+    $('#sides').innerHTML = order.map(i => '<div class="side' + (won() && pts[i] > pts[1 - i] ? ' win' : '') + (who && i === sv.k ? ' serving' : '') + '" data-i="' + i + '"><div class="nm">' + esc(names[i]) + '</div>' + tag(i) + '<div class="pt">' + pts[i] + '</div>' + (done ? '' : '<div class="hint">' + (isPB() ? 'tap when your team wins the rally' : 'tap anywhere to add a point') + '</div>') + '</div>').join('');
+    const sb = $('#srvbar'), live = !done && !won();
     sb.classList.toggle('on', live);
     if (live) {
       if (who) {
         const nx = i => { const y = svStep(sv, i), a = s1 + (i === 0 ? 1 : 0), b = s2 + (i === 1 ? 1 : 0); return svWho(y, a, b); };
         const n0 = nx(0), n1 = nx(1);
-        sb.innerHTML = '<span>\uD83C\uDFF8 <b>' + esc(who.server) + '</b> serves from the <b>' + CT(who.court) + '</b> court to <b>' + esc(who.recv) + '</b><small>If ' + esc(names[0]) + ' score: ' + esc(n0.server) + ' serves ' + CT(n0.court) + ' \u00B7 If ' + esc(names[1]) + ' score: ' + esc(n1.server) + ' serves ' + CT(n1.court) + '</small></span><button id="svChg">Change</button>';
+        if (isPB()) sb.innerHTML = '<span>' + ICON() + ' <b>' + esc(who.server) + '</b> serves from the <b>' + CT(who.court) + '</b> court to <b>' + esc(who.recv) + '</b> <span class="callb">' + [[s1, s2][sv.k], [s1, s2][1 - sv.k]].concat(isDbl() ? [sv.first ? 2 : sv.n] : []).join(' \u2013 ') + '</span></span><button id="svChg">Change</button>';
+        else sb.innerHTML = '<span>' + ICON() + ' <b>' + esc(who.server) + '</b> serves from the <b>' + CT(who.court) + '</b> court to <b>' + esc(who.recv) + '</b><small>If ' + esc(names[0]) + ' score: ' + esc(n0.server) + ' serves ' + CT(n0.court) + ' \u00B7 If ' + esc(names[1]) + ' score: ' + esc(n1.server) + ' serves ' + CT(n1.court) + '</small></span><button id="svChg">Change</button>';
       } else sb.innerHTML = '<span>Serving is not tracked<small>Set who serves to see server and receiver.</small></span><button id="svChg">Set server</button>';
       $('#svChg').onclick = () => setServe();
     }
     if (bump != null) { const el = $('#sides').querySelector('[data-i="' + bump + '"]'); if (el) el.classList.add('bump'); }
-    const won = s1 >= TARGET || s2 >= TARGET;
-    $('#ban').classList.toggle('on', won && !done); if (won) $('#ban').textContent = (s1 > s2 ? m.t1 : m.t2) + ' reached ' + TARGET + '. Tap Finish match.';
+    const isWon = won();
+    $('#ban').classList.toggle('on', isWon && !done); if (isWon) $('#ban').textContent = (s1 > s2 ? m.t1 : m.t2) + (isPB() ? ' won ' + Math.max(s1, s2) + ' - ' + Math.min(s1, s2) : ' reached ' + TARGET) + '. Tap Finish match.';
     $('#undo').disabled = !hist.length || done; $('#fin').disabled = done || (s1 === s2);
     $('#fin').textContent = done ? 'Match finished' : 'Finish match';
     $('#rst').disabled = done || !(scores[m.mid] && scores[m.mid].status === 'live');
     if (!done) $('#sides').querySelectorAll('.side').forEach(el => el.onclick = () => add(+el.dataset.i));
   }
   function add(i) {
-    if (s1 >= TARGET || s2 >= TARGET) return buzz(30);
-    hist.push([s1, s2, JSON.stringify(sv || null)]); if (i === 0) s1++; else s2++;
-    const prevK = sv ? sv.k : null; if (sv) sv = svStep(sv, i);
-    buzz(10); save(false); paint(i);
-    if (!swapAsked && Math.max(s1, s2) >= MID && s1 < TARGET && s2 < TARGET) { swapAsked = true; setTimeout(askSwap, 450); }
-    if (sv && s1 < TARGET && s2 < TARGET && sv.k !== prevK) {            // the rally went to the other side: service over
-      const w = svWho(sv, s1, s2); toast('Service over. ' + w.server + ' serves from the ' + CT(w.court) + ' court.'); buzz([10, 40, 10]);
+    if (won()) return buzz(30);
+    if (isPB() && !sv) { toast('Set who serves first.'); return setServe(); }
+    hist.push([s1, s2, JSON.stringify(sv || null)]);
+    const scored = !isPB() || i === sv.k;                                 // pickleball: only the serving side can score
+    if (scored) { if (i === 0) s1++; else s2++; }
+    const prevK = sv ? sv.k : null, prevN = sv ? sv.n : null; if (sv) sv = svStep(sv, i);
+    buzz(10); save(false); paint(scored ? i : null);
+    if (!isPB() && !swapAsked && Math.max(s1, s2) >= MID && !won()) { swapAsked = true; setTimeout(askSwap, 450); }
+    if (sv && !won() && (sv.k !== prevK || (isPB() && sv.n !== prevN))) {            // the rally went to the other side: service over (pickleball: side out, or second server)
+      const w = svWho(sv, s1, s2); toast((sv.k !== prevK ? (isPB() ? 'Side out. ' : 'Service over. ') : 'Second server. ') + w.server + ' serves from the ' + CT(w.court) + ' court.'); buzz([10, 40, 10]);
       const el = $('#sides').querySelector('.side.serving'); if (el) el.classList.add('flash');
     }
   }
@@ -321,6 +376,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {}
     if (!quiet) toast('Match taken off LIVE.');
   }
+  if (quick) window.addEventListener('storage', e => { if (e.key === 'sport') { qSport = null; if (!cur && data) renderList(); } });     // the Sports tab changed the default
   async function closeMatch() {
     // leaving a match nobody has scored in: take it off LIVE so it is not shown as playing
     if (cur && s1 === 0 && s2 === 0 && scores[cur.mid] && scores[cur.mid].status === 'live') resetLive(true);
@@ -339,8 +395,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   const ask = (t, p, yes) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
   $('#fin').onclick = async () => {
     if (!cur || s1 === s2) return;
-    const lead = s1 > s2 ? cur.t1 : cur.t2, reached = s1 >= TARGET || s2 >= TARGET;
-    const ok = await ask('Finish this match?', (reached ? '' : 'Nobody has reached ' + TARGET + ' yet. ') + lead + ' wins ' + Math.max(s1, s2) + ' - ' + Math.min(s1, s2) + '. The score is saved to the scoreboard and cannot be changed from here.', 'Finish');
+    const lead = s1 > s2 ? cur.t1 : cur.t2, reached = won();
+    const ok = await ask('Finish this match?', (reached ? '' : 'The game is not over yet (' + goal() + '). ') + lead + ' wins ' + Math.max(s1, s2) + ' - ' + Math.min(s1, s2) + '. The score is saved to the scoreboard and cannot be changed from here.', 'Finish');
     if (!ok) return;
     save(true); buzz([20, 60, 20]);
     toast(navigator.onLine && !netErr ? 'Saved. Final score ' + s1 + ' - ' + s2 : 'Saved on this phone. It will be sent when you are back online.'); closeMatch();
@@ -349,8 +405,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   window.addEventListener('offline', paintNet);
   document.addEventListener('visibilitychange', async () => { if (!document.hidden && cur && !wake) { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} } });
 
-  if (!slug || !key) { $('#list').innerHTML = '<div class="msg">This link is incomplete. Ask the organizer for your court link.</div>'; return; }
-  if (!P || !P.configured) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
+  if (!quick && (!slug || !key)) { $('#list').innerHTML = '<div class="msg">This link is incomplete. Ask the organizer for your court link.</div>'; return; }
+  if (!quick && (!P || !P.configured)) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
   flush(); load();
   timer = setInterval(() => { if (document.hidden) return; if (pendingN()) flush(); if (!cur) load(); }, 12000);
   setInterval(() => { if (!document.hidden && pendingN()) flush(); }, 4000);
