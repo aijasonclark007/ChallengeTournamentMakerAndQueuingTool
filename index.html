@@ -177,8 +177,8 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
   <nav class="seg" aria-label="Main">
     <a href="#/sports" data-p="sports">Sports</a>
     <a href="#/score" data-p="score">Scoring</a>
-    <a href="#/draw" data-p="draw">Draw &amp; Schedule</a>
     <a href="#/queue" data-p="queue">Queuing</a>
+    <a href="#/draw" data-p="draw">Draw &amp; Schedule</a>
     <i class="nthumb"></i>
   </nav>
   <div id="acct" class="acct"></div>
@@ -315,7 +315,7 @@ function sportsPage() {
   const cur = getSport();
   return '<div class="head"><div><h1>Choose your sport</h1><p class="lead">Everything you create next starts with this sport. You can still change it inside each tool.</p></div></div>' +
     '<div class="sportgrid">' + SPORTS.map(([k, ic, n, d]) => '<button type="button" class="sportcard' + (cur === k ? ' on' : '') + '" data-sport="' + k + '"><span class="sic">' + ic + '</span><b>' + n + '</b><small>' + d + '</small><span class="stick">\u2713</span></button>').join('') + '</div>' +
-    '<div class="sportgo"><a class="btn" href="#/score">Score a match</a><a class="btn ghost" href="#/draw">Tournament Draw &amp; Schedule Matches</a><a class="btn ghost" href="#/queue">Queuing Tool</a></div>';
+    '<div class="sportgo"><a class="btn" href="#/score">Score a match</a><a class="btn ghost" href="#/queue">Queuing Tool</a><a class="btn ghost" href="#/draw">Tournament Draw &amp; Schedule Matches</a></div>';
 }
 const setLogo = () => { const l = $('#logo'); if (l) l.innerHTML = Sports.get(getSport()).logo; };
 setLogo();
