@@ -28,7 +28,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulat
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase;letter-spacing:.06em}
 /* scoring screen */
-#score{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .45s cubic-bezier(.2,.8,.2,1);z-index:10;padding-top:env(safe-area-inset-top)}
+#score{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .45s cubic-bezier(.22,1,.36,1);z-index:10;padding-top:env(safe-area-inset-top)}
 #score.on{transform:none}
 .sbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff}
 .sbar button{background:rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:8px 14px;font-weight:700}
@@ -40,18 +40,18 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 .side .pt{font-size:clamp(84px,24vh,170px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
 .side .hint{position:absolute;bottom:10px;font-size:12px;color:var(--mute)}
 .side.win{background:#EAF7D6;border-color:var(--lime)}
-.side.bump .pt{animation:bump .3s cubic-bezier(.2,.8,.2,1)}
+.side.bump .pt{animation:bump .3s cubic-bezier(.22,1,.36,1)}
 @keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
 .acts{display:flex;gap:10px;padding:4px 12px 14px}
 .acts button{flex:1;padding:16px 8px;border-radius:14px;background:#fff;border:1px solid var(--line);font-weight:800}
 .acts button.fin{flex:2;background:var(--lime);color:#fff;border-color:var(--lime)}
 .acts button:disabled{opacity:.4}
 .banner{margin:0 12px;padding:10px 14px;border-radius:14px;background:#FFF4D6;color:#6b4a00;font-weight:700;text-align:center;display:none}
-.banner.on{display:block;animation:pop .35s cubic-bezier(.2,.8,.2,1)}
+.banner.on{display:block;animation:pop .35s cubic-bezier(.22,1,.36,1)}
 @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
 #ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:30;visibility:hidden;opacity:0;transition:opacity .2s,visibility .2s;padding:20px}
 #ov.on{visibility:visible;opacity:1}
-#ov .sheet{background:#fff;border-radius:20px;padding:20px;max-width:380px;width:100%;transform:scale(.94);transition:transform .35s cubic-bezier(.2,.8,.2,1)}#ov.on .sheet{transform:none}
+#ov .sheet{background:#fff;border-radius:20px;padding:20px;max-width:380px;width:100%;transform:scale(.94);transition:transform .35s cubic-bezier(.22,1,.36,1)}#ov.on .sheet{transform:none}
 #ov h3{margin:0 0 6px;font-size:20px}#ov p{margin:0 0 16px;color:var(--mute)}
 #ov .row{display:flex;gap:10px}#ov .row button{flex:1;padding:14px;border-radius:14px;font-weight:800;background:#EEF1F7}#ov .row .go{background:var(--navy);color:#fff}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:opacity .3s,transform .3s;z-index:40;will-change:transform,opacity;pointer-events:none;max-width:90%;text-align:center}
@@ -69,10 +69,10 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 #sv .opts button{transition:transform .2s,opacity .25s,background .2s,box-shadow .2s}
 #sv .opts button:active{transform:scale(.96)}
 #sv .opts.has-pick button:not(.picked){opacity:.3;transform:scale(.97)}
-#sv .opts button.picked{background:var(--lime);color:#0B1B33;animation:pick .38s cubic-bezier(.2,.8,.2,1)}
+#sv .opts button.picked{background:var(--lime);color:#0B1B33;animation:pick .38s cubic-bezier(.22,1,.36,1)}
 #sv .opts button.picked:after{content:" \2713";font-weight:900}
 @keyframes pick{0%{transform:scale(1)}45%{transform:scale(1.07)}100%{transform:scale(1.02)}}
-#sv .sheet.step{animation:stepin .3s cubic-bezier(.2,.8,.2,1)}@keyframes stepin{from{opacity:.4;transform:translateX(18px)}to{opacity:1;transform:none}}
+#sv .sheet.step{animation:stepin .3s cubic-bezier(.22,1,.36,1)}@keyframes stepin{from{opacity:.4;transform:translateX(18px)}to{opacity:1;transform:none}}
 
 /* phone held sideways (umpire facing the court): the two teams sit side by side */
 @media (orientation:landscape) and (max-height:560px){
