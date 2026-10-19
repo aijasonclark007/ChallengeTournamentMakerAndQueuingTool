@@ -167,6 +167,10 @@
     need(); const r = await sb.from(QT).select('*').eq('id', id).maybeSingle();
     if (r.error) fail(r.error); return r.data;
   }
+  async function getQueueVersion(id) {                       // tiny check: just the version number, not the whole queue
+    need(); const r = await sb.from(QT).select('id, version').eq('id', id).maybeSingle();
+    if (r.error) fail(r.error); return r.data;
+  }
   async function createQueueSession(name, state) {
     need(); const r = await sb.from(QT).insert({ name, state, owner: user.id }).select('*').single();
     if (r.error) fail(r.error); return r.data;
@@ -243,7 +247,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, unpublishSchedule, getPublicSchedule,
+    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, unpublishSchedule, getPublicSchedule,
     liveChannel, whenReady: () => readyP,
     get user() { return user; }
   };
