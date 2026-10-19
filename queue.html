@@ -379,10 +379,11 @@ const M = {
 // ---------------------------------------------------------------- sync engine (guest = this device, cloud = shared live)
 let backend = { type: 'guest' }, server = { state: blank(), version: 0 }, pending = [], view = server.state, flushing = false;
 let skipRender = false, sessions = [], tab = 'courts', pendingRender = false, unsub = null, pollTimer = null, syncState = 'guest';
-const GK = 'queue.guest.v1';
+const sfx = () => Sports.current() === 'pickleball' ? '.pickleball' : '';          // every sport keeps its own queues
+const gk = () => 'queue.guest.v1' + sfx(), sidKey = () => 'queue.sid' + sfx();
 function recompute() { let s = server.state; for (const fn of pending) { try { const n = clone(s); fn(n); s = n; } catch (e) {} } view = s; }
-function saveGuest() { try { localStorage.setItem(GK, JSON.stringify(server.state)); } catch (e) {} }
-function loadGuest() { try { const g = JSON.parse(localStorage.getItem(GK) || 'null'); return g && g.courts ? g : blank(); } catch (e) { return blank(); } }
+function saveGuest() { try { localStorage.setItem(gk(), JSON.stringify(server.state)); } catch (e) {} }
+function loadGuest() { try { const g = JSON.parse(localStorage.getItem(gk()) || 'null'); return g && g.courts ? g : blank(); } catch (e) { return blank(); } }
 function act(fn, quiet) {
   try { fn(clone(view)); } catch (e) { toast(e.message); return; }
   pending.push(fn); recompute(); if (quiet) { skipRender = true; feeOutRender(); } else render(); flush();
@@ -755,7 +756,11 @@ function swapPlayers(a, b) {
   selQ = null; lastSwap = { ids: [a, b], until: Date.now() + 1200 }; buzz([8, 30, 8]);
   act(M.swapQueue(a, b));
 }
-Sports.onChange(() => { if (rendered) render(); });   // the sport changed (here, or on the Sports tab / logo menu)
+Sports.onChange(async () => {                       // each sport has its own queues and players
+  if (typeof backend === 'undefined' || !rendered) return;
+  if (pending.length) { try { await flush(); } catch (e) {} }
+  if (backend.type === 'cloud') startCloud(); else startGuest();
+});
 function render() {
   if (liveCode) return;
   renderSig = JSON.stringify(view);
@@ -861,12 +866,12 @@ function bind() {
     modal('Rename this queuing', '<label class="lab" for="rn">Name</label><input id="rn" type="text" maxlength="60" value="' + esc(c.name) + '">',
       [{ label: 'Save', fn: async sh => { const name = sh.querySelector('#rn').value.trim(); if (!name) { toast('Type a name first.'); return false; } try { await P.renameQueueSession(backend.id, name); c.name = name; render(); toast('Renamed.'); } catch (e) { toast(e.message); } } }]); };
   const sj = $('#sJoin'); if (sj) sj.onclick = () => modal('Join with a code', '<div class="small mute">Ask the organizer for their 6-character code.</div><input id="jc" type="text" maxlength="6" style="margin-top:8px;text-transform:uppercase;letter-spacing:.2em;font-size:20px;text-align:center" placeholder="ABC123">',
-    [{ label: 'Join', fn: async sh => { try { const id = await P.joinQueueSession(sh.querySelector('#jc').value); await refreshSessions(); await openSession(id); toast('Joined!'); } catch (e) { toast(e.message); } } }]);
+    [{ label: 'Join', fn: async sh => { try { const id = await P.joinQueueSession(sh.querySelector('#jc').value); await refreshSessions(); const jr = allSessions.find(x => x.id === id); if (jr && sportOfRow(jr) !== Sports.current()) { try { localStorage.setItem('sport', sportOfRow(jr)); } catch (e) {} Sports.mount(); await refreshSessions(); } await openSession(id); toast('Joined!'); } catch (e) { toast(e.message); } } }]);
   const sh = $('#sShare'); if (sh) sh.onclick = () => { const cur = sessions.find(x => x.id === backend.id); if (!cur) return;
     const link = location.origin + location.pathname.replace(/[^/]*$/, '') + 'queue.html?live=' + cur.public_code;
     modal('Share this queuing', '<div class="small mute">Other organizers: sign in, open the Queuing Tool, tap <b>Join with code</b>, and enter</div><div class="code" style="margin:8px 0 14px">' + esc(cur.join_code) + '</div>' +
       '<div class="small mute">Live board for players (view only, no sign-in)</div><input id="lk" type="text" readonly value="' + esc(link) + '" style="margin-top:6px">', [{ label: 'Copy board link', cls: 'ghost', fn: () => { const i = $('#lk'); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); } toast('Link copied'); return false; } }]); };
-  const sd = $('#sDel'); if (sd) sd.onclick = async () => { if (!confirm('Delete this queuing session and all its data for everyone?')) return; try { await P.deleteQueueSession(backend.id); await refreshSessions(); if (sessions.length) await openSession(sessions[0].id); else await createSession('My first queuing', blank()); } catch (e) { toast(e.message); } };
+  const sd = $('#sDel'); if (sd) sd.onclick = async () => { if (!confirm('Delete this queuing session and all its data for everyone?')) return; try { await P.deleteQueueSession(backend.id); await refreshSessions(); if (sessions.length) await openSession(sessions[0].id); else await createSession('My first queuing', blank(Sports.current())); } catch (e) { toast(e.message); } };
   const gm = $('#gMove'); if (gm) gm.onclick = async () => { try { const g = loadGuest(); g.players.forEach(p => { p.status = 'out'; }); g.matches = []; await createSession('Preview session', g); localStorage.setItem('queue.guest.moved', '1'); toast('Saved to your account.'); } catch (e) { toast(e.message); } };
   const gs = $('#gSkip'); if (gs) gs.onclick = () => { try { localStorage.setItem('queue.guest.moved', '1'); } catch (e) {} render(); };
 }
@@ -982,12 +987,14 @@ async function openPool() {
 }
 
 // ---------------------------------------------------------------- sessions (cloud)
-async function refreshSessions() { sessions = await P.listQueueSessions(); }
+let allSessions = [];
+const sportOfRow = x => x.sport === 'pickleball' ? 'pickleball' : 'badminton';
+async function refreshSessions() { allSessions = await P.listQueueSessions(); sessions = allSessions.filter(x => sportOfRow(x) === Sports.current()); }
 async function openSession(id) {
   if (pending.length) await flush();
   const row = await P.getQueueSession(id); if (!row) { toast('That queuing session was not found.'); return; }
   backend = { type: 'cloud', id }; server = { state: row.state && row.state.courts ? row.state : blank(), version: row.version }; pending = []; recompute();
-  try { localStorage.setItem('queue.sid', id); } catch (e) {}
+  try { localStorage.setItem(sidKey(), id); } catch (e) {}
   syncState = 'live'; watch(); render();
 }
 async function createSession(name, state) {
@@ -996,7 +1003,7 @@ async function createSession(name, state) {
 async function startCloud() {
   try {
     await refreshSessions();
-    const last = (() => { try { return localStorage.getItem('queue.sid'); } catch (e) { return null; } })();
+    const last = (() => { try { return localStorage.getItem(sidKey()); } catch (e) { return null; } })();
     const pick = sessions.find(x => x.id === last) || sessions[0];
     if (pick) await openSession(pick.id); else await createSession('My first queuing', blank());
   } catch (e) { startGuest(); toast('Could not reach your account: ' + e.message); }
