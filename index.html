@@ -326,11 +326,10 @@ const SPORTS = Sports.list().map(r => [r.key, r.icon, r.name, r.blurb]);
 const getSport = Sports.current;
 function installCard() {
   let app = false; try { app = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; } catch (e) {}
-  const hapt = '<label class="instcard" style="display:flex;align-items:center;gap:12px;padding:16px 22px;font-weight:700;font-size:16px"><span aria-hidden="true">\uD83D\uDCF3</span> Tap feedback (haptics)<input id="hapt" class="iosw" type="checkbox" ' + (window.Haptics && Haptics.enabled() ? 'checked' : '') + '></label>';
-  if (app) return hapt;
+  if (app) return '';
   return '<details class="instcard"><summary><span aria-hidden="true">\uD83D\uDCF1</span> Install on your phone</summary><div class="ib"><div class="mute">Open it like an app from your home screen. It is free and takes 10 seconds.</div>' +
     '<h4>iPhone (use Safari)</h4><ol><li>Tap the <b>Share</b> button (square with an arrow) at the bottom.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>.</li></ol>' +
-    '<h4>Android (use Chrome)</h4><ol><li>Tap the <b>\u22EE</b> menu at the top right.</li><li>Tap <b>Install app</b> (or <b>Add to Home screen</b>).</li><li>Tap <b>Install</b>.</li></ol></div></details>' + hapt;
+    '<h4>Android (use Chrome)</h4><ol><li>Tap the <b>\u22EE</b> menu at the top right.</li><li>Tap <b>Install app</b> (or <b>Add to Home screen</b>).</li><li>Tap <b>Install</b>.</li></ol></div></details>';
 }
 function sportsPage() {
   const cur = getSport();
@@ -353,7 +352,6 @@ $('#logo').addEventListener('click', e => { e.stopPropagation(); $('#spMenu').cl
 document.addEventListener('click', e => { if (!e.target.closest('#spMenu')) closeSpMenu(); if (e.target.closest && e.target.closest('nav a, .tabs a, .btn, .sportcard') && window.Haptics) Haptics.buzz(6); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSpMenu(); });
 function initSports() {
-  const hp = $('#hapt'); if (hp) hp.onchange = () => Haptics.set(hp.checked);
   $$('[data-sport]').forEach(b => b.onclick = () => { try { localStorage.setItem('sport', b.dataset.sport); } catch (e) {} $$('[data-sport]').forEach(x => x.classList.toggle('on', x === b)); setLogo(); try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} });
 }
 const TOOLS = { score: ['u.html?quick=1', 'Scoring'], draw: ['schedule.html', 'Draw & Schedule tool'], queue: ['queue.html', 'Queuing Tool'] };
