@@ -50,6 +50,10 @@
   const deleteTournament = id => { need(); return run(sb.from(T.draws).delete().eq('id', id)); };
 
   // ---------- saved player pool (for the queuing tool) ----------
+  // One pool per sport, with no database change: pickleball names are stored as "pickleball::Name"; old rows without a prefix are badminton.
+  const poolSport = () => { let k = 'badminton'; try { k = localStorage.getItem('sport') || 'badminton'; } catch (e) {} return /^[a-z]+$/.test(k) ? k : 'badminton'; };
+  const poolKey = () => { const k = poolSport(); return k === 'badminton' ? '' : k + '::'; };
+  const poolRow = r => { const n = String(r.name || ''), i = n.indexOf('::'); return i > 0 ? { id: r.id, level: r.level, sport: n.slice(0, i), name: n.slice(i + 2) } : { id: r.id, level: r.level, sport: 'badminton', name: n }; };
   /** Saves (or updates the level of) one player in the signed-in organizer's pool. */
   async function savePlayerToPool(name, level) {
     need();
@@ -57,12 +61,13 @@
     const lv = LEVELS.find(l => l.toLowerCase() === String(level || '').trim().toLowerCase());
     if (!clean) throw new Error('Enter the player\'s name.');
     if (!lv) throw new Error('Level must be High, Mid or Low.');
-    return run(sb.from(T.players).upsert({ user_id: user.id, name: clean, level: lv }, { onConflict: 'user_id,name' }).select('id, name, level').single());
+    return run(sb.from(T.players).upsert({ user_id: user.id, name: poolKey() + clean, level: lv }, { onConflict: 'user_id,name' }).select('id, name, level').single()).then(poolRow);
   }
   /** Returns the whole pool as [{ id, name, level }], sorted by name. */
   async function fetchPlayerPool() {
     need();
-    return run(sb.from(T.players).select('id, name, level').order('name', { ascending: true }));
+    const me = poolSport();
+    return run(sb.from(T.players).select('id, name, level').order('name', { ascending: true })).then(rows => (rows || []).map(poolRow).filter(r => r.sport === me).map(r => ({ id: r.id, name: r.name, level: r.level })));
   }
   const removePlayerFromPool = id => { need(); return run(sb.from(T.players).delete().eq('id', id)); };
 
