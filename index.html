@@ -39,7 +39,7 @@ nav.seg a{position:relative;z-index:1}nav.seg a.on{background:none;box-shadow:no
 .seg a:active{transform:scale(.96)}
 @keyframes toolin{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
 .tool{animation:toolin .6s var(--spring) both}
-html.scoring-full,html.scoring-full body{height:auto!important;overflow:visible!important;overscroll-behavior:none;min-height:calc(100vh + 140px);min-height:calc(100dvh + 140px)}html.scoring-full #tool-score{position:fixed;z-index:200;top:env(safe-area-inset-top);left:env(safe-area-inset-left);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right));height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:0;border-radius:0;box-shadow:none;animation:none}html.scoring-full::after{content:'';position:fixed;inset:0;z-index:199;background:#007AFF}
+html.scoring-full,html.scoring-full body{height:auto!important;overflow:visible!important;overscroll-behavior:none;min-height:calc(100vh + 140px);min-height:calc(100dvh + 140px)}html.scoring-full #tool-score{position:fixed;z-index:200;top:0;left:0;right:0;bottom:0;width:100%;height:100vh;height:100dvh;min-height:0;border-radius:0;box-shadow:none;animation:none}html.scoring-full::after{content:'';position:fixed;inset:0;z-index:199;background:#007AFF}
 html.tool-mode,html.tool-mode body{height:100%;overflow:hidden}
 html.tool-mode footer{display:none}
 html.tool-mode main.wide{padding:10px 12px 12px}
@@ -360,7 +360,9 @@ function gotoTool(name, arg) {
   if (f.dataset.ready) send(); else f.addEventListener('load', send, { once: true });
 }
 let scoringOn = false, shownTool = null;
-function applyFull() { const on = scoringOn && shownTool === 'score'; document.documentElement.classList.toggle('scoring-full', on); try { document.querySelector('meta[name=theme-color]').content = on ? '#007AFF' : '#F2F2F7'; } catch (x) {} }   // the scoring screen takes over the whole phone while a match is on
+function sendInsets() { const f = $('#tool-score'); if (!f || !f.contentWindow) return; const p = document.createElement('div'); p.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'; document.body.appendChild(p); const c = getComputedStyle(p), m = { t: 'insets', sat: parseFloat(c.paddingTop) || 0, sar: parseFloat(c.paddingRight) || 0, sab: parseFloat(c.paddingBottom) || 0, sal: parseFloat(c.paddingLeft) || 0 }; p.remove(); try { f.contentWindow.postMessage(m, location.origin); } catch (e) {} }
+window.addEventListener('resize', sendInsets); window.addEventListener('orientationchange', () => setTimeout(sendInsets, 250));
+function applyFull() { if (scoringOn) sendInsets(); const on = scoringOn && shownTool === 'score'; document.documentElement.classList.toggle('scoring-full', on); try { document.querySelector('meta[name=theme-color]').content = on ? '#007AFF' : '#F2F2F7'; } catch (x) {} }   // the scoring screen takes over the whole phone while a match is on
 function showTool(name, arg) {
   shownTool = name; applyFull();
   ensureTool(name); $('#view').style.display = 'none'; $('#tools').style.display = '';
