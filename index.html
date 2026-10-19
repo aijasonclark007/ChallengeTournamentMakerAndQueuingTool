@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Challenge - Tournament Management by Ai Jason Clark</title>
-<meta name="description" content="Challenge - Tournament Management by Ai Jason Clark: tournaments, draw and schedule tool, and queuing tool for our badminton club.">
+<meta name="description" content="Challenge - Tournament Management by Ai Jason Clark: sports scoring, draw and schedule tool, and queuing tool for badminton and pickleball.">
 <meta property="og:title" content="Challenge - Tournament Management by Ai Jason Clark">
-<meta property="og:description" content="Create and share badminton tournaments, take player registrations, and build the draw and game schedule.">
+<meta property="og:description" content="Score badminton and pickleball matches, build the draw and game schedule, and run the queue on court.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#F2F2F7">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -92,7 +92,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 .cover .cd{position:absolute;left:14px;top:14px;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .cover.big{aspect-ratio:auto;height:clamp(150px,26vw,230px)}.cover.big svg{height:112%;right:6%}.cover img{width:100%;height:100%;object-fit:cover;display:block}
 .tgrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));margin-top:14px}
-.tcard{display:block;transition:transform .2s,box-shadow .2s}.tcard:hover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(0,0,0,.05),0 16px 36px rgba(0,0,0,.1)}.tcard:active{transform:scale(.99)}
+.sportgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:6px 0 18px}.sportcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 14px 20px;border-radius:22px;border:2px solid transparent;background:var(--card);box-shadow:var(--shadow);font:inherit;color:var(--ink);cursor:pointer;transition:transform .35s cubic-bezier(.22,1,.36,1),border-color .25s,box-shadow .25s}.sportcard:active{transform:scale(.96)}.sportcard .sic{font-size:54px;line-height:1}.sportcard b{font-size:18px}.sportcard small{color:var(--mute,#6c6c70);text-align:center;font-size:13px;line-height:1.3}.sportcard .stick{position:absolute;top:10px;right:12px;width:24px;height:24px;border-radius:50%;background:#007AFF;color:#fff;display:grid;place-items:center;font-size:14px;font-weight:800;opacity:0;transform:scale(.4);transition:opacity .2s,transform .35s cubic-bezier(.22,1,.36,1)}.sportcard.on{border-color:#007AFF;box-shadow:0 0 0 4px rgba(0,122,255,.12),var(--shadow)}.sportcard.on .stick{opacity:1;transform:none}.sportgo{display:flex;gap:10px;flex-wrap:wrap}.tcard{display:block;transition:transform .2s,box-shadow .2s}.tcard:hover{transform:translateY(-3px);box-shadow:0 2px 4px rgba(0,0,0,.05),0 16px 36px rgba(0,0,0,.1)}.tcard:active{transform:scale(.99)}
 .tbody{padding:14px 16px 16px}.tbody b{display:block;font-size:18px;letter-spacing:-.01em}.tbody small{display:block;color:var(--mute);font-size:14px;margin-top:2px}
 .trow{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -170,11 +170,12 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
             <ellipse cx="54" cy="96" rx="4" ry="2.6" fill="#FFF6D6" opacity=".6" transform="rotate(-25 54 96)"/>
           </g></symbol></defs></svg>
 <header class="bar"><div class="bar-in">
-  <a class="brand" href="#/tournaments"><img src="data:image/jpeg;base64,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" alt="Racketeers badminton club logo"><span><b>Challenge - Tournament Management</b><small>by Ai Jason Clark</small></span></a>
+  <a class="brand" href="#/sports"><img src="data:image/jpeg;base64,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" alt="Racketeers badminton club logo"><span><b>Challenge - Tournament Management</b><small>by Ai Jason Clark</small></span></a>
   <nav class="seg" aria-label="Main">
-    <a href="#/tournaments" data-p="tournaments">Tournaments</a>
+    <a href="#/sports" data-p="sports">Sports</a>
+    <a href="#/score" data-p="score">Scoring</a>
     <a href="#/draw" data-p="draw">Draw &amp; Schedule</a>
-    <a href="#/queue" data-p="queue">Queuing Tool</a>
+    <a href="#/queue" data-p="queue">Queuing</a>
     <i class="nthumb"></i>
   </nav>
   <div id="acct" class="acct"></div>
@@ -187,66 +188,15 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
-<script src="tournaments.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const STATUS = { open: 'Registration open', soon: 'Coming soon', done: 'Completed' };
 const P = window.Platform, cloud = !!(P && P.configured);
-let T = [], timer = null, isOrg = false, rt = 0;
+let timer = null, rt = 0;
 $('#yr').textContent = new Date().getFullYear();
 
-// ---------- data ----------
-const longDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'To be announced';
-const rowToT = r => ({ dbId: r.id, id: r.slug, name: r.name, title: r.title || r.name, date: r.event_date || '', dateText: longDate(r.event_date), time: r.time_text || '', venue: r.venue || '',
-  status: r.status, category: r.category || '', fee: r.fee || '', deadline: r.deadline || '', perks: r.perks || '', levels: r.levels || {}, rules: r.rules || [], endpoint: r.endpoint || '',
-  cover: r.cover_url || '', pay: r.payment_info || '', owner: r.created_by, published: r.published });
-async function loadPublic() {
-  // The public Tournaments page only lists the sample. Tournaments people create are shared by their registration link
-  // (#/t/<slug>) and shown to their owner under "My tournaments", never in this public list.
-  const sample = window.TOURNAMENTS || [];           // tournaments.js
-  let list = sample;
-  if (cloud) { try { const rows = (await P.listPublicTournaments()).map(rowToT).filter(t => t.id === 'example'); list = rows.length ? rows : sample; } catch (e) { console.warn(e); } }
-  if (cloud && P.user) {                             // signed in: also show my own tournaments (nobody else's)
-    try { const mine = (await P.listMyTournaments()).map(rowToT), have = new Set(mine.map(t => t.id)); list = list.filter(t => !have.has(t.id)).concat(mine); } catch (e) { console.warn(e); }
-  }
-  T = list;
-}
-const shareUrl = slug => location.origin + location.pathname + '#/t/' + slug;
-// Creating tournaments is limited to the site owner for now (the database enforces it too, see supabase-step8.sql)
-const OWNER_EMAIL = 'aijasonclark@gmail.com';
-const canCreate = () => !!(cloud && P.user && String(P.user.email || '').toLowerCase() === OWNER_EMAIL);
-const ownerOnly = () => '<a class="back" href="#/tournaments">‹ Tournaments</a><div class="card soon-card"><div class="big">🏸</div><h1 style="font-size:24px">This feature is coming soon</h1><p class="lead" style="margin:6px auto 0">Creating your own tournament is not open to everyone yet. Players can still register through a tournament link.</p></div>';
-const canManage = t => !!(cloud && P.user && (t.owner === P.user.id || isOrg));
-const copyText = (text, btn, label) => { (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).catch(() => { const a = document.createElement('textarea'); a.value = text; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); });
-  if (btn) { const o = label || btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = o; }, 1600); } };
-const slugify = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-
-// ---------- cards ----------
-function cover(t, big) {
-  if (t.cover) return '<div class="cover' + (big ? ' big' : '') + '"><img src="' + esc(t.cover) + '" alt=""></div>';
-  const d = new Date(t.date + 'T00:00:00'), when = isNaN(d) ? '' : MON[d.getMonth()] + ' ' + d.getDate();
-  return '<div class="cover' + (big ? ' big' : '') + '"><svg viewBox="0 0 288 288" aria-hidden="true"><use href="#art"/></svg>' +
-    (big ? '' : '<div class="ct">' + esc(t.title || t.name) + '</div>') + (when ? '<span class="cd">' + when + '</span>' : '') + '</div>';
-}
-function tcard(t, link) {
-  return '<a class="tcard card" ' + (link ? 'href="#/t/' + esc(t.id) + '"' : '') + '>' + cover(t) + '<div class="tbody"><b>' + esc(t.name) + '</b><small>' + esc(t.venue) + (t.venue && t.dateText ? ' · ' : '') + esc(t.dateText) +
-    '</small><div class="trow"><span class="pill ' + t.status + '">' + STATUS[t.status] + '</span>' + (t.published === false ? '<span class="pill done">Draft</span>' : '') + '<span class="chev">›</span></div></div></a>';
-}
 const setView = (html) => { hideTools(); const v = $('#view'); v.className = 'view'; v.innerHTML = html; requestAnimationFrame(() => v.classList.add('in')); window.scrollTo(0, 0); };
-const loadingHtml = '<div class="card soon-card"><div class="big">🏸</div><p class="lead" style="margin:6px auto 0">Loading…</p></div>';
-
-// ---------- Tournaments tab ----------
-function listPage() {
-  const mineId = P.user ? P.user.id : null, mine = T.filter(t => mineId && t.owner === mineId), pub = T.filter(t => !(mineId && t.owner === mineId));
-  const up = pub.filter(t => t.status !== 'done'), past = pub.filter(t => t.status === 'done'), grid = l => '<div class="tgrid">' + l.map(t => tcard(t, true)).join('') + '</div>';
-  const mk = canCreate() ? '<div class="acts"><a class="btn sm ghost" href="#/mine">My tournaments</a><a class="btn sm" href="#/new">+ Create a tournament</a></div>' : '<div class="acts"><span class="comingsoon">\u2728 Creating your own tournament <b>Coming soon</b></span></div>';
-  return '<div class="head"><div><h1>Tournaments</h1><p class="lead">Tap one to see the details and register.</p></div>' + mk + '</div>' +
-    (mine.length ? '<h2>Your tournaments</h2>' + grid(mine) : '') + (up.length ? '<h2>' + (mine.length ? 'Sample' : 'Upcoming') + '</h2>' + grid(up) : '') + (past.length ? '<h2>Past</h2>' + grid(past) : '') +
-    (!T.length ? '<div class="card soon-card">No tournaments yet.</div>' : '');
-}
 
 // ---------- account (sign in / create account) ----------
 function accountPage(next) {
@@ -254,11 +204,11 @@ function accountPage(next) {
   const pw = (id, label, ph, ac) => '<div class="fld"><label class="f" for="' + id + '">' + label + '</label><div class="pwrow"><input id="' + id + '" type="password" autocomplete="' + ac + '" placeholder="' + ph + '">' + eye(id) + '</div></div>';
   return '<div class="authwrap"><div class="atabs" id="atabs" role="tablist"><button type="button" data-face="in" role="tab">Sign in</button><button type="button" data-face="up" role="tab">Create account</button><i class="athumb"></i></div>' +
     '<div class="flip"><div class="flipin" id="flipin">' +
-    '<form class="card pad face" id="fin" novalidate><h1 style="font-size:28px">Welcome back</h1><p class="lead">Sign in to manage your tournaments.</p>' +
+    '<form class="card pad face" id="fin" novalidate><h1 style="font-size:28px">Welcome back</h1><p class="lead">Sign in to save your queuings and schedules.</p>' +
       '<div class="fld"><label class="f" for="ie">Email</label><input id="ie" type="email" autocomplete="username" placeholder="you@example.com"></div>' + pw('ip', 'Password', 'Your password', 'current-password') +
       '<p class="err" id="ierr"></p><div class="acts"><button class="btn sm" id="isub" type="submit">Sign in</button><button class="btn sm ghost" id="ifg" type="button">Forgot password?</button></div>' +
       '<p class="swap">New here? <button type="button" class="linkchip" data-face="up">Create an account</button></p></form>' +
-    '<form class="card pad face flipback" id="fup" novalidate><h1 style="font-size:28px">Create your account</h1><p class="lead">A free account to set up your own tournament.</p>' +
+    '<form class="card pad face flipback" id="fup" novalidate><h1 style="font-size:28px">Create your account</h1><p class="lead">A free account to save your queuings and schedules.</p>' +
       '<div class="fld"><label class="f" for="ue">Email</label><input id="ue" type="email" autocomplete="username" placeholder="you@example.com"></div>' + pw('up1', 'Password', 'At least 8 characters', 'new-password') +
       '<div class="meter" id="meter" aria-hidden="true"><i></i><i></i><i></i></div><div class="small hint" id="mtxt"></div>' + pw('up2', 'Re-type password', 'Type it again', 'new-password') + '<div class="small hint" id="mmatch"></div>' +
       '<p class="err" id="uerr"></p><div class="acts"><button class="btn sm" id="usub" type="submit">Create account</button></div>' +
@@ -347,181 +297,24 @@ async function initReset() {
     try {
       await P.updatePassword(p);
       body.classList.add('hidden'); lead.innerHTML = '';
-      $('#rf').insertAdjacentHTML('beforeend', '<div class="sentok"><div class="env">\u2705</div><h1 style="font-size:26px">Password updated</h1><p class="lead">You are signed in. Next time, sign in with your new password.</p><div class="acts" style="justify-content:center"><a class="btn sm" href="#/tournaments">Continue</a></div></div>');
-      setTimeout(() => { if (!location.hash || location.hash === '#/reset' || /access_token/.test(location.hash)) location.hash = '#/tournaments'; }, 2200);
+      $('#rf').insertAdjacentHTML('beforeend', '<div class="sentok"><div class="env">\u2705</div><h1 style="font-size:26px">Password updated</h1><p class="lead">You are signed in. Next time, sign in with your new password.</p><div class="acts" style="justify-content:center"><a class="btn sm" href="#/sports">Continue</a></div></div>');
+      setTimeout(() => { if (!location.hash || location.hash === '#/reset' || /access_token/.test(location.hash)) location.hash = '#/sports'; }, 2200);
     } catch (x) { err.textContent = x.message; $('#rsub').disabled = false; }
   });
 }
 // pages that need a signed-in user
-function needUser(next) {
-  if (!cloud) { setView('<div class="card soon-card">The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.</div>'); return false; }
-  if (!P.user) { location.hash = '#/account/' + next; return false; }
-  return true;
+const SPORTS = [['badminton', '\uD83C\uDFF8', 'Badminton', 'First to 31, serving and side swap at 16'], ['pickleball', '\uD83C\uDFD3', 'Pickleball', 'Side-out scoring to 11, win by 2']];
+const getSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };
+function sportsPage() {
+  const cur = getSport();
+  return '<div class="head"><div><h1>Choose your sport</h1><p class="lead">Everything you create next starts with this sport. You can still change it inside each tool.</p></div></div>' +
+    '<div class="sportgrid">' + SPORTS.map(([k, ic, n, d]) => '<button type="button" class="sportcard' + (cur === k ? ' on' : '') + '" data-sport="' + k + '"><span class="sic">' + ic + '</span><b>' + n + '</b><small>' + d + '</small><span class="stick">\u2713</span></button>').join('') + '</div>' +
+    '<div class="sportgo"><a class="btn" href="#/score">Score a match</a><a class="btn ghost" href="#/draw">Draw &amp; Schedule</a><a class="btn ghost" href="#/queue">Queuing Tool</a></div>';
 }
-
-// ---------- My tournaments ----------
-function minePage(rows) {
-  return '<div class="head"><div><h1>My tournaments</h1><p class="lead">Create a tournament, share its link, and approve the players who sign up.</p></div><a class="btn sm" href="#/new">+ Create a tournament</a></div>' +
-    (rows.length ? '<div class="card" style="margin-top:14px">' + rows.map(r => '<div class="mrow"><div class="grow"><b>' + esc(r.name) + '</b><small>' + esc(longDate(r.event_date)) + ' · <span class="pill ' + r.status + '">' + STATUS[r.status] + '</span>' + (r.published ? '' : ' <span class="pill done">Draft</span>') + '</small></div>' +
-      '<div class="acts"><button class="btn sm ghost" data-copy="' + esc(r.slug) + '">Copy link</button><a class="btn sm ghost" href="#/t/' + esc(r.slug) + '">View</a><a class="btn sm ghost" href="#/regs/' + esc(r.slug) + '">Players</a><a class="btn sm ghost" href="#/edit/' + esc(r.slug) + '">Edit</a><button class="btn sm danger" data-del="' + esc(r.id) + '">Delete</button></div></div>').join('') + '</div>'
-      : '<div class="card soon-card" style="margin-top:14px"><div class="big">🏸</div><h1 style="font-size:24px">No tournaments yet</h1><p class="lead" style="margin:6px auto 14px">Create your first one. You will get a link you can share with players.</p><a class="btn sm" href="#/new">+ Create a tournament</a></div>');
+function initSports() {
+  $$('[data-sport]').forEach(b => b.onclick = () => { try { localStorage.setItem('sport', b.dataset.sport); } catch (e) {} $$('[data-sport]').forEach(x => x.classList.toggle('on', x === b)); try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} });
 }
-function initMine() {
-  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(shareUrl(b.dataset.copy), b));
-  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (!confirm('Delete this tournament and all of its registrations? This cannot be undone.')) return;
-    try { await P.deleteMyTournament(b.dataset.del); route(); } catch (x) { alert(x.message); } });
-}
-
-// ---------- create / edit a tournament ----------
-function builderPage(r) {
-  const fld = (id, label, type, ph, extra) => '<div class="fld"><label class="f" for="b-' + id + '">' + label + '</label><input id="b-' + id + '" type="' + (type || 'text') + '" placeholder="' + (ph || '') + '" ' + (extra || '') + '></div>';
-  return '<a class="back" href="#/' + (r ? 'mine' : 'tournaments') + '">‹ ' + (r ? 'My tournaments' : 'Tournaments') + '</a><h1>' + (r ? 'Edit tournament' : 'Create a tournament') + '</h1><p class="lead">Fill in the details. The card on the right updates as you type.</p>' +
-    '<div class="bgrid" style="margin-top:14px"><div class="card pad">' +
-    fld('name', 'Tournament name (shown on the card)', 'text', 'Summer Doubles Open', 'maxlength="80"') + fld('title', 'Event title (headline on its page)', 'text', 'Summer Doubles Open 2026', 'maxlength="120"') +
-    '<div class="two">' + fld('date', 'Date', 'date') + fld('time', 'Time', 'text', '2:00 PM - 9:00 PM', 'maxlength="60"') + '</div>' +
-    fld('venue', 'Venue', 'text', 'Your venue', 'maxlength="120"') +
-    '<div class="fld"><label class="f" for="b-status">Status</label><select id="b-status"><option value="open">Registration open</option><option value="soon">Coming soon</option><option value="done">Completed</option></select></div>' +
-    '<div class="two">' + fld('category', 'Category', 'text', 'Non-gender doubles', 'maxlength="80"') + fld('fee', 'Entry fee', 'text', '₱500 / player', 'maxlength="60"') + '</div>' +
-    '<div class="two">' + fld('deadline', 'Payment deadline', 'text', 'October 30, 2026', 'maxlength="60"') + fld('perks', 'Included', 'text', 'Food & drinks, prizes & medals', 'maxlength="160"') + '</div>' +
-    '<div class="fld"><label class="f">Skill levels (slots and base players)</label>' + ['High', 'Mid', 'Low'].map(l => '<div class="lvrow"><b>' + l + '</b><input id="b-cap' + l + '" type="number" min="0" max="999" placeholder="Slots"><input id="b-base' + l + '" type="text" maxlength="100" placeholder="Base player: Name / Name"></div>').join('') + '<small style="color:var(--mute)">Leave Slots empty to skip a level. Skip all of them if you do not use levels.</small></div>' +
-    '<div class="fld"><label class="f" for="b-pay">How to pay (shown to players after they register)</label><textarea id="b-pay" rows="3" maxlength="600" placeholder="GCash 0917 123 4567 (Juan D.). Send your proof of payment to this email."></textarea></div>' +
-    '<div class="fld"><label class="f" for="b-rules">Rules (one per line: emoji | title | text)</label><textarea id="b-rules" rows="4" maxlength="1500" placeholder="🏸 | Game format | 31 points, single round-robin"></textarea></div>' +
-    fld('cover', 'Cover picture link (optional)', 'text', 'Leave empty to use the racket picture', 'maxlength="400"') +
-    '<label class="chk"><input id="b-pub" type="checkbox" checked> Visible to the public (untick to keep it as a private draft)</label>' +
-    '<p class="err" id="berr"></p><button class="btn" id="bsave" type="button" style="margin-top:12px">' + (r ? 'Save changes' : 'Create tournament') + '</button></div>' +
-    '<div class="stick"><h2 style="margin-top:0">Preview</h2><div id="bprev"></div></div></div>';
-}
-function initBuilder(r) {
-  const v = id => ($('#b-' + id).value || '').trim();
-  const build = () => {
-    const name = v('name') || 'New tournament', d = v('date'), o = { id: 'x', name, title: v('title') || name, date: d, dateText: longDate(d), venue: v('venue'), status: v('status'), cover: v('cover'), published: $('#b-pub').checked };
-    $('#bprev').innerHTML = tcard(o, false);
-  };
-  if (r) {
-    $('#b-name').value = r.name; $('#b-title').value = r.title || ''; $('#b-date').value = r.event_date || ''; $('#b-time').value = r.time_text || ''; $('#b-venue').value = r.venue || '';
-    $('#b-status').value = r.status; $('#b-category').value = r.category || ''; $('#b-fee').value = r.fee || ''; $('#b-deadline').value = r.deadline || ''; $('#b-perks').value = r.perks || '';
-    ['High', 'Mid', 'Low'].forEach(l => { const x = (r.levels || {})[l]; if (x) { $('#b-cap' + l).value = x.cap; $('#b-base' + l).value = x.base || ''; } });
-    $('#b-pay').value = r.payment_info || ''; $('#b-rules').value = (r.rules || []).map(x => x.join(' | ')).join('\n'); $('#b-cover').value = r.cover_url || ''; $('#b-pub').checked = r.published !== false;
-  }
-  document.querySelectorAll('.bgrid input, .bgrid select, .bgrid textarea').forEach(el => el.addEventListener('input', build));
-  $('#b-pub').addEventListener('change', build);
-  $('#bsave').onclick = async () => {
-    const err = m => { $('#berr').textContent = m || ''; }; err('');
-    if (v('name').length < 3) return err('Give your tournament a name (at least 3 characters).');
-    const levels = {}; ['High', 'Mid', 'Low'].forEach(l => { const cap = +v('cap' + l); if (cap > 0) { levels[l] = { cap }; if (v('base' + l)) levels[l].base = v('base' + l); } });
-    const rules = []; $('#b-rules').value.split('\n').forEach(line => { const p = line.split('|').map(x => x.trim()); if (p.length >= 3) rules.push([p[0], p[1], p.slice(2).join(' | ')]); });
-    const row = { name: v('name'), title: v('title') || v('name'), event_date: v('date') || null, time_text: v('time'), venue: v('venue'), status: v('status'), category: v('category'), fee: v('fee'), deadline: v('deadline'),
-      perks: v('perks'), levels, rules, payment_info: v('pay'), cover_url: v('cover') || null, published: $('#b-pub').checked };
-    if (r) row.id = r.id; else row.slug = (slugify(row.name) || 'tournament') + '-' + Math.random().toString(36).slice(2, 6);
-    const b = $('#bsave'); b.disabled = true; b.textContent = 'Saving…';
-    try { const saved = await P.saveMyTournament(row); savedPage(saved, !r); }
-    catch (x) { err(x.message); b.disabled = false; b.textContent = r ? 'Save changes' : 'Create tournament'; }
-  };
-  build();
-}
-function savedPage(r, isNew) {
-  const link = shareUrl(r.slug);
-  setView('<div class="card ok"><div class="tick">✓</div><h1 style="font-size:28px">' + (isNew ? 'Your tournament is ready!' : 'Saved!') + '</h1>' +
-    (r.published ? '<p class="lead" style="margin:6px auto 14px">Share this link with your players. Anyone with it can see the details and register.</p><div class="share"><input id="sl" type="text" readonly value="' + esc(link) + '"><button class="btn sm" id="scp" type="button">Copy link</button></div>'
-      : '<p class="lead" style="margin:6px auto 14px">This is a private draft. Edit it and tick "Visible to the public" when you are ready to share.</p>') +
-    '<div class="acts" style="justify-content:center;margin-top:18px"><a class="btn sm ghost" href="#/t/' + esc(r.slug) + '">View page</a><a class="btn sm ghost" href="#/regs/' + esc(r.slug) + '">Players</a><a class="btn sm ghost" href="#/mine">My tournaments</a></div></div>');
-  const c = $('#scp'); if (c) { $('#sl').onclick = e => e.target.select(); c.onclick = () => copyText(link, c); }
-}
-
-// ---------- registrations (organizer view) ----------
-function regsPage(t, regs) {
-  const lv = Object.keys(t.levels || {}), cnt = (l, s) => regs.filter(x => (l ? x.level === l : true) && (s ? x.status === s : true)).length;
-  return '<a class="back" href="#/mine">‹ My tournaments</a><div class="head"><div><h1>Players</h1><p class="lead">' + esc(t.name) + ' · ' + regs.length + ' registered</p></div>' +
-    '<div class="acts"><button class="btn sm ghost" id="rem">Copy emails</button><button class="btn sm ghost" id="rcsv">Download CSV</button></div></div>' +
-    (lv.length ? '<div class="sumrow">' + lv.map(l => '<div class="card sum"><b>' + l + '</b><span>' + cnt(l, 'approved') + '/' + t.levels[l].cap + ' approved</span><small>' + cnt(l) + ' registered</small></div>').join('') + '</div>' : '') +
-    (regs.length ? '<div class="card tw"><table class="rt"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Level</th><th>Status</th><th></th></tr></thead><tbody>' + regs.map(x =>
-      '<tr><td><b>' + esc(x.name) + '</b></td><td><a href="mailto:' + esc(x.email) + '">' + esc(x.email) + '</a></td><td>' + esc(x.phone || '') + '</td><td>' + esc(x.level || '') + '</td>' +
-      '<td><select data-st="' + x.id + '">' + ['pending', 'approved', 'declined'].map(s => '<option value="' + s + '"' + (x.status === s ? ' selected' : '') + '>' + s[0].toUpperCase() + s.slice(1) + '</option>').join('') + '</select></td>' +
-      '<td><button class="btn sm danger" data-rm="' + x.id + '">Remove</button></td></tr>').join('') + '</tbody></table></div>'
-      : '<div class="card soon-card" style="margin-top:14px"><div class="big">📭</div><p class="lead" style="margin:6px auto 0">No one has registered yet. Share your link to get sign-ups.</p></div>') +
-    '<p class="lead" style="margin-top:14px;font-size:14px">Set a player to Approved to count them in the slot counter. Players are not emailed automatically, so use the email links or Copy emails to let them know.</p>';
-}
-function initRegs(t, regs) {
-  document.querySelectorAll('[data-st]').forEach(s => s.onchange = async () => { try { await P.setRegistrationStatus(s.dataset.st, s.value); route(); } catch (x) { alert(x.message); } });
-  document.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { if (!confirm('Remove this player?')) return; try { await P.deleteRegistration(b.dataset.rm); route(); } catch (x) { alert(x.message); } });
-  $('#rem').onclick = () => copyText(regs.map(x => x.email).join(', '), $('#rem'));
-  $('#rcsv').onclick = () => {
-    const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"', rows = [['Registered', 'Name', 'Email', 'Phone', 'Level', 'Status']].concat(regs.map(x => [x.created_at, x.name, x.email, x.phone, x.level, x.status]));
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' })); a.download = (t.id || 'players') + '-players.csv'; a.click(); };
-}
-
-// ---------- one tournament (event page) ----------
-function eventPage(t) {
-  const lv = Object.keys(t.levels), open = t.status === 'open' && (t.endpoint || t.dbId);
-  const kv = (k, v) => v ? '<div class="kv"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : '';
-  return '<a class="back" href="#/tournaments">‹ Tournaments</a>' +
-    (canManage(t) ? '<div class="card pad manage"><b>You manage this tournament</b><div class="acts"><button class="btn sm ghost" id="mcopy" type="button">Copy share link</button><a class="btn sm ghost" href="#/regs/' + esc(t.id) + '">Players</a><a class="btn sm ghost" href="#/edit/' + esc(t.id) + '">Edit</a></div>' + (t.published === false ? '<small>Draft: only you can see this page.</small>' : '') + '</div>' : '') +
-    '<section class="card">' + cover(t, true) + '<div class="hero"><span class="pill ' + t.status + '">' + STATUS[t.status] + '</span><h1>' + esc(t.title) + '</h1>' +
-    '<div class="chips"><span class="chip">📅 ' + esc(t.dateText) + '</span>' + (t.venue ? '<span class="chip">📍 ' + esc(t.venue) + '</span>' : '') + (t.time ? '<span class="chip">⏰ ' + esc(t.time) + '</span>' : '') + '<button class="chip linkchip" id="shbtn" type="button">🔗 Copy link</button></div>' +
-    (t.status !== 'done' && t.date ? '<div class="count" id="count" aria-label="Countdown"><div><b id="cd">--</b><span>Days</span></div><div><b id="ch">--</b><span>Hours</span></div><div><b id="cm">--</b><span>Mins</span></div><div><b id="cs">--</b><span>Secs</span></div></div>' : '') +
-    '</div></section>' +
-    '<h2>Details</h2><div class="card">' + kv('Date', t.dateText) + kv('Time', t.time) + kv('Venue', t.venue) + kv('Category', t.category) + kv('Entry fee', t.fee) + kv('Payment deadline', t.deadline) + kv('Included', t.perks) + '</div>' +
-    (t.rules.length ? '<h2>Rules: quick heads-up</h2><div class="card">' + t.rules.map(r => '<div class="rule"><em>' + esc(r[0]) + '</em><div><b>' + esc(r[1]) + '</b><small>' + esc(r[2]) + '</small></div></div>').join('') + '</div>' : '') +
-    '<h2>Register</h2><div class="card" id="reg">' + (open ? formHtml(t, lv) : '<div class="pad"><div class="note">' + (t.status === 'done' ? 'This tournament is finished.' : 'Registration for this tournament opens soon. Check back here.') + '</div></div>') + '</div>';
-}
-function formHtml(t, lv) {
-  return '<form id="rf" class="pad" novalidate>' +
-    '<div><label class="f" for="n">Full name</label><input id="n" type="text" autocomplete="name" maxlength="100" placeholder="Juan Dela Cruz"><div class="err"></div></div>' +
-    '<div class="two" style="margin-top:14px"><div><label class="f" for="e">Email</label><input id="e" type="email" autocomplete="email" maxlength="200" placeholder="you@example.com"><div class="err"></div></div>' +
-    '<div><label class="f" for="p">Phone number</label><input id="p" type="tel" inputmode="tel" autocomplete="tel" maxlength="40" placeholder="0917 123 4567"><div class="err"></div></div></div>' +
-    '<input id="hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">' +
-    (lv.length ? '<fieldset style="border:0;padding:0;margin:18px 0 0"><legend class="f" style="padding:0">Skill level</legend><div class="lvls">' +
-    lv.map(l => '<label class="lv"><span class="slots" data-l="' + esc(l) + '">–/' + t.levels[l].cap + ' slots</span><input type="radio" name="skill" value="' + esc(l) + '"><span class="pillbtn">' + esc(l) + '</span>' +
-      (t.levels[l].base ? '<small>Base player: ' + esc(t.levels[l].base) + '</small>' : '') + '</label>').join('') + '</div><div class="err" id="skillErr"></div></fieldset>' : '') +
-    '<p class="err" id="sendErr" style="margin:14px 0 0"></p><button class="btn" id="go" type="submit" style="margin-top:14px">Submit registration</button></form>';
-}
-function thanksHtml(t) {
-  if (t.endpoint) return '<div class="ok"><div class="tick">✓</div><h1 style="font-size:28px">Thank you!</h1><p class="lead" style="margin:6px auto 0">Your registration is in. Entries are approved for players with several recorded attendances at our regular schedule games. We\'ll email you once yours is approved.</p>' +
-    '<p class="note" style="margin:18px auto 0;max-width:460px;font-size:14px">Tip: check your Spam or Promotions folder too, and mark our email as "Not spam" if you find it there.</p></div>';
-  return '<div class="ok"><div class="tick">✓</div><h1 style="font-size:28px">You\'re registered!</h1><p class="lead" style="margin:6px auto 0">The organizer will review your registration and contact you by email.</p>' +
-    (t.pay ? '<div class="note" style="margin:18px auto 0;max-width:460px;font-size:15px;text-align:left"><b>How to pay</b><br>' + esc(t.pay).replace(/\n/g, '<br>') + (t.deadline ? '<br><br>Payment deadline: ' + esc(t.deadline) : '') + '</div>' : '') +
-    '<p class="note" style="margin:14px auto 0;max-width:460px;font-size:14px">Tip: check your Spam or Promotions folder for their email.</p></div>';
-}
-function initEvent(t) {
-  const sb = $('#shbtn'); if (sb) sb.onclick = () => copyText(shareUrl(t.id), sb, '🔗 Copy link');
-  const mc = $('#mcopy'); if (mc) mc.onclick = () => copyText(shareUrl(t.id), mc);
-  if (t.date) {
-    const end = new Date(t.date + 'T00:00:00+08:00').getTime();
-    const tick = () => { if (!$('#cd')) return; const s = Math.max(0, Math.floor((end - Date.now()) / 1000)), p = n => String(n).padStart(2, '0');
-      $('#cd').textContent = p(Math.floor(s / 86400)); $('#ch').textContent = p(Math.floor(s % 86400 / 3600)); $('#cm').textContent = p(Math.floor(s % 3600 / 60)); $('#cs').textContent = p(s % 60); };
-    tick(); timer = setInterval(tick, 1000);
-  }
-  const form = $('#rf'); if (!form) return;
-  window.showSlots = counts => document.querySelectorAll('.slots').forEach(el => { const l = el.dataset.l, cap = t.levels[l].cap, n = counts ? counts[l] || 0 : null;
-    el.textContent = counts ? n + '/' + cap + ' slots' : ''; el.classList.toggle('full', !!counts && n >= cap); });
-  if (t.endpoint) { const s = document.createElement('script'); s.src = t.endpoint + '?callback=showSlots&t=' + Date.now(); s.onerror = () => window.showSlots(null); document.head.appendChild(s); }
-  else if (cloud && t.dbId) P.slotCounts(t.dbId).then(window.showSlots).catch(() => window.showSlots(null));
-  const setErr = (el, m) => { el.parentElement.querySelector('.err').textContent = m; };
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    if ($('#hp').value) return;                                     // hidden field: bots fill it, people do not
-    const d = { name: $('#n').value.trim(), email: $('#e').value.trim(), phone: $('#p').value.trim(), skill: (form.querySelector('input[name=skill]:checked') || {}).value || '' };
-    let ok = true; const chk = (bad, el, m) => { setErr(el, bad ? m : ''); if (bad) ok = false; };
-    chk(d.name.length < 2, $('#n'), 'Enter your full name.'); chk(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email), $('#e'), 'Enter a valid email, like you@example.com.');
-    chk(d.phone.replace(/\D/g, '').length < 7, $('#p'), 'Enter a phone number with at least 7 digits.');
-    if ($('#skillErr')) { $('#skillErr').textContent = d.skill ? '' : 'Choose your skill level.'; if (!d.skill) ok = false; }
-    if (!ok) return;
-    const btn = $('#go'); $('#sendErr').textContent = ''; btn.disabled = true; btn.textContent = 'Submitting...';
-    try {
-      if (t.endpoint) {
-        const r = await fetch(t.endpoint, { method: 'POST', body: new URLSearchParams(d) }), out = await r.json();
-        if (out.result !== 'success') throw new Error(out.message || 'Script error');
-      } else await P.registerForTournament(t.dbId, { name: d.name, email: d.email, phone: d.phone, level: d.skill });
-      $('#reg').innerHTML = thanksHtml(t); $('#reg').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } catch (err) { $('#sendErr').textContent = 'Your registration didn\'t go through (' + err.message + '). Check your connection and try again.'; btn.disabled = false; btn.textContent = 'Submit registration'; }
-  });
-}
-
-// ---------- the other tabs ----------
-// The two tools live in their own pages. They are loaded once, in the background, and then only shown or hidden,
-// so switching tabs is instant and keeps whatever you were doing.
-const TOOLS = { draw: ['schedule.html', 'Draw & Schedule tool'], queue: ['queue.html', 'Queuing Tool'] };
+const TOOLS = { score: ['u.html?quick=1', 'Scoring'], draw: ['schedule.html', 'Draw & Schedule tool'], queue: ['queue.html', 'Queuing Tool'] };
 function ensureTool(name) {
   let f = $('#tool-' + name);
   if (!f) {
@@ -555,7 +348,7 @@ function showTool(name, arg) {
 function hideTools() { $('#tools').style.display = 'none'; $('#view').style.display = ''; document.documentElement.classList.remove('tool-mode'); }
 
 // ---------- router (no page reloads, so the bar stays and switching feels instant) ----------
-let prevTab = 'tournaments', lastNav = null;
+let prevTab = 'sports', lastNav = null;
 function placeNavThumb(animate) {
   const th = document.querySelector('.nthumb'), on = document.querySelector('nav.seg a.on'); if (!th || !on) return;
   const x = on.offsetLeft, w = on.offsetWidth, prev = lastNav;
@@ -568,47 +361,18 @@ window.addEventListener('resize', () => placeNavThumb(false));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeNavThumb(false));
 async function route() {
   clearInterval(timer);
-  const tok = ++rt, parts = (location.hash.replace(/^#\/?/, '') || 'tournaments').split('/'), page = parts[0], arg = parts[1] ? decodeURIComponent(parts[1]) : '';
-  const tab = ['draw', 'queue'].includes(page) ? page : 'tournaments';
+  const tok = ++rt, parts = (location.hash.replace(/^#\/?/, '') || 'sports').split('/'), page = parts[0], arg = parts[1] ? decodeURIComponent(parts[1]) : '';
+  const tab = ['score', 'draw', 'queue'].includes(page) ? page : 'sports';
   document.querySelectorAll('.seg a').forEach(a => a.classList.toggle('on', a.dataset.p === tab));
-  const order = ['tournaments', 'draw', 'queue'], dir = Math.sign(order.indexOf(tab) - order.indexOf(prevTab)); prevTab = tab;
+  const order = ['sports', 'score', 'draw', 'queue'], dir = Math.sign(order.indexOf(tab) - order.indexOf(prevTab)); prevTab = tab;
   $('#view').style.setProperty('--tx', (dir * 48) + 'px'); placeNavThumb(true);
-  $('#main').classList.toggle('wide', page === 'draw' || page === 'queue');
-  const titleFor = x => (x ? x + ' · ' : '') + 'Challenge - Tournament Management by Ai Jason Clark';
-  document.title = titleFor('');
-  if (cloud && ['mine', 'new', 'edit', 'regs'].includes(page)) await P.whenReady();   // wait until we know who is signed in
+  $('#main').classList.toggle('wide', page === 'score' || page === 'draw' || page === 'queue');
+  document.title = 'Challenge - Tournament Management by Ai Jason Clark';
   if (tok !== rt) return;
-  if (page === 'draw' || page === 'queue') { showTool(page, arg); return; }
+  if (page === 'score' || page === 'draw' || page === 'queue') { showTool(page, arg); return; }
   if (page === 'reset' || (cloud && P.recoveryPending && P.recoveryPending())) { setView(resetPage()); return initReset(); }   // came from a password-reset email (don't touch the hash yet: supabase is still reading the token from it)
   if (page === 'account') { setView(accountPage(arg)); return initAccount(arg); }
-  if (['mine', 'new', 'edit'].includes(page) && P.user && !canCreate()) return setView(ownerOnly());
-  if (page === 'mine') {
-    if (!needUser('mine')) return; setView(loadingHtml);
-    try { const rows = await P.listMyTournaments(); if (tok !== rt) return; setView(minePage(rows)); initMine(); } catch (e) { setView('<div class="card soon-card">' + esc(e.message) + '</div>'); }
-    return;
-  }
-  if (page === 'new') { if (!needUser('new')) return; setView(builderPage(null)); return initBuilder(null); }
-  if (page === 'edit' || page === 'regs') {
-    if (!needUser(page + '/' + arg)) return; setView(loadingHtml);
-    try {
-      const r = await P.getTournament(arg); if (tok !== rt) return;
-      if (!r || !(r.created_by === P.user.id || isOrg)) return setView('<a class="back" href="#/mine">‹ My tournaments</a><div class="card soon-card">We couldn\'t find that tournament in your account.</div>');
-      if (page === 'edit') { setView(builderPage(r)); return initBuilder(r); }
-      const regs = await P.listRegistrations(r.id); if (tok !== rt) return; const t = rowToT(r); setView(regsPage(t, regs)); initRegs(t, regs);
-    } catch (e) { setView('<div class="card soon-card">' + esc(e.message) + '</div>'); }
-    return;
-  }
-  if (page === 't' || page === 'tournament') {
-    setView(loadingHtml);
-    if (!T.length) await loadPublic();
-    if (tok !== rt) return;
-    let t = T.find(x => x.id === arg);
-    if (!t && cloud) { try { const r = await P.getTournament(arg); if (r) t = rowToT(r); } catch (e) {} }          // drafts are visible to their owner
-    if (tok !== rt) return;
-    if (!t) return setView('<a class="back" href="#/tournaments">‹ Tournaments</a><div class="card soon-card"><div class="big">🔎</div><h1 style="font-size:24px">Tournament not found</h1><p class="lead" style="margin:6px auto 0">The link may be wrong, or the organizer has hidden this tournament.</p></div>');
-    document.title = titleFor(t.name); setView(eventPage(t)); return initEvent(t);
-  }
-  setView(loadingHtml); await loadPublic(); if (tok !== rt) return; setView(listPage());
+  setView(sportsPage()); initSports();
 }
 window.addEventListener('hashchange', route);
 setTimeout(() => Object.keys(TOOLS).forEach(ensureTool), 1200);     // warm up both tools while the person looks at the first page
@@ -616,10 +380,10 @@ setTimeout(() => Object.keys(TOOLS).forEach(ensureTool), 1200);     // warm up b
 // ---------- account chip in the header ----------
 function chip() {
   const c = $('#acct'); if (!c) return; if (!cloud) { c.innerHTML = ''; return; }
-  c.innerHTML = P.user ? (canCreate() ? '<a href="#/mine">My tournaments</a>' : '') + '<span class="em">' + esc(P.user.email) + '</span><button id="so" type="button">Sign out</button>' : '<a href="#/account">Sign in</a><a class="reg" href="#/account/new">Create account</a>';
-  const b = $('#so'); if (b) b.onclick = async () => { await P.signOut(); location.hash = '#/tournaments'; };
+  c.innerHTML = P.user ? '<span class="em">' + esc(P.user.email) + '</span><button id="so" type="button">Sign out</button>' : '<a href="#/account">Sign in</a><a class="reg" href="#/account/new">Create account</a>';
+  const b = $('#so'); if (b) b.onclick = async () => { await P.signOut(); location.hash = '#/sports'; };
 }
-if (cloud) P.onAuth(async () => { try { isOrg = await P.isOrganizer(); } catch (e) { isOrg = false; } chip(); if (/^(#\/?)?(tournaments|t\/.*|tournament\/.*)?$/.test(location.hash)) route(); });
+if (cloud) P.onAuth(async () => { chip(); });
 chip();
 route();
 </script>
