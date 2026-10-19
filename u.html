@@ -30,6 +30,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 /* scoring screen */
 #score{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .45s cubic-bezier(.22,1,.36,1);z-index:10;padding-top:env(safe-area-inset-top)}
 #score.on{transform:none}
+#score{overflow:hidden;overscroll-behavior:none;touch-action:none}html:has(#score.on),html:has(#score.on) body{overflow:hidden;overscroll-behavior:none}html:has(#score.on) body{position:fixed;inset:0;width:100%}
 .sbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff}
 .sbar button{background:rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:8px 14px;font-weight:700}
 .sbar .mid{flex:1;text-align:center;font-size:13px;opacity:.85}
@@ -295,6 +296,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       const el = $('#sides').querySelector('.side.serving'); if (el) el.classList.add('flash');
     }
   }
+  $('#score').addEventListener('touchmove', e => { if (!e.target.closest('#sv .sheet, #ov .sheet')) e.preventDefault(); }, { passive: false });
   async function openMatch(mid) {
     cur = (data.matches || []).find(m => m.mid === mid); if (!cur) return;
     const sv0 = scores[mid] || (cur.res ? { s1: cur.res.a, s2: cur.res.b, status: 'done' } : null);
