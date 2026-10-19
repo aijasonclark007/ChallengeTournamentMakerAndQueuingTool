@@ -303,6 +303,9 @@ summary:hover{background:#fff}
 <div id="printView"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="sports/badminton/rules.js"></script>
+<script src="sports/pickleball/rules.js"></script>
+<script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
 <script>
@@ -1186,7 +1189,7 @@ document.addEventListener('click', e => {
 let preview = false;
 let tid = null, saveTimer = null, delArm = null, cloudList = [], opening = false;
 const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
-const defaultSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };   // chosen on the Sports tab
+const defaultSport = Sports.current;   // chosen on the Sports tab
 const capture = () => ({ v: 1, sport: $('#tsport').value, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value,
   locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin });
 function describe(st) {

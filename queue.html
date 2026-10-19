@@ -172,6 +172,9 @@ body.live select{background:#fff;color:#1C1C1E}
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="sports/badminton/rules.js"></script>
+<script src="sports/pickleball/rules.js"></script>
+<script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
 <script>
@@ -194,8 +197,8 @@ function sampleList(n) {                                  // random names, level
 }
 
 // ---------------------------------------------------------------- state & rules
-const getSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };   // the site-wide default, chosen on the Sports tab
-const spOf = s => (s && s.sport) === 'pickleball' ? { key: 'pickleball', name: 'Pickleball', icon: '\uD83C\uDFD3', ball: 'ball', balls: 'Balls' } : { key: 'badminton', name: 'Badminton', icon: '\uD83C\uDFF8', ball: 'shuttle', balls: 'Shuttles' };
+const getSport = Sports.current;   // the site-wide default, chosen on the Sports tab
+const spOf = s => Sports.of(s);
 const blank = sport => ({ v: 1, sport: sport || getSport(), courts: [{ id: uid(), name: 'Court 1' }], players: [], matches: [], mode: 'any', seeds: {}, fees: { courtCost: 0, shuttles: 0, shuttlePrice: 0, mode: 'equal', perGame: 0 } });
 const active = s => s.matches.filter(m => !m.end);
 const onCourtIds = s => new Set(active(s).flatMap(m => m.t1.concat(m.t2)));

@@ -186,6 +186,9 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
   &copy; <span id="yr"></span> Challenge - Tournament Management by Ai Jason Clark
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="sports/badminton/rules.js"></script>
+<script src="sports/pickleball/rules.js"></script>
+<script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
 <script>
@@ -303,8 +306,8 @@ async function initReset() {
   });
 }
 // pages that need a signed-in user
-const SPORTS = [['badminton', '\uD83C\uDFF8', 'Badminton', 'First to 31, serving and side swap at 16'], ['pickleball', '\uD83C\uDFD3', 'Pickleball', 'Side-out scoring to 11, win by 2']];
-const getSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };
+const SPORTS = Sports.list().map(r => [r.key, r.icon, r.name, r.blurb]);
+const getSport = Sports.current;
 function sportsPage() {
   const cur = getSport();
   return '<div class="head"><div><h1>Choose your sport</h1><p class="lead">Everything you create next starts with this sport. You can still change it inside each tool.</p></div></div>' +

@@ -125,6 +125,9 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="sports/badminton/rules.js"></script>
+<script src="sports/pickleball/rules.js"></script>
+<script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
 <script>
@@ -135,8 +138,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   const P = quick ? { configured: true, umpireGet: async () => { const d = qload(); return { name: 'Scoring', matches: d.matches, scores: Object.values(d.scores) }; },
     umpireScore: async (sl, k, id, a, b, st) => { const d = qload(); d.scores[id] = { id, s1: a, s2: b, status: st }; qsave(d); },
     umpireReset: async (sl, k, id) => { const d = qload(); delete d.scores[id]; qsave(d); }, liveChannel: () => ({ ping() {} }) } : window.Platform;
-  const $ = s => document.querySelector(s), TARGET = 31, MID = 16;   // first to 31 wins, sudden death
-  const defSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };
+  const $ = s => document.querySelector(s), TARGET = Sports.get('badminton').target, MID = Sports.get('badminton').swapAt;   // first to 31 wins, sudden death
+  const defSport = Sports.current;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
   let swapAsked = false, data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
@@ -248,9 +251,9 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   // If the serving side wins the rally, its two players swap courts and the same player serves again. If the other side wins, service is over and it serves next.
   // pickleball (traditional side-out): only the serving side scores; the side that wins the rally is tapped. State adds n = server number (1/2), first = the team that serves first (it only gets one server).
   const isPB = () => ((cur && cur.sport) || (data && data.sport)) === 'pickleball';
-  const won = (a = s1, b = s2) => isPB() ? Math.max(a, b) >= 11 && Math.abs(a - b) >= 2 : Math.max(a, b) >= TARGET;     // pickleball: 11, win by 2
-  const goal = () => isPB() ? 'first to 11, win by 2' : 'first to ' + TARGET;
-  const ICON = () => isPB() ? '\uD83C\uDFD3' : '\uD83C\uDFF8';
+  const won = (a = s1, b = s2) => Sports.get(isPB() ? 'pickleball' : 'badminton').won(a, b);
+  const goal = () => Sports.get(isPB() ? 'pickleball' : 'badminton').goal;
+  const ICON = () => Sports.get(isPB() ? 'pickleball' : 'badminton').icon;
   const parts = n => String(n || '').split(/\s*\/\s*/).filter(Boolean);
   const isDbl = () => cur && parts(cur.t1).length > 1 && parts(cur.t2).length > 1;
   const CT = c => c === 'R' ? 'right' : 'left';
