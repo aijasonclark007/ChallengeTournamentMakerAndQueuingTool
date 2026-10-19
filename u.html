@@ -5,7 +5,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0A2547">
 <title>Umpire Scoring</title>
-<style>
+<style>html{-webkit-text-size-adjust:100%;text-size-adjust:100%}   /* stop iPhone Safari from enlarging text after a rotation */
+
 :root{--navy:#007AFF;--lime:#34C759;--ink:#1C1C1E;--mute:#5F5F66;--line:rgba(60,60,67,.18);--red:#FF3B30;--bg:#F2F2F7}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
@@ -31,7 +32,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 #score{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .45s cubic-bezier(.22,1,.36,1);z-index:10;padding-top:0}
 #score.on{transform:none}
 /* a short scroll runway behind the fixed score screen: one swipe lets Safari tuck its address/tab bars away, then nothing else moves */
-#score{overflow:hidden;overscroll-behavior:none;touch-action:pan-y}html:has(#score.on),html:has(#score.on) body{overscroll-behavior:none}html:not(.framed):has(#score.on) body{height:auto;min-height:calc(100vh + 120px);min-height:calc(100dvh + 120px)}html.framed,html.framed body{overflow:hidden}
+#score{overflow:hidden;overscroll-behavior:none;touch-action:pan-y}html:has(#score.on),html:has(#score.on) body{overscroll-behavior:none}html:not(.framed):has(#score.on) body{height:auto;min-height:calc(100vh + 120px);min-height:calc(100dvh + 120px)}html.framed:has(#score.on),html.framed:has(#score.on) body{overflow:hidden}
 .sbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff}
 .sbar button{background:rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:8px 14px;font-weight:700}
 .sbar .mid{flex:1;text-align:center;font-size:13px;opacity:.85}
