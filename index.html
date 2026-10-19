@@ -203,6 +203,7 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="sports/badminton/rules.js"></script>
 <script src="sports/pickleball/rules.js"></script>
+<script src="haptics.js"></script>
 <script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
@@ -325,8 +326,9 @@ const SPORTS = Sports.list().map(r => [r.key, r.icon, r.name, r.blurb]);
 const getSport = Sports.current;
 function installCard() {
   let app = false; try { app = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; } catch (e) {}
-  if (app) return '';
-  return '<details class="instcard" style="margin-top:18px"><summary><span aria-hidden="true">\uD83D\uDCF1</span> Install on your phone</summary><div class="ib"><div class="mute">Open it like an app from your home screen. It is free and takes 10 seconds.</div>' +
+  const hapt = '<label class="instcard" style="display:flex;align-items:center;gap:10px;padding:14px 16px;font-weight:700;font-size:16px"><span aria-hidden="true">\uD83D\uDCF3</span> Tap feedback (haptics)<input id="hapt" type="checkbox" ' + (window.Haptics && Haptics.enabled() ? 'checked' : '') + ' style="margin-left:auto;width:22px;height:22px"></label>';
+  if (app) return hapt;
+  return hapt + '<details class="instcard" style="margin-top:18px"><summary><span aria-hidden="true">\uD83D\uDCF1</span> Install on your phone</summary><div class="ib"><div class="mute">Open it like an app from your home screen. It is free and takes 10 seconds.</div>' +
     '<h4>iPhone (use Safari)</h4><ol><li>Tap the <b>Share</b> button (square with an arrow) at the bottom.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>.</li></ol>' +
     '<h4>Android (use Chrome)</h4><ol><li>Tap the <b>\u22EE</b> menu at the top right.</li><li>Tap <b>Install app</b> (or <b>Add to Home screen</b>).</li><li>Tap <b>Install</b>.</li></ol></div></details>';
 }
@@ -345,12 +347,13 @@ const openSpMenu = () => {
   if (!m.firstChild) m.innerHTML = Sports.list().map(r => '<button type="button" data-pick="' + r.key + '"><span class="mi">' + r.logo + '</span>' + r.name + '<span class="ck"></span></button>').join('');   // built once: no parsing/painting SVGs while the animation starts
   m.querySelectorAll('[data-pick]').forEach(b => b.querySelector('.ck').textContent = cur === b.dataset.pick ? '\u2713' : '');
   requestAnimationFrame(() => { m.classList.add('open'); $('#logo').setAttribute('aria-expanded', 'true'); });
-  m.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { try { localStorage.setItem('sport', b.dataset.pick); } catch (e) {} setLogo(); closeSpMenu(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} if (typeof initSports === 'function') { const sp = document.querySelector('.sportgrid'); if (sp) sp.querySelectorAll('[data-sport]').forEach(x => x.classList.toggle('on', x.dataset.sport === b.dataset.pick)); } });
+  m.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { try { localStorage.setItem('sport', b.dataset.pick); } catch (e) {} setLogo(); closeSpMenu(); try { window.Haptics && Haptics.buzz(8); } catch (e) {} if (typeof initSports === 'function') { const sp = document.querySelector('.sportgrid'); if (sp) sp.querySelectorAll('[data-sport]').forEach(x => x.classList.toggle('on', x.dataset.sport === b.dataset.pick)); } });
 };
 $('#logo').addEventListener('click', e => { e.stopPropagation(); $('#spMenu').classList.contains('open') ? closeSpMenu() : openSpMenu(); });
-document.addEventListener('click', e => { if (!e.target.closest('#spMenu')) closeSpMenu(); });
+document.addEventListener('click', e => { if (!e.target.closest('#spMenu')) closeSpMenu(); if (e.target.closest && e.target.closest('nav a, .tabs a, .btn, .sportcard') && window.Haptics) Haptics.buzz(6); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSpMenu(); });
 function initSports() {
+  const hp = $('#hapt'); if (hp) hp.onchange = () => Haptics.set(hp.checked);
   $$('[data-sport]').forEach(b => b.onclick = () => { try { localStorage.setItem('sport', b.dataset.sport); } catch (e) {} $$('[data-sport]').forEach(x => x.classList.toggle('on', x === b)); setLogo(); try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} });
 }
 const TOOLS = { score: ['u.html?quick=1', 'Scoring'], draw: ['schedule.html', 'Draw & Schedule tool'], queue: ['queue.html', 'Queuing Tool'] };
