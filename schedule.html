@@ -180,7 +180,7 @@ summary:hover{background:#fff}
 <body>
 <main>
   <header class="noprint">
-    <h1>Draw &amp; Schedule</h1>
+    <h1>Draw &amp; Schedule <span data-sportpick></span></h1>
     <p class="sub">Pair players at random, adjust the teams by hand if you need to, then build the game schedule.</p>
   </header>
 
@@ -1188,6 +1188,8 @@ document.addEventListener('click', e => {
 let preview = false;
 let tid = null, saveTimer = null, delArm = null, cloudList = [], opening = false;
 const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+Sports.mount();
+Sports.onChange(() => { try { queueSave(); } catch (e) {} });
 const defaultSport = Sports.current;   // chosen on the Sports tab
 const capture = () => ({ v: 1, sport: Sports.current(), players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value,
   locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin });
