@@ -228,7 +228,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       const st = state(m), s = scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null), ready = m.t1 && m.t2;
       let next = false; if (!nextFound && st !== 'done' && ready) { next = true; nextFound = true; }
       const wait = readOut()[m.mid] ? '<span style="color:#8A5300;font-weight:700">Saved on phone</span>' : '';
-      const badge = st === 'live' ? '<span class="badge live">LIVE</span>' : st === 'done' ? '<span class="badge done">FINAL</span>' : '<span class="badge up">' + (ready ? (next ? 'UP NEXT' : 'UPCOMING') : 'TO BE DECIDED') + '</span>';
+      const badge = st === 'live' ? (quick ? '' : '<span class="badge live">LIVE</span>') : st === 'done' ? '<span class="badge done">FINAL</span>' : '<span class="badge up">' + (ready ? (next ? 'UP NEXT' : 'UPCOMING') : 'TO BE DECIDED') + '</span>';
       return '<button class="card' + (next ? ' next' : '') + '" data-m="' + esc(m.mid) + '"' + (ready || st !== 'up' ? '' : ' disabled') + '><div class="t">' + badge + wait + '<span>' + esc(m.time) + '</span>' + (court ? '' : '<span>' + esc(m.court) + '</span>') + '<span>' + esc(m.bracket) + '</span></div>' +
         '<div class="v">' + esc(m.t1 || 'TBD') + '<i>vs</i>' + esc(m.t2 || 'TBD') + (s ? '<div style="margin-top:4px;font-size:22px">' + s.s1 + ' - ' + s.s2 + '</div>' : '') + '</div></button>';
     };
@@ -345,6 +345,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     $('#ban').classList.toggle('on', isWon && !done); if (isWon) $('#ban').textContent = (s1 > s2 ? m.t1 : m.t2) + (isPB() ? ' won ' + Math.max(s1, s2) + ' - ' + Math.min(s1, s2) : ' reached ' + TARGET) + '. Tap Finish match.';
     $('#undo').disabled = !hist.length || done; $('#fin').disabled = done || (s1 === s2);
     $('#fin').textContent = done ? 'Match finished' : 'Finish match';
+    $('#rst').textContent = quick ? 'Cancel match' : 'Cancel live';
     $('#rst').disabled = done || !(scores[m.mid] && scores[m.mid].status === 'live');
     if (!done) $('#sides').querySelectorAll('.side').forEach(el => el.onclick = () => add(+el.dataset.i));
   }
@@ -376,7 +377,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     if (!cur) return; const id = cur.mid;
     enqueue({ id, op: 'reset' }); delete scores[id]; s1 = 0; s2 = 0; hist = []; sv = null; swapAsked = false;
     try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {}
-    if (!quiet) toast('Match taken off LIVE.');
+    if (!quiet) toast(quick ? 'Match cancelled.' : 'Match taken off LIVE.');
   }
   if (quick) window.addEventListener('storage', e => { if (e.key === 'sport') { qSport = null; if (!cur && data) renderList(); } });     // the Sports tab changed the default
   async function closeMatch() {
@@ -386,9 +387,9 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   $('#back').onclick = () => closeMatch();
   $('#rst').onclick = async () => {
     if (!cur) return; const st = scores[cur.mid];
-    if (!st || st.status !== 'live') return toast('This match is not live.');
+    if (!st || st.status !== 'live') return toast(quick ? 'Nothing to cancel.' : 'This match is not live.');
     const has = s1 > 0 || s2 > 0;
-    const ok = await ask('Cancel live scoring?', has ? 'This discards the current score (' + s1 + ' - ' + s2 + ') and takes the match off LIVE. You can start it again later.' : 'This takes the match off LIVE.', 'Cancel live');
+    const ok = await ask(quick ? 'Cancel this match?' : 'Cancel live scoring?', has ? 'This discards the current score (' + s1 + ' - ' + s2 + ')' + (quick ? '.' : ' and takes the match off LIVE. You can start it again later.') : (quick ? 'This clears the match.' : 'This takes the match off LIVE.'), quick ? 'Cancel match' : 'Cancel live');
     if (!ok) return;
     resetLive(false); paint(); closeMatch();
   };
