@@ -8,6 +8,7 @@
 <meta property="og:title" content="Challenge - Tournament Manager by Ai Jason Clark">
 <meta property="og:description" content="Score badminton and pickleball matches, build the draw and game schedule, and run the queue on court.">
 <meta property="og:type" content="website">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Challenge"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#F2F2F7">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -38,7 +39,7 @@ nav.seg a{position:relative;z-index:1}nav.seg a.on{background:none;box-shadow:no
 .seg a:active{transform:scale(.96)}
 @keyframes toolin{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
 .tool{animation:toolin .6s var(--spring) both}
-html.scoring-full body{overflow:hidden}html.scoring-full #tool-score{position:fixed;z-index:200;top:env(safe-area-inset-top);left:env(safe-area-inset-left);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right));height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:0;border-radius:0;box-shadow:none;animation:none}html.scoring-full::after{content:'';position:fixed;inset:0;z-index:199;background:#007AFF}
+html.scoring-full,html.scoring-full body{height:auto!important;overflow:visible!important;overscroll-behavior:none;min-height:calc(100vh + 140px);min-height:calc(100dvh + 140px)}html.scoring-full #tool-score{position:fixed;z-index:200;top:env(safe-area-inset-top);left:env(safe-area-inset-left);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right));height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:0;border-radius:0;box-shadow:none;animation:none}html.scoring-full::after{content:'';position:fixed;inset:0;z-index:199;background:#007AFF}
 html.tool-mode,html.tool-mode body{height:100%;overflow:hidden}
 html.tool-mode footer{display:none}
 html.tool-mode main.wide{padding:10px 12px 12px}

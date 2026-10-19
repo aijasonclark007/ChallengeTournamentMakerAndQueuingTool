@@ -31,7 +31,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 #score{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .45s cubic-bezier(.22,1,.36,1);z-index:10;padding-top:env(safe-area-inset-top)}
 #score.on{transform:none}
 /* a short scroll runway behind the fixed score screen: one swipe lets Safari tuck its address/tab bars away, then nothing else moves */
-#score{overflow:hidden;overscroll-behavior:none;touch-action:pan-y}html:has(#score.on),html:has(#score.on) body{overscroll-behavior:none}html:has(#score.on) body{height:auto;min-height:calc(100vh + 120px);min-height:calc(100dvh + 120px)}
+#score{overflow:hidden;overscroll-behavior:none;touch-action:pan-y}html:has(#score.on),html:has(#score.on) body{overscroll-behavior:none}html:not(.framed):has(#score.on) body{height:auto;min-height:calc(100vh + 120px);min-height:calc(100dvh + 120px)}html.framed,html.framed body{overflow:hidden}
 .sbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--navy);color:#fff}
 .sbar button{background:rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:8px 14px;font-weight:700}
 .sbar .mid{flex:1;text-align:center;font-size:13px;opacity:.85}
@@ -206,6 +206,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       '<label>Team 1 players</label>' + inp('qa1', 'Player 1') + inp('qa2', 'Partner (leave empty for singles)') + '<label>Team 2 players</label>' + inp('qb1', 'Player 1') + inp('qb2', 'Partner (leave empty for singles)') +
       '<datalist id="qn">' + nm.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="go" id="qgo" type="button">Start scoring</button></div>';
   }
+  if (quick && window.parent !== window) document.documentElement.classList.add('framed');   // inside the site shell: the shell page carries the scroll runway, so Safari can tuck its bars away
   const fullScreen = on => { if (quick && window.parent !== window) { try { window.parent.postMessage({ t: 'full', on }, location.origin); } catch (e) {} } };   // inside the site shell: hide the site header while scoring
   function bindQuick() {
     Sports.mount();
