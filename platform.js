@@ -4,10 +4,15 @@
   const C = Object.assign({ url: '', anonKey: '', allowSignup: false, tables: {} }, window.PLATFORM_CONFIG || {});
   const T = Object.assign({ draws: 'draw_tournaments', players: 'saved_players' }, C.tables);
   const ready = /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(C.url) && String(C.anonKey).length > 20 && !!window.supabase;
+  // A password-reset email link comes back as  #access_token=...&type=recovery  (or #error_code=... when it is expired).
+  // supabase-js clears that hash as soon as it starts, so note it first.
+  const URLTXT = String(location.hash || '') + '&' + String(location.search || '');
+  let recovery = /(^|[#&?])type=recovery\b/.test(URLTXT);
+  const recoveryErr = /error_code=|error_description=/.test(URLTXT) && /otp_expired|expired|invalid|access_denied/i.test(URLTXT.replace(/\+/g, ' ')) ? 'That reset link has expired or was already used. Request a new one.' : '';
   const sb = ready ? window.supabase.createClient(C.url, C.anonKey) : null;
   const LEVELS = ['High', 'Mid', 'Low'];
   let user = null, started = false;
-  const subs = [];
+  const subs = [], recSubs = [];
 
   // ---------- global authentication state ----------
   function setUser(next) {
@@ -17,7 +22,10 @@
   }
   if (sb) {
     sb.auth.getSession().then(r => setUser(r.data && r.data.session ? r.data.session.user : null));
-    sb.auth.onAuthStateChange((event, session) => setTimeout(() => setUser(session ? session.user : null), 0));
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') { recovery = true; recSubs.slice().forEach(fn => { try { fn(); } catch (e) { console.error(e); } }); }
+      setTimeout(() => setUser(session ? session.user : null), 0);
+    });
   } else setTimeout(() => setUser(null), 0);
 
   const needSb = () => { if (!sb) throw new Error('The cloud is not connected yet. Add your Supabase URL and key in platform-config.js.'); };
@@ -74,8 +82,17 @@
   }
   async function resetPassword(email) {
     if (!sb) need();
-    const r = await sb.auth.resetPasswordForEmail(String(email).trim(), { redirectTo: location.href.split('#')[0] });
+    // always send people back to the main page of the site, which has the "choose a new password" screen
+    const home = location.origin + location.pathname.replace(/[^/]*$/, '');
+    const r = await sb.auth.resetPasswordForEmail(String(email).trim(), { redirectTo: home });
     if (r.error) throw new Error(r.error.message);
+  }
+  async function updatePassword(pw) {          // used after the reset link signed the person in
+    if (!sb) need();
+    if (String(pw || '').length < 8) throw new Error('Use a password with at least 8 characters.');
+    const r = await sb.auth.updateUser({ password: pw });
+    if (r.error) throw new Error(r.error.message);
+    recovery = false;
   }
   // true only for owner / co-organizers (rows in the organizers table); everyone else gets a private workspace
   let orgFor = null, orgVal = false;
@@ -220,7 +237,8 @@
   }
 
   window.Platform = {
-    configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, isOrganizer,
+    configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, updatePassword, isOrganizer,
+    recoveryPending: () => recovery, recoveryError: () => recoveryErr, onRecovery: fn => recSubs.push(fn),
     listTournaments, loadTournament, saveTournament, deleteTournament,
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,

@@ -113,6 +113,7 @@ footer .contact b{color:var(--ink);font-size:14px}footer .contact a{color:var(--
 input[type=password]{width:100%;font:inherit;padding:12px 14px;border-radius:12px;border:.5px solid var(--line);background:#F7F7FA;color:var(--ink);outline:none}input[type=password]:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,122,255,.15);background:#fff}
 .btn.ghost{background:var(--fill);color:var(--blue)}.btn.danger{background:rgba(255,59,48,.12);color:var(--red)}
 .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hidden{display:none!important}
 .comingsoon{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:#FFF4D6;color:#8A5300;font-size:14px;font-weight:600;border:1px solid rgba(255,159,10,.35)}
 .comingsoon b{background:#FF9F0A;color:#fff;border-radius:999px;padding:2px 9px;font-size:12px;letter-spacing:.02em}
 .btn.sm{border:0;font:inherit;font-weight:700;cursor:pointer;border-radius:12px;padding:9px 15px;font-size:14px;text-align:center}
@@ -280,6 +281,7 @@ function initAccount(next) {
   $$('[data-face]').forEach(b => b.onclick = () => show(b.dataset.face));
   $$('[data-eye]').forEach(b => b.onclick = () => { const i = $('#' + b.dataset.eye), on = i.type === 'password'; i.type = on ? 'text' : 'password'; b.textContent = on ? 'Hide' : 'Show'; b.setAttribute('aria-label', on ? 'Hide password' : 'Show password'); });
   show(face, true);
+  if (cloud && P.recoveryError && P.recoveryError()) say('#ierr', P.recoveryError());
   // live feedback while creating the account: strength and match
   const strength = p => (p.length >= 8 ? 1 : 0) + (/[A-Z]/.test(p) && /[a-z]/.test(p) ? 1 : 0) + (/\d/.test(p) || /[^A-Za-z0-9]/.test(p) ? 1 : 0) + (p.length >= 12 ? 0 : 0);
   const feel = () => {
@@ -308,7 +310,47 @@ function initAccount(next) {
     } catch (x) { say('#uerr', x.message); $('#usub').disabled = false; }
   });
   $('#ifg').onclick = async () => { say('#ierr', ''); if (!ie.value.trim()) return say('#ierr', 'Type your email first, then press Forgot password.');
-    try { await P.resetPassword(ie.value); say('#ierr', 'If that email has an account, a reset link is on its way.', true); } catch (x) { say('#ierr', x.message); } };
+    try { await P.resetPassword(ie.value); say('#ierr', 'If that email has an account, a reset link is on its way. Open it on this device to choose a new password.', true); } catch (x) { say('#ierr', x.message); } };
+}
+// ---------- choose a new password (opened from the reset email) ----------
+function resetPage() {
+  const pw = (id, label, ph) => '<div class="fld"><label class="f" for="' + id + '">' + label + '</label><div class="pwrow"><input id="' + id + '" type="password" autocomplete="new-password" placeholder="' + ph + '"><button class="eye" type="button" data-eye="' + id + '" aria-label="Show password">Show</button></div></div>';
+  return '<div class="authwrap"><form class="card pad" id="rf" novalidate><h1 style="font-size:28px">Choose a new password</h1><p class="lead" id="rlead">Checking your reset link\u2026</p>' +
+    '<div id="rbody" class="hidden">' + pw('rp1', 'New password', 'At least 8 characters') + '<div class="meter" id="rmeter" aria-hidden="true"><i></i><i></i><i></i></div><div class="small hint" id="rtxt"></div>' +
+    pw('rp2', 'Re-type new password', 'Type it again') + '<div class="small hint" id="rmatch"></div>' +
+    '<p class="err" id="rerr"></p><div class="acts"><button class="btn sm" id="rsub" type="submit">Save new password</button></div></div>' +
+    '<div id="rdead" class="hidden"><p class="err" id="rdmsg"></p><div class="acts"><a class="btn sm" href="#/account">Back to sign in</a></div></div></form></div>';
+}
+async function initReset() {
+  const lead = $('#rlead'), body = $('#rbody'), dead = $('#rdead');
+  const dieWith = m => { lead.textContent = ''; $('#rdmsg').textContent = m; dead.classList.remove('hidden'); body.classList.add('hidden'); };
+  if (!cloud) return dieWith('The cloud is not connected yet.');
+  if (P.recoveryError()) return dieWith(P.recoveryError());
+  // the link signs you in for a moment: wait for that session before showing the form
+  const ok = await new Promise(r => { const t0 = Date.now(), i = setInterval(() => { if (P.user) { clearInterval(i); r(true); } else if (Date.now() - t0 > 5000) { clearInterval(i); r(false); } }, 80); });
+  if (!ok) return dieWith('This reset link has expired or was already used. Request a new one from the sign in page.');
+  lead.textContent = 'Signed in as ' + P.user.email + '. Pick a new password.'; body.classList.remove('hidden'); $('#rp1').focus();
+  $$('[data-eye]').forEach(b => b.onclick = () => { const i = $('#' + b.dataset.eye), on = i.type === 'password'; i.type = on ? 'text' : 'password'; b.textContent = on ? 'Hide' : 'Show'; });
+  const feel = () => {
+    const p = $('#rp1').value, q = $('#rp2').value, st = p.length < 8 ? 0 : 1 + (/[A-Z]/.test(p) && /[a-z]/.test(p) ? 1 : 0) + (/\d|[^A-Za-z0-9]/.test(p) ? 1 : 0), lab = ['', 'Weak', 'Okay', 'Strong'];
+    $$('#rmeter i').forEach((b, k) => { b.className = k < st ? 's' + st : ''; });
+    $('#rtxt').textContent = !p ? '' : p.length < 8 ? (8 - p.length) + ' more character' + (8 - p.length === 1 ? '' : 's') + ' needed' : lab[Math.max(1, st)] + ' password';
+    const m = $('#rmatch'); m.textContent = !q ? '' : q === p ? '\u2713 Passwords match' : 'Passwords do not match yet'; m.style.color = !q ? '' : q === p ? '#1E8E3E' : '#D70015';
+  };
+  $('#rp1').oninput = () => { feel(); $('#rerr').textContent = ''; }; $('#rp2').oninput = () => { feel(); $('#rerr').textContent = ''; };
+  $('#rf').addEventListener('submit', async e => {
+    e.preventDefault(); const err = $('#rerr'); err.textContent = ''; err.style.color = '';
+    const p = $('#rp1').value, q = $('#rp2').value;
+    if (p.length < 8) return err.textContent = 'Your password needs at least 8 characters.';
+    if (p !== q) return err.textContent = 'The two passwords do not match.';
+    $('#rsub').disabled = true;
+    try {
+      await P.updatePassword(p);
+      body.classList.add('hidden'); lead.innerHTML = '';
+      $('#rf').insertAdjacentHTML('beforeend', '<div class="sentok"><div class="env">\u2705</div><h1 style="font-size:26px">Password updated</h1><p class="lead">You are signed in. Next time, sign in with your new password.</p><div class="acts" style="justify-content:center"><a class="btn sm" href="#/tournaments">Continue</a></div></div>');
+      setTimeout(() => { if (!location.hash || location.hash === '#/reset' || /access_token/.test(location.hash)) location.hash = '#/tournaments'; }, 2200);
+    } catch (x) { err.textContent = x.message; $('#rsub').disabled = false; }
+  });
 }
 // pages that need a signed-in user
 function needUser(next) {
@@ -538,6 +580,7 @@ async function route() {
   if (cloud && ['mine', 'new', 'edit', 'regs'].includes(page)) await P.whenReady();   // wait until we know who is signed in
   if (tok !== rt) return;
   if (page === 'draw' || page === 'queue') { showTool(page, arg); return; }
+  if (page === 'reset' || (cloud && P.recoveryPending && P.recoveryPending())) { setView(resetPage()); return initReset(); }   // came from a password-reset email (don't touch the hash yet: supabase is still reading the token from it)
   if (page === 'account') { setView(accountPage(arg)); return initAccount(arg); }
   if (['mine', 'new', 'edit'].includes(page) && P.user && !canCreate()) return setView(ownerOnly());
   if (page === 'mine') {
