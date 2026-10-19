@@ -202,11 +202,12 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   function quickForm() {
     const sp = qSport || defSport(), nm = qNames();
     const inp = (id, ph) => '<input id="' + id + '" type="text" maxlength="30" list="qn" autocomplete="off" placeholder="' + ph + '">';
-    return '<div class="qform"><h3>New match</h3><div class="sportnote">' + Sports.get(sp).icon + ' ' + Sports.get(sp).name + ' <span>\u00B7 change on the Sports tab</span></div>' +
+    return '<div class="qform"><h3>New match</h3><label>Sport</label><div data-sportpick style="margin-bottom:10px"></div>' +
       '<label>Team 1 players</label>' + inp('qa1', 'Player 1') + inp('qa2', 'Partner (leave empty for singles)') + '<label>Team 2 players</label>' + inp('qb1', 'Player 1') + inp('qb2', 'Partner (leave empty for singles)') +
       '<datalist id="qn">' + nm.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="go" id="qgo" type="button">Start scoring</button></div>';
   }
   function bindQuick() {
+    Sports.mount();
     const go = $('#qgo'); if (go) go.onclick = () => {
       const v = id => ($('#' + id).value || '').trim(), t1 = [v('qa1'), v('qa2')].filter(Boolean), t2 = [v('qb1'), v('qb2')].filter(Boolean);
       if (!t1.length || !t2.length) return toast('Type at least one player for each team.');

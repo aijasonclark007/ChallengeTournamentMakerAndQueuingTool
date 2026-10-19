@@ -755,7 +755,7 @@ function swapPlayers(a, b) {
   selQ = null; lastSwap = { ids: [a, b], until: Date.now() + 1200 }; buzz([8, 30, 8]);
   act(M.swapQueue(a, b));
 }
-window.addEventListener('storage', e => { if (e.key === 'sport' && typeof render === 'function' && rendered) render(); });   // the Sports tab changed the sport
+Sports.onChange(() => { if (rendered) render(); });   // the sport changed (here, or on the Sports tab / logo menu)
 function render() {
   if (liveCode) return;
   renderSig = JSON.stringify(view);
@@ -764,8 +764,8 @@ function render() {
   const oldFind = $('.findbox'), oldFindTop = oldFind ? oldFind.getBoundingClientRect().top : null;
   const findHtml = '<div id="findSent" style="height:1px;margin-bottom:-1px"></div><div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"></div>';
   const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'ranking' ? rankingView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool <span class="sportbadge">' + spOf(view).icon + ' ' + spOf(view).name + '</span></h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' && tab !== 'courts' && tab !== 'players' ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
-  bind();
+  $('#root').innerHTML = '<h1>Queuing Tool <span data-sportpick></span></h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' && tab !== 'courts' && tab !== 'players' ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
+  bind(); Sports.mount();
   rendered = true;
   const fi = $('#find'); if (fi) { fi.oninput = () => { findQ = fi.value; applyFind(); }; fi.onkeydown = e => { if (e.key === 'Escape') { fi.value = ''; findQ = ''; applyFind(); } }; applyFind(); }
   if (lastSwap && Date.now() < lastSwap.until) lastSwap.ids.forEach(id => { const el = document.querySelector('[data-k="q:' + id + '"]'); if (el) { el.classList.add('swapped'); setTimeout(() => el.classList.remove('swapped'), Math.max(50, lastSwap ? lastSwap.until - Date.now() : 50)); } });
