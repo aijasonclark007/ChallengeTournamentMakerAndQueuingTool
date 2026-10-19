@@ -2,7 +2,7 @@
    <input type="checkbox" switch> gives a light tap, so we use that inside the user's tap. Users can turn it off (localStorage 'haptics' = 'off'). */
 (function () {
   var sw = null, ios = !(navigator.vibrate) && /iPhone|iPad|iPod/.test(navigator.userAgent);
-  function on() { try { return localStorage.getItem('haptics') !== 'off'; } catch (e) { return true; } }
+  function on() { return true; }   // always on
   function mk() {
     if (sw || !document.body) return sw;
     var l = document.createElement('label'); l.setAttribute('aria-hidden', 'true');
