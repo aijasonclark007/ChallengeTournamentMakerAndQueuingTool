@@ -640,13 +640,16 @@ window.addEventListener('message', e => {
 });
 function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
 const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.22,1,.36,1)';
-function placeThumb() {
-  const th = $('#thumb') || $('#tabs .thumb'), on = $('#tabs button.on'); if (!th || !on) return;
-  const x = on.offsetLeft, w = on.offsetWidth, prev = lastThumb;
+function placeThumb(instant) {
+  const th = $('#thumb') || $('#tabs .thumb'), on = $('#tabs button.on'); if (!th || !on || !on.offsetWidth) return;   // hidden (display:none) tabs measure 0: wait until they are shown
+  const x = on.offsetLeft, w = on.offsetWidth, prev = instant ? null : lastThumb;
   th.style.transition = 'none'; th.style.width = w + 'px'; th.style.transform = 'translateX(' + x + 'px)'; lastThumb = { x, w };
   if (prev && (prev.x !== x || prev.w !== w) && th.animate && !matchMedia('(prefers-reduced-motion:reduce)').matches)
     th.animate([{ transform: 'translateX(' + prev.x + 'px) scaleX(' + (prev.w / w) + ')' }, { transform: 'translateX(' + x + 'px) scaleX(1)' }], { duration: 420, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
+// the tool lives in an iframe that is created hidden: when it becomes visible (or fonts load / the phone rotates) put the pill under the right tab
+if (window.ResizeObserver) new ResizeObserver(() => placeThumb(true)).observe(document.documentElement);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeThumb(true));
 try { announceOn = localStorage.getItem('queue.ann') === '1'; } catch (e) {}
 function announce(court, t1, t2) {
   if (!announceOn) return;
