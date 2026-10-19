@@ -266,9 +266,9 @@ function proposals(s) {
 
 // every change is a small function on a copy of the state (so two phones can both change things safely)
 const M = {
-  addPlayers(list) { return s => { list.forEach(x => { const name = String(x.name || '').trim().slice(0, 40); if (!name) return;
+  addPlayers(list) { const pid = list.map(() => uid()), t0 = Date.now(); return s => { list.forEach((x, xi) => { const name = String(x.name || '').trim().slice(0, 40); if (!name) return;
       if (s.players.some(p => p.name.toLowerCase() === name.toLowerCase())) return;
-      s.players.push({ id: uid(), name, level: LEVELS.includes(x.level) ? x.level : 'Mid', status: x.status || 'out', since: Date.now(), games: 0, paid: false, sample: !!x.sample }); }); }; },
+      s.players.push({ id: pid[xi], name, level: LEVELS.includes(x.level) ? x.level : 'Mid', status: x.status || 'out', since: t0, games: 0, paid: false, sample: !!x.sample }); }); }; },
   removeSamples: () => s => { const busy = onCourtIds(s); s.players = s.players.filter(p => !p.sample || busy.has(p.id)); },
   setLevel: (id, level) => s => { const p = byId(s, id); if (p && LEVELS.includes(level)) p.level = level; },
   setStatus: (id, st) => s => { const p = byId(s, id); if (!p) return; if (onCourtIds(s).has(id)) throw new Error(p.name + ' is on a court.');
@@ -277,8 +277,8 @@ const M = {
   checkOutAll: () => s => { const busy = onCourtIds(s); s.players.forEach(p => { if (!busy.has(p.id) && p.status !== 'out') p.status = 'out'; }); delete s.manual; },
   removeAll: () => s => { if (onCourtIds(s).size) throw new Error('Finish or cancel the games on court first.'); s.players = []; s.queued = []; delete s.manual; },
   removePlayer: id => s => { if (onCourtIds(s).has(id)) throw new Error('That player is on a court.'); s.players = s.players.filter(p => p.id !== id); },
-  addCourt: () => s => { if (s.courts.length >= MAX_COURTS) throw new Error('Up to ' + MAX_COURTS + ' courts.');
-    const n = Math.max(0, ...s.courts.map(c => parseInt((c.name.match(/\d+/) || [0])[0], 10))) + 1; s.courts.push({ id: uid(), name: 'Court ' + n }); },
+  addCourt: () => { const nid = uid(); return s => { if (s.courts.length >= MAX_COURTS) throw new Error('Up to ' + MAX_COURTS + ' courts.');
+    const n = Math.max(0, ...s.courts.map(c => parseInt((c.name.match(/\d+/) || [0])[0], 10))) + 1; s.courts.push({ id: nid, name: 'Court ' + n }); }; },
   renameCourts: list => s => {
     const names = list.map(x => String(x.name || '').trim().slice(0, 24));
     if (names.some(n => !n)) throw new Error('Every court needs a name.');
@@ -286,12 +286,12 @@ const M = {
     list.forEach((x, i) => { const c = s.courts.find(k => k.id === x.id); if (c) c.name = names[i]; });
   },
   removeCourt: id => s => { if (s.courts.length <= 1) throw new Error('Keep at least one court.'); if (active(s).some(m => m.court === id)) throw new Error('Finish the game on that court first.'); s.courts = s.courts.filter(c => c.id !== id); delete s.seeds[id]; },
-  queueGame: () => s => {
+  queueGame: () => { const gid = uid(); return s => {
     const cur = queuedGames(s); if (cur.length >= 4) throw new Error('Up to 4 games can be queued.');
     const taken = new Set(); cur.forEach(g => g.t1.concat(g.t2).forEach(id => taken.add(id)));
     const pr = propose(s, taken, 0, 100 + cur.length); if (!pr) throw new Error('Not enough players waiting for another game. Check more players in.');
-    s.queued = cur.concat([{ id: uid(), t1: pr.t1.map(p => p.id), t2: pr.t2.map(p => p.id), seed: 0 }]);
-  },
+    s.queued = cur.concat([{ id: gid, t1: pr.t1.map(p => p.id), t2: pr.t2.map(p => p.id), seed: 0 }]);
+  }; },
   reQueue: id => s => {
     const cur = queuedGames(s), g = cur.find(x => x.id === id); if (!g) return;
     const taken = new Set(); cur.forEach(o => { if (o !== g) o.t1.concat(o.t2).forEach(i => taken.add(i)); });
@@ -338,12 +338,12 @@ const M = {
   unqueue: id => s => { s.queued = (s.queued || []).filter(g => g.id !== id); },
   setMode: mode => s => { s.mode = mode; s.seeds = {}; },
   shuffle: cid => s => { s.seeds[cid] = (s.seeds[cid] || 0) + 1; },
-  start: (cid, t1, t2) => s => {
+  start: (cid, t1, t2) => { const mid = uid(), t0 = Date.now(); return s => {
     if (active(s).some(m => m.court === cid)) throw new Error('That court is already playing.');
     const ids = t1.concat(t2), busy = onCourtIds(s);
     if (new Set(ids).size !== 4 || ids.some(id => !byId(s, id) || byId(s, id).status !== 'in' || busy.has(id))) throw new Error('The queue changed. Check the next game and try again.');
-    s.matches.push({ id: uid(), court: cid, t1, t2, start: Date.now(), end: null, s1: null, s2: null }); s.seeds[cid] = 0;
-    s.queued = (s.queued || []).filter(g => !g.t1.concat(g.t2).every(id => ids.includes(id))); },
+    s.matches.push({ id: mid, court: cid, t1, t2, start: t0, end: null, s1: null, s2: null }); s.seeds[cid] = 0;
+    s.queued = (s.queued || []).filter(g => !g.t1.concat(g.t2).every(id => ids.includes(id))); }; },
   finish: (mid, win) => s => { const m = s.matches.find(x => x.id === mid); if (!m || m.end) return; m.end = Date.now();
     m.win = win === 1 || win === 2 ? win : null;
     m.t1.concat(m.t2).forEach(id => { const p = byId(s, id); if (p) { p.games++; p.since = Date.now(); } }); },
