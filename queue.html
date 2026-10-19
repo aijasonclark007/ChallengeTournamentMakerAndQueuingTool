@@ -90,21 +90,21 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 #ov{display:flex;visibility:hidden;opacity:0;transition:opacity .22s,visibility .22s}#ov.on{visibility:visible;opacity:1}
 #ov .sheet{transform:translateY(40px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.2,1)}#ov.on .sheet{transform:none}
 .hero{text-align:center;padding:26px 14px}.hero .big{font-size:42px}
-#root{animation:tabin .35s ease both}
+#root{animation:tabin .35s ease backwards}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 :root{--spring:cubic-bezier(.2,.8,.2,1)}
 @supports (transition-timing-function:linear(0,1)){:root{--spring:linear(0.0, 0.064, 0.214, 0.4, 0.586, 0.75, 0.881, 0.976, 1.037, 1.071, 1.083, 1.081, 1.07, 1.055, 1.039, 1.025, 1.013, 1.004, 0.998, 0.995, 0.993, 0.993, 0.994, 0.995, 0.996, 0.998, 0.999, 0.999, 1.0, 1.0, 1.001, 1.001, 1.001, 1.0, 1.0, 1.0, 1)}}
 .pop{animation:pop .5s var(--spring) both}
 @keyframes tabin{from{opacity:0;transform:translateX(var(--tx,0px)) translateY(8px)}to{opacity:1;transform:none}}
-.tabin{animation:tabin .5s var(--spring) both}
+.tabin{animation:tabin .42s cubic-bezier(.22,1,.36,1) backwards}
 #ov .sheet{transition:transform .45s var(--spring);position:relative;touch-action:pan-x pan-y pinch-zoom}
 #ov .sheet:before{content:"";display:block;width:38px;height:5px;border-radius:3px;background:rgba(60,60,67,.25);margin:-8px auto 12px}
 @media(min-width:600px){#ov .sheet:before{display:none}}
 .btn:active,.seg button:active,.pill:active{transition-duration:.08s}
 .btn,.seg button,.pill{transition-timing-function:var(--spring)}
 #tabs{position:relative}
-#tabs .thumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform,width}
+#tabs .thumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform;transform-origin:0 50%}
 #tabs button{position:relative;z-index:1}#tabs button.on{background:none;box-shadow:none}
 #root{touch-action:pan-x pan-y pinch-zoom}
 
@@ -130,8 +130,8 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .qhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 #tabbody #findSent{margin-top:18px}
 .findbox{position:sticky;top:6px;z-index:30;margin:0 0 10px}
-.findbox.docked input{box-shadow:0 8px 24px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.08);background-color:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
-.findbox.docking{animation:dockin .38s cubic-bezier(.2,.9,.3,1.2)}
+.findbox.docked input{box-shadow:0 8px 24px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.08);background-color:rgba(255,255,255,.97)}.findbox{will-change:transform}
+.findbox.docking{animation:dockin .36s cubic-bezier(.22,1,.36,1)}
 @keyframes dockin{from{transform:translateY(-22px) scale(.97);opacity:.4}to{transform:none;opacity:1}}
 .findbox input{width:100%;padding:11px 14px 11px 38px;border-radius:14px;border:.5px solid var(--line);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 12px center/18px no-repeat;font-size:16px}
 .findbox input:focus{outline:2px solid var(--blue);border-color:transparent}
@@ -642,13 +642,10 @@ function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e
 const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.2,.8,.2,1)';
 function placeThumb() {
   const th = $('#thumb') || $('#tabs .thumb'), on = $('#tabs button.on'); if (!th || !on) return;
-  const x = on.offsetLeft, w = on.offsetWidth;
-  if (lastThumb && (lastThumb.x !== x || lastThumb.w !== w)) {
-    th.style.transition = 'none'; th.style.width = lastThumb.w + 'px'; th.style.transform = 'translateX(' + lastThumb.x + 'px)'; th.offsetWidth;
-    th.style.transition = 'transform .5s ' + SPRING + ', width .5s ' + SPRING;
-  } else th.style.transition = 'none';
-  th.style.width = w + 'px'; th.style.transform = 'translateX(' + x + 'px)';
-  lastThumb = { x, w };
+  const x = on.offsetLeft, w = on.offsetWidth, prev = lastThumb;
+  th.style.transition = 'none'; th.style.width = w + 'px'; th.style.transform = 'translateX(' + x + 'px)'; lastThumb = { x, w };
+  if (prev && (prev.x !== x || prev.w !== w) && th.animate && !matchMedia('(prefers-reduced-motion:reduce)').matches)
+    th.animate([{ transform: 'translateX(' + prev.x + 'px) scaleX(' + (prev.w / w) + ')' }, { transform: 'translateX(' + x + 'px) scaleX(1)' }], { duration: 420, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
 try { announceOn = localStorage.getItem('queue.ann') === '1'; } catch (e) {}
 function announce(court, t1, t2) {
@@ -731,9 +728,9 @@ function render() {
   placeThumb(); updateDock(true);
   if (changed && oldFindTop !== null) {                 // the Find bar glides between the top (other tabs) and above Up next (Courts)
     const nf = $('.findbox');
-    if (nf && nf.animate) { const dy = Math.max(-700, Math.min(700, oldFindTop - nf.getBoundingClientRect().top)); if (Math.abs(dy) > 4) nf.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 520, easing: SPRING }); }
+    if (nf && nf.animate) { const dy = Math.max(-700, Math.min(700, oldFindTop - nf.getBoundingClientRect().top)); if (Math.abs(dy) > 4) nf.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 460, easing: 'cubic-bezier(.22,1,.36,1)' }); }
   }
-  if (changed) { const tb = $('#tabbody'); if (tb) { tb.style.setProperty('--tx', (tabDir * 44) + 'px'); tb.classList.add('tabin'); } }
+  if (changed) { const tb = $('#tabbody'); if (tb) { tb.style.setProperty('--tx', (tabDir * 44) + 'px'); tb.classList.remove('tabin'); void tb.offsetWidth; tb.classList.add('tabin'); tb.onanimationend = () => tb.classList.remove('tabin'); } }
   else if (!first) $$('[data-k]').forEach(el => {
     const o = old[el.dataset.k];
     if (!o) { el.classList.add('pop'); return; }

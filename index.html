@@ -30,9 +30,9 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 56px}
 main.wide{max-width:1280px;padding-top:12px}
 :root{--spring:cubic-bezier(.2,.8,.2,1)}
 @supports (transition-timing-function:linear(0,1)){:root{--spring:linear(0,.009,.035 2.1%,.141 4.4%,.281 6.7%,.723 12.9%,.938 16.7%,1.017 19.4%,1.077 22.4%,1.121 25.1%,1.139 27.7%,1.131 31.1%,1.087 36.3%,1.034 42.4%,1.001 49.4%,.987 56.1%,.985 62%,.996 71.6%,1.002 82%,1)}}
-.view{opacity:0;transform:translateX(var(--tx,0px)) translateY(8px)}.view.in{opacity:1;transform:none;transition:opacity .3s ease,transform .55s var(--spring)}
+.view{opacity:0;transform:translateX(var(--tx,0px)) translateY(8px)}.view.in{opacity:1;transform:none;transition:opacity .28s ease-out,transform .45s cubic-bezier(.22,1,.36,1)}
 nav.seg{position:relative}
-nav.seg .nthumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14),0 0 0 .5px rgba(0,0,0,.04);pointer-events:none;will-change:transform,width}
+nav.seg .nthumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14),0 0 0 .5px rgba(0,0,0,.04);pointer-events:none;will-change:transform;transform-origin:0 50%}
 nav.seg a{position:relative;z-index:1}nav.seg a.on{background:none;box-shadow:none}
 .seg a:active{transform:scale(.96)}
 @keyframes toolin{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
@@ -558,12 +558,11 @@ function hideTools() { $('#tools').style.display = 'none'; $('#view').style.disp
 let prevTab = 'tournaments', lastNav = null;
 function placeNavThumb(animate) {
   const th = document.querySelector('.nthumb'), on = document.querySelector('nav.seg a.on'); if (!th || !on) return;
-  const x = on.offsetLeft, w = on.offsetWidth;
-  if (animate && lastNav && (lastNav.x !== x || lastNav.w !== w)) {
-    th.style.transition = 'none'; th.style.width = lastNav.w + 'px'; th.style.transform = 'translateX(' + lastNav.x + 'px)'; th.offsetWidth;
-    th.style.transition = 'transform .55s var(--spring), width .55s var(--spring)';
-  } else th.style.transition = 'none';
+  const x = on.offsetLeft, w = on.offsetWidth, prev = lastNav;
   th.style.width = w + 'px'; th.style.transform = 'translateX(' + x + 'px)'; lastNav = { x, w };
+  if (th._a) { th._a.cancel(); th._a = null; }
+  if (animate && prev && (prev.x !== x || prev.w !== w) && th.animate && !matchMedia('(prefers-reduced-motion:reduce)').matches)
+    th._a = th.animate([{ transform: 'translateX(' + prev.x + 'px) scaleX(' + (prev.w / w) + ')' }, { transform: 'translateX(' + x + 'px) scaleX(1)' }], { duration: 420, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
 window.addEventListener('resize', () => placeNavThumb(false));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeNavThumb(false));
