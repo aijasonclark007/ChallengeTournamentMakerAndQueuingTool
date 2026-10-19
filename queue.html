@@ -198,7 +198,7 @@ function sampleList(n) {                                  // random names, level
 
 // ---------------------------------------------------------------- state & rules
 const getSport = Sports.current;   // the site-wide default, chosen on the Sports tab
-const spOf = s => Sports.of(s);
+const spOf = () => Sports.get(Sports.current());   // one site-wide sport, chosen on the Sports tab
 const blank = sport => ({ v: 1, sport: sport || getSport(), courts: [{ id: uid(), name: 'Court 1' }], players: [], matches: [], mode: 'any', seeds: {}, fees: { courtCost: 0, shuttles: 0, shuttlePrice: 0, mode: 'equal', perGame: 0 } });
 const active = s => s.matches.filter(m => !m.end);
 const onCourtIds = s => new Set(active(s).flatMap(m => m.t1.concat(m.t2)));
@@ -755,6 +755,7 @@ function swapPlayers(a, b) {
   selQ = null; lastSwap = { ids: [a, b], until: Date.now() + 1200 }; buzz([8, 30, 8]);
   act(M.swapQueue(a, b));
 }
+window.addEventListener('storage', e => { if (e.key === 'sport' && typeof render === 'function' && rendered) render(); });   // the Sports tab changed the sport
 function render() {
   if (liveCode) return;
   renderSig = JSON.stringify(view);
@@ -763,9 +764,8 @@ function render() {
   const oldFind = $('.findbox'), oldFindTop = oldFind ? oldFind.getBoundingClientRect().top : null;
   const findHtml = '<div id="findSent" style="height:1px;margin-bottom:-1px"></div><div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"></div>';
   const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'ranking' ? rankingView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool <button type="button" class="sportbadge" id="sportSwitch" aria-label="Switch sport">' + spOf(view).icon + ' ' + spOf(view).name + ' \u21C5</button></h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' && tab !== 'courts' && tab !== 'players' ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
+  $('#root').innerHTML = '<h1>Queuing Tool <span class="sportbadge">' + spOf(view).icon + ' ' + spOf(view).name + '</span></h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' && tab !== 'courts' && tab !== 'players' ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
   bind();
-  { const sw = $('#sportSwitch'); if (sw) sw.onclick = () => { const to = spOf(view).key === 'pickleball' ? 'badminton' : 'pickleball'; buzz(8); act(st => { st.sport = to; }); toast('Switched to ' + spOf({ sport: to }).name); }; }
   rendered = true;
   const fi = $('#find'); if (fi) { fi.oninput = () => { findQ = fi.value; applyFind(); }; fi.onkeydown = e => { if (e.key === 'Escape') { fi.value = ''; findQ = ''; applyFind(); } }; applyFind(); }
   if (lastSwap && Date.now() < lastSwap.until) lastSwap.ids.forEach(id => { const el = document.querySelector('[data-k="q:' + id + '"]'); if (el) { el.classList.add('swapped'); setTimeout(() => el.classList.remove('swapped'), Math.max(50, lastSwap ? lastSwap.until - Date.now() : 50)); } });
@@ -856,7 +856,7 @@ function bind() {
   const nt = $('#night'); if (nt) nt.onclick = () => { if (confirm('Reset everyone\'s games and payments for a fresh queuing? Players stay on the list.')) act(M.newNight()); };
   // cloud session bar
   const sess = $('#sess'); if (sess) sess.onchange = () => openSession(sess.value);
-  const sn = $('#sNew'); if (sn) sn.onclick = () => modal('New queuing', '<label class="lab" for="nn">Name</label><input id="nn" type="text" maxlength="60" value="' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })) + '"><label class="lab" for="nsp" style="margin-top:10px">Sport</label><select id="nsp"><option value="badminton"' + (getSport() === 'badminton' ? ' selected' : '') + '>\uD83C\uDFF8 Badminton</option><option value="pickleball"' + (getSport() === 'pickleball' ? ' selected' : '') + '>\uD83C\uDFD3 Pickleball</option></select>', [{ label: 'Create', fn: async sh => { const name = sh.querySelector('#nn').value.trim() || 'Session'; await createSession(name, blank(sh.querySelector('#nsp').value)); } }]);
+  const sn = $('#sNew'); if (sn) sn.onclick = () => modal('New queuing', '<label class="lab" for="nn">Name</label><input id="nn" type="text" maxlength="60" value="' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })) + '">', [{ label: 'Create', fn: async sh => { const name = sh.querySelector('#nn').value.trim() || 'Session'; await createSession(name, blank()); } }]);
   const sr = $('#sRen'); if (sr) sr.onclick = () => { const c = sessions.find(x => x.id === backend.id); if (!c) return;
     modal('Rename this queuing', '<label class="lab" for="rn">Name</label><input id="rn" type="text" maxlength="60" value="' + esc(c.name) + '">',
       [{ label: 'Save', fn: async sh => { const name = sh.querySelector('#rn').value.trim(); if (!name) { toast('Type a name first.'); return false; } try { await P.renameQueueSession(backend.id, name); c.name = name; render(); toast('Renamed.'); } catch (e) { toast(e.message); } } }]); };

@@ -101,7 +101,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 .qform{background:#fff;border-radius:20px;padding:16px;margin:10px 0 6px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06)}
 .qform h3{margin:0 0 10px;font-size:18px}.qform label{display:block;font-size:12px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 5px}
 .qform input,.qform select{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;font:inherit;font-size:16px;margin-bottom:6px}
-.qform .sp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qform .sp button{padding:14px 8px;border-radius:14px;background:#EEF1F7;font-weight:800;font-size:16px;border:2px solid transparent;transition:transform .35s cubic-bezier(.22,1,.36,1),background .2s,border-color .2s}
+.sportnote{font-weight:800;margin:2px 0 10px}.sportnote span{color:var(--mute);font-weight:600;font-size:13px}.qform .sp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qform .sp button{padding:14px 8px;border-radius:14px;background:#EEF1F7;font-weight:800;font-size:16px;border:2px solid transparent;transition:transform .35s cubic-bezier(.22,1,.36,1),background .2s,border-color .2s}
 .qform .sp button.on{background:#fff;border-color:var(--blue,#007AFF);box-shadow:0 0 0 4px rgba(0,122,255,.12)}.qform .sp button:active{transform:scale(.96)}
 .qform .go{width:100%;margin-top:12px;padding:15px;border-radius:14px;background:var(--lime);color:#0B1B33;font-weight:900;font-size:17px}
 .qclr{display:block;margin:18px auto 0;background:none;color:var(--mute);font-weight:700;padding:10px}
@@ -202,12 +202,11 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   function quickForm() {
     const sp = qSport || defSport(), nm = qNames();
     const inp = (id, ph) => '<input id="' + id + '" type="text" maxlength="30" list="qn" autocomplete="off" placeholder="' + ph + '">';
-    return '<div class="qform"><h3>New match</h3><label>Sport</label><div class="sp"><button type="button" data-qs="badminton" class="' + (sp === 'badminton' ? 'on' : '') + '">\uD83C\uDFF8 Badminton</button><button type="button" data-qs="pickleball" class="' + (sp === 'pickleball' ? 'on' : '') + '">\uD83C\uDFD3 Pickleball</button></div>' +
+    return '<div class="qform"><h3>New match</h3><div class="sportnote">' + Sports.get(sp).icon + ' ' + Sports.get(sp).name + ' <span>\u00B7 change on the Sports tab</span></div>' +
       '<label>Team 1 players</label>' + inp('qa1', 'Player 1') + inp('qa2', 'Partner (leave empty for singles)') + '<label>Team 2 players</label>' + inp('qb1', 'Player 1') + inp('qb2', 'Partner (leave empty for singles)') +
       '<datalist id="qn">' + nm.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="go" id="qgo" type="button">Start scoring</button></div>';
   }
   function bindQuick() {
-    $('#list').querySelectorAll('[data-qs]').forEach(b => b.onclick = () => { qSport = b.dataset.qs; try { localStorage.setItem('sport', qSport); } catch (e) {} $('#list').querySelectorAll('[data-qs]').forEach(x => x.classList.toggle('on', x === b)); buzz(8); });
     const go = $('#qgo'); if (go) go.onclick = () => {
       const v = id => ($('#' + id).value || '').trim(), t1 = [v('qa1'), v('qa2')].filter(Boolean), t2 = [v('qb1'), v('qb2')].filter(Boolean);
       if (!t1.length || !t2.length) return toast('Type at least one player for each team.');
