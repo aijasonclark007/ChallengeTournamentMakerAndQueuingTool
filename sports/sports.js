@@ -29,7 +29,7 @@
       m.hidden = false; el.classList.add('open'); b.setAttribute('aria-expanded', 'true');
       m.querySelectorAll('[data-k]').forEach(o => o.onclick = ev => {
         ev.stopPropagation(); try { localStorage.setItem('sport', o.dataset.k); } catch (x) {}
-        try { navigator.vibrate && navigator.vibrate(8); } catch (x) {}
+        try { window.Haptics && Haptics.buzz(8); } catch (x) {}
         mountAll(); fire();
       });
     };

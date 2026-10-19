@@ -129,6 +129,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="sports/badminton/rules.js"></script>
 <script src="sports/pickleball/rules.js"></script>
+<script src="haptics.js"></script>
 <script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
@@ -143,7 +144,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   const $ = s => document.querySelector(s), TARGET = Sports.get('badminton').target, MID = Sports.get('badminton').swapAt;   // first to 31 wins, sudden death
   const defSport = Sports.current;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+  const buzz = p => { try { Haptics.buzz(p); } catch (e) {} };
   let swapAsked = false, data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
   const toast = (t) => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
   const dot = k => { $('#dot').className = 'dot' + (k ? ' ' + k : ''); };

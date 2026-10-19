@@ -175,6 +175,7 @@ body.live select{background:#fff;color:#1C1C1E}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="sports/badminton/rules.js"></script>
 <script src="sports/pickleball/rules.js"></script>
+<script src="haptics.js"></script>
 <script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
@@ -663,7 +664,7 @@ window.addEventListener('message', e => {
       [{ label: 'Add ' + list.length, fn: () => { closeModal(); act(M.addPlayers(list.map(p => ({ name: p.name, level: p.level })))); toast('Added ' + list.length + ' players'); } }]);
   }
 });
-function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+function buzz(p) { try { Haptics.buzz(p); } catch (e) {} }
 const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.22,1,.36,1)';
 const segPos = {};
 function placeSegs(instant) {                  // the white pill under the chosen option glides (transform only) between options, like the tabs
