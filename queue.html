@@ -480,7 +480,7 @@ function barHtml() {
   const mine = cur.owner === P.user.id;
   return '<div class="banner"><div class="grow"><div class="row"><select id="sess" style="max-width:260px">' + sessions.map(x => '<option value="' + x.id + '"' + (x.id === backend.id ? ' selected' : '') + '>' + esc(x.name) + (x.owner !== P.user.id ? ' (joined)' : '') + '</option>').join('') + '</select>' +
     '<button class="btn ghost sm" id="sNew">+ New queuing</button><button class="btn ghost sm" id="sJoin">Join with code</button><button class="btn sm" id="sShare">Share</button>' +
-    (mine ? '<button class="btn danger sm" id="sDel">Delete</button>' : '') + '</div></div><div class="small mute" id="sync">' + syncHtml() + '</div></div>' + migrateBanner();
+    (mine ? '<button class="btn ghost sm" id="sRen">Rename</button><button class="btn danger sm" id="sDel">Delete</button>' : '') + '</div></div><div class="small mute" id="sync">' + syncHtml() + '</div></div>' + migrateBanner();
 }
 function migrateBanner() {
   const g = loadGuest(); if (!g.players.length || localStorage.getItem('queue.guest.moved')) return '';
@@ -816,6 +816,9 @@ function bind() {
   // cloud session bar
   const sess = $('#sess'); if (sess) sess.onchange = () => openSession(sess.value);
   const sn = $('#sNew'); if (sn) sn.onclick = () => modal('New queuing', '<label class="lab" for="nn">Name</label><input id="nn" type="text" maxlength="60" value="' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })) + '">', [{ label: 'Create', fn: async sh => { const name = sh.querySelector('#nn').value.trim() || 'Session'; await createSession(name, blank()); } }]);
+  const sr = $('#sRen'); if (sr) sr.onclick = () => { const c = sessions.find(x => x.id === backend.id); if (!c) return;
+    modal('Rename this queuing', '<label class="lab" for="rn">Name</label><input id="rn" type="text" maxlength="60" value="' + esc(c.name) + '">',
+      [{ label: 'Save', fn: async sh => { const name = sh.querySelector('#rn').value.trim(); if (!name) { toast('Type a name first.'); return false; } try { await P.renameQueueSession(backend.id, name); c.name = name; render(); toast('Renamed.'); } catch (e) { toast(e.message); } } }]); };
   const sj = $('#sJoin'); if (sj) sj.onclick = () => modal('Join with a code', '<div class="small mute">Ask the organizer for their 6-character code.</div><input id="jc" type="text" maxlength="6" style="margin-top:8px;text-transform:uppercase;letter-spacing:.2em;font-size:20px;text-align:center" placeholder="ABC123">',
     [{ label: 'Join', fn: async sh => { try { const id = await P.joinQueueSession(sh.querySelector('#jc').value); await refreshSessions(); await openSession(id); toast('Joined!'); } catch (e) { toast(e.message); } } }]);
   const sh = $('#sShare'); if (sh) sh.onclick = () => { const cur = sessions.find(x => x.id === backend.id); if (!cur) return;
