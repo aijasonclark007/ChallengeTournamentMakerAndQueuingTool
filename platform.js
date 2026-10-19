@@ -41,7 +41,7 @@
   }
 
   // ---------- cloud tournaments (one row per saved Draw & Schedule file, private to its owner) ----------
-  const listTournaments = () => { need(); return run(sb.from(T.draws).select('id, name, info, updated_at').order('updated_at', { ascending: false })); };
+  const listTournaments = () => { need(); return run(sb.from(T.draws).select('id, name, info, updated_at, sport:state->>sport').order('updated_at', { ascending: false })); };      // sport comes from inside the saved state (older files have none = badminton)
   const loadTournament = id => { need(); return run(sb.from(T.draws).select('*').eq('id', id).single()); };
   const saveTournament = t => {
     need();
@@ -160,7 +160,7 @@
   // ---------- queuing tool: shared sessions (several organizers, one live queue) ----------
   const QT = 'queue_sessions';
   async function listQueueSessions() {
-    need(); const r = await sb.from(QT).select('id, name, owner, join_code, public_code, version, updated_at').order('updated_at', { ascending: false });
+    need(); const r = await sb.from(QT).select('id, name, owner, join_code, public_code, version, updated_at, sport:state->>sport').order('updated_at', { ascending: false });
     if (r.error) fail(r.error); return r.data || [];
   }
   async function getQueueSession(id) {

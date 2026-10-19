@@ -1207,9 +1207,9 @@ let preview = false;
 let tid = null, saveTimer = null, delArm = null, cloudList = [], opening = false;
 const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
 Sports.mount();
-Sports.onChange(() => { try { queueSave(); } catch (e) {} });
 const defaultSport = Sports.current;   // chosen on the Sports tab
-const capture = () => ({ v: 1, sport: Sports.current(), players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value,
+let tSport = Sports.current();      // the sport of the tournament that is open (each sport keeps its own files)
+const capture = () => ({ v: 1, sport: tSport, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value,
   locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin });
 function describe(st) {
   let t = parsePlayers(st.players || '').length + ' players';
@@ -1244,7 +1244,9 @@ function renderTList() {
     (e.id === tid ? '' : '<button class="ghost" data-open="' + e.id + '" type="button">Open</button> ') +
     '<button class="ghost" data-del="' + e.id + '" type="button">' + (delArm === e.id ? 'Click again to delete' : 'Delete') + '</button></td></tr>').join('');
 }
-async function refreshList() { cloudList = await Platform.listTournaments(); renderTList(); }
+let allList = [];
+const sportOfRow = e => e.sport === 'pickleball' ? 'pickleball' : 'badminton';
+async function refreshList() { allList = await Platform.listTournaments(); cloudList = allList.filter(e => sportOfRow(e) === Sports.current()); renderTList(); }
 
 function resetState() {
   draw = null; sched = null; results = {}; ko = null; koSched = null; koResults = {}; coin = {}; gopt = {}; selP = selT = null;
@@ -1253,6 +1255,7 @@ function resetState() {
   $('#loadMsg').textContent = ''; $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00';
 }
 function applyState(st) {
+  tSport = st.sport === 'pickleball' ? 'pickleball' : 'badminton';
   $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00';
   gopt = st.gopt || {}; locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
   if (st.draw) { draw = createDraw(parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
@@ -1273,8 +1276,9 @@ async function openT(id) {
 async function addTournament(name, state) {
   const id = uuid();
   try {
-    await Platform.saveTournament({ id, name, info: state ? describe(state) : '', state: state || {} });
-    cloudList.unshift({ id, name, info: state ? describe(state) : '', updated_at: new Date().toISOString() });
+    if (!state) state = { sport: Sports.current() };
+    await Platform.saveTournament({ id, name, info: describe(state), state });
+    cloudList.unshift({ id, name, info: describe(state), updated_at: new Date().toISOString(), sport: sportOfRow({ sport: state.sport }) });
     await openT(id);
   } catch (err) { note('Could not create the tournament: ' + err.message, true); }
 }
@@ -1291,6 +1295,10 @@ document.addEventListener('click', async e => {
   }
 });
 $('#tNew').onclick = () => addTournament($('#tname').value.trim() || 'Tournament ' + (cloudList.length + 1), null);
+Sports.onChange(async () => {                       // each sport has its own tournaments: save this one, then open the new sport's most recent (or a fresh one)
+  if (preview || !Platform.user || !tid) { tSport = Sports.current(); return; }
+  await saveNow(); tid = null; loadAll();
+});
 $('#tRename').onclick = async () => {
   const name = $('#tname').value.trim(), e = cloudList.find(x => x.id === tid);
   if (e && name) { e.name = name; await saveNow(); }
@@ -1460,7 +1468,7 @@ function matchList() {
     const kd = committed(koResults), by = {}; resolveKnockout(ko, kd).matches.forEach(m => { by[m.id] = m; });
     koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, level: m.level, bracket: m.roundName, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   }
-  const sp = Sports.current(); return out.map(x => Object.assign(x, { sport: sp }));      // the umpire page scores by this sport's rules
+  const sp = tSport; return out.map(x => Object.assign(x, { sport: sp }));      // the umpire page scores by this sport's rules
 }
 function showUmp() {
   const box = $('#umpBox'); box.classList.toggle('hidden', !(pubSlug && pubKey && sched)); if (!(pubSlug && pubKey && sched)) return;
@@ -1496,7 +1504,7 @@ setInterval(pullLive, 15000);
 let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pubSlug) { liveSubFor = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, () => pullLive()); } catch (e) {} } };
 // keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
 let pubSig = null, pubBusy = false, pubLast = 0;
-const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim(), Sports.current()]) : null;
+const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim(), tSport]) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
   const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
