@@ -20,7 +20,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system
 a{color:inherit;text-decoration:none}
 .bar{position:sticky;top:0;z-index:20;background:rgba(249,249,251,.72);-webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px);border-bottom:.5px solid var(--line);padding-top:env(safe-area-inset-top)}
 .bar-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{position:relative;display:flex;align-items:center;gap:10px;min-width:0}
+.brand .bname{display:block;min-width:0;color:inherit;text-decoration:none}.brand .logo{border:0;padding:0;background:none;cursor:pointer;transition:transform .15s}.brand .logo:active{transform:scale(.92)}.spmenu{position:absolute;left:0;top:54px;z-index:50;background:#fff;border-radius:16px;padding:6px;min-width:220px;box-shadow:0 2px 6px rgba(0,0,0,.08),0 12px 32px rgba(0,0,0,.18);transform-origin:20px 0;animation:spin .18s cubic-bezier(.22,1,.36,1)}.spmenu[hidden]{display:none}@keyframes spin{from{opacity:0;transform:scale(.92) translateY(-6px)}}.spmenu button{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:10px;border-radius:12px;font:inherit;font-weight:700;font-size:16px;text-align:left;cursor:pointer;color:var(--ink,#111)}.spmenu button:active{background:#EEF1F7}.spmenu .mi{width:34px;height:34px;border-radius:50%;overflow:hidden;flex:none}.spmenu .mi svg{width:100%;height:100%;display:block}.spmenu .ck{margin-left:auto;color:#007AFF}
 .brand .logo{width:44px;height:44px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.08);overflow:hidden;display:block}.brand .logo svg{width:100%;height:100%;display:block;transition:opacity .2s}
 .brand b{display:block;font-size:17px;letter-spacing:-.01em;line-height:1.1}.brand small{display:block;color:var(--mute);font-size:12px}
 .seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px;width:100%}@media(min-width:700px){.seg{width:auto}}
@@ -170,7 +171,7 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
             <ellipse cx="54" cy="96" rx="4" ry="2.6" fill="#FFF6D6" opacity=".6" transform="rotate(-25 54 96)"/>
           </g></symbol></defs></svg>
 <header class="bar"><div class="bar-in">
-  <a class="brand" href="#/sports"><span class="logo" id="logo" role="img" aria-label="Sport logo"></span><span><b>Challenge - Tournament Manager</b><small>by Ai Jason Clark</small></span></a>
+  <div class="brand"><button type="button" class="logo" id="logo" aria-label="Choose sport" aria-haspopup="true" aria-expanded="false"></button><div id="spMenu" class="spmenu" hidden></div><a href="#/sports" class="bname"><span><b>Challenge - Tournament Manager</b><small>by Ai Jason Clark</small></span></a></div>
   <nav class="seg" aria-label="Main">
     <a href="#/sports" data-p="sports">Sports</a>
     <a href="#/score" data-p="score">Scoring</a>
@@ -317,6 +318,16 @@ function sportsPage() {
 const setLogo = () => { const l = $('#logo'); if (l) l.innerHTML = Sports.get(getSport()).logo; };
 setLogo();
 window.addEventListener('storage', e => { if (e.key === 'sport') setLogo(); });
+const closeSpMenu = () => { const m = $('#spMenu'); if (m) m.hidden = true; const l = $('#logo'); if (l) l.setAttribute('aria-expanded', 'false'); };
+const openSpMenu = () => {
+  const m = $('#spMenu'), cur = getSport();
+  m.innerHTML = Sports.list().map(r => '<button type="button" data-pick="' + r.key + '"><span class="mi">' + r.logo + '</span>' + r.name + (cur === r.key ? '<span class="ck">\u2713</span>' : '') + '</button>').join('');
+  m.hidden = false; $('#logo').setAttribute('aria-expanded', 'true');
+  m.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { try { localStorage.setItem('sport', b.dataset.pick); } catch (e) {} setLogo(); closeSpMenu(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} if (typeof initSports === 'function') { const sp = document.querySelector('.sportgrid'); if (sp) sp.querySelectorAll('[data-sport]').forEach(x => x.classList.toggle('on', x.dataset.sport === b.dataset.pick)); } });
+};
+$('#logo').addEventListener('click', e => { e.stopPropagation(); $('#spMenu').hidden ? openSpMenu() : closeSpMenu(); });
+document.addEventListener('click', e => { if (!e.target.closest('#spMenu')) closeSpMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSpMenu(); });
 function initSports() {
   $$('[data-sport]').forEach(b => b.onclick = () => { try { localStorage.setItem('sport', b.dataset.sport); } catch (e) {} $$('[data-sport]').forEach(x => x.classList.toggle('on', x === b)); setLogo(); try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} });
 }
