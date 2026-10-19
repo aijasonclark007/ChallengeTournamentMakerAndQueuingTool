@@ -38,6 +38,7 @@ nav.seg a{position:relative;z-index:1}nav.seg a.on{background:none;box-shadow:no
 .seg a:active{transform:scale(.96)}
 @keyframes toolin{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
 .tool{animation:toolin .6s var(--spring) both}
+html.scoring-full body{overflow:hidden}html.scoring-full #tool-score{position:fixed;z-index:200;top:env(safe-area-inset-top);left:env(safe-area-inset-left);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right));height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:0;border-radius:0;box-shadow:none;animation:none}html.scoring-full::after{content:'';position:fixed;inset:0;z-index:199;background:#007AFF}
 html.tool-mode,html.tool-mode body{height:100%;overflow:hidden}
 html.tool-mode footer{display:none}
 html.tool-mode main.wide{padding:10px 12px 12px}
@@ -346,6 +347,7 @@ window.addEventListener('resize', setHdr);
 // the tools tell us when their tab changes, so the address (and the Back button) follows them; links like #/queue/players open that tab
 window.addEventListener('message', e => {
   if (e.origin !== location.origin) return; const d = e.data;
+  if (d && d.t === 'full') { scoringOn = !!d.on; applyFull(); }   // the scoring screen takes over the whole phone while a match is on
   if (d && d.t === 'tab' && (d.tool === 'queue' || d.tool === 'draw')) { const hh = '#/' + d.tool + '/' + d.tab; if (location.hash !== hh) history.pushState(null, '', hh); }
   if (d && d.t === 'sendQueue' && Array.isArray(d.players)) {      // Draw & Schedule -> Queuing Tool
     const f = ensureTool('queue'), go = () => { try { f.contentWindow.postMessage({ t: 'import', players: d.players }, location.origin); } catch (x) {} };
@@ -356,13 +358,16 @@ function gotoTool(name, arg) {
   const f = ensureTool(name), send = () => { try { f.contentWindow.postMessage({ t: 'goto', tab: arg }, location.origin); } catch (x) {} };
   if (f.dataset.ready) send(); else f.addEventListener('load', send, { once: true });
 }
+let scoringOn = false, shownTool = null;
+function applyFull() { const on = scoringOn && shownTool === 'score'; document.documentElement.classList.toggle('scoring-full', on); try { document.querySelector('meta[name=theme-color]').content = on ? '#007AFF' : '#F2F2F7'; } catch (x) {} }   // the scoring screen takes over the whole phone while a match is on
 function showTool(name, arg) {
+  shownTool = name; applyFull();
   ensureTool(name); $('#view').style.display = 'none'; $('#tools').style.display = '';
   document.documentElement.classList.add('tool-mode'); setHdr(); if (arg) gotoTool(name, arg);
   Object.keys(TOOLS).forEach(n => { const x = $('#tool-' + n); if (x) x.style.display = n === name ? '' : 'none'; });   // going from hidden to shown replays the pop-in
   window.scrollTo(0, 0);
 }
-function hideTools() { $('#tools').style.display = 'none'; $('#view').style.display = ''; document.documentElement.classList.remove('tool-mode'); }
+function hideTools() { shownTool = null; applyFull(); $('#tools').style.display = 'none'; $('#view').style.display = ''; document.documentElement.classList.remove('tool-mode'); }
 
 // ---------- router (no page reloads, so the bar stays and switching feels instant) ----------
 let prevTab = 'sports', lastNav = null;
