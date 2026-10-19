@@ -607,7 +607,7 @@ function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = 
 function feesView() {
   const f = view.fees;
   const num = (k, lab) => '<div><label class="lab">' + lab + '</label><input type="number" min="0" step="any" data-fee="' + k + '" value="' + (f[k] || '') + '" placeholder="0"></div>';
-  return '<div class="card"><div class="two">' + num('courtCost', 'Court rental (total)') + num('shuttles', spOf(s).balls + ' used') + num('shuttlePrice', 'Price per ' + spOf(s).ball) + (f.mode === 'perGame' ? num('perGame', 'Fee per game (each player)') : '') + '</div>' +
+  return '<div class="card"><div class="two">' + num('courtCost', 'Court rental (total)') + num('shuttles', spOf(view).balls + ' used') + num('shuttlePrice', 'Price per ' + spOf(view).ball) + (f.mode === 'perGame' ? num('perGame', 'Fee per game (each player)') : '') + '</div>' +
     '<label class="lab">How to split</label><div class="seg" id="fmode">' + [['equal', 'Equal split'], ['perGame', 'Per game'], ['equity', 'By games played']].map(([k, l]) => '<button data-fm="' + k + '" class="' + (f.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     '<div class="small mute" style="margin-top:8px">' + (f.mode === 'equal' ? 'The total is shared equally by everyone who played at least one game.' : f.mode === 'perGame' ? 'Each player pays the fee for every game they played.' : 'The total is shared in proportion to games played.') + '</div></div>' +
     '<h2>Who owes what</h2><div id="feeOut">' + feeOutHtml() + '</div>';
