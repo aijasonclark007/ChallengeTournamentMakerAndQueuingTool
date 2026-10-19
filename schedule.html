@@ -174,6 +174,24 @@ summary:hover{background:#fff}
   #table td:nth-child(2),#table td:nth-child(3),#koTable td:nth-child(2),#koTable td:nth-child(3){display:inline-block;margin-right:10px;color:var(--mute);font-size:13px}
   .nextrow button{width:100%}
 }
+@media (max-width:640px){
+  /* phone: tidy margins, no squeezed or overlapping controls */
+  main{padding-left:16px;padding-right:16px}
+  .bar{align-items:flex-start;gap:8px}.bar h2{margin:0}
+  .bar .tools{width:100%;gap:8px}.bar .tools>label{flex:1 1 100%;order:-1;padding:4px 2px}
+  .bar .tools>button{flex:1 1 calc(50% - 4px);min-width:0;justify-content:center;text-align:center}
+  #secAdd .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr);gap:10px;align-items:end}
+  #secAdd .row>div{min-width:0}#secAdd .row label{display:block;font-size:13px;line-height:1.2;min-height:32px}
+  #secAdd .row input{padding:10px 8px;min-height:44px}#secAdd .row input[type=time]{padding:10px 6px}
+  #secAdd .row>button{grid-column:1/-1;width:100%}
+  #tpanel .row{gap:10px}#tpanel .row>div{flex:1 1 100%;min-width:0}#tpanel .row>button{flex:1 1 calc(50% - 5px)}
+  #tpanel .wrap{overflow:visible;border:0;background:transparent;box-shadow:none}
+  #tlist{min-width:0!important}#tlist tbody,#tlist tr,#tlist td{display:block}#tlist tr:first-child{display:none}
+  #tlist tr{background:var(--bg);border-radius:14px;padding:10px 14px;margin:8px 0}#tlist td{border:0;padding:2px 0}
+  #tlist td,#tlist tr.adv td{background:transparent!important}#tlist tr.adv{background:#E8F5DC!important}#tlist td.nw{display:inline-block;margin-right:10px;color:var(--mute);font-size:13px;white-space:normal}
+  #tlist td button{margin-top:6px}
+  #utoast{left:16px;right:16px;max-width:none;width:auto;transform:translate(0,40px);justify-content:space-between}#utoast.on{transform:none}
+}
 @media print{#stepbar,#previewBar,#sharePanel,#utoast{display:none!important}}
 </style>
 <style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
