@@ -155,14 +155,14 @@ summary:hover{background:#fff}
 #nowPlay .np{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px 14px;padding:12px 14px;background:#fff;border:1.5px solid rgba(255,59,48,.35);box-shadow:0 4px 14px rgba(255,59,48,.10);border-radius:16px;margin:8px 0}
 #nowPlay .np .np-c{display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;white-space:nowrap}
 #nowPlay .np .np-c:before{content:"";width:9px;height:9px;border-radius:50%;background:#FF3B30;animation:nplive 1.4s infinite}
-@keyframes nplive{0%{box-shadow:0 0 0 0 rgba(255,59,48,.55)}70%{box-shadow:0 0 0 8px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
+@keyframes nplive{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.45);opacity:.45}}
 #nowPlay .np .np-t{font-weight:700;font-size:15px;line-height:1.25;min-width:0}
 #nowPlay .np .np-t.r{text-align:right}
 #nowPlay .np .np-s{display:flex;align-items:center;gap:8px;background:#0B1B33;color:#fff;border-radius:14px;padding:6px 14px;font-weight:900;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 #nowPlay .np .np-s i{font-style:normal;opacity:.45;font-weight:700;font-size:18px}
 #nowPlay .np .np-s .np-lead{color:#8DC63F}
 @media(max-width:560px){#nowPlay .np{grid-template-columns:1fr auto 1fr}#nowPlay .np .np-c{grid-column:1/-1}}#nowPlay .none{color:var(--mute);margin:6px 0}
-#utoast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,40px);opacity:0;pointer-events:none;background:#1C1C1E;color:#fff;border-radius:14px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;z-index:50;transition:all .45s var(--spring,cubic-bezier(.2,.8,.2,1));max-width:92%}
+#utoast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,40px);opacity:0;pointer-events:none;background:#1C1C1E;color:#fff;border-radius:14px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;z-index:50;transition:opacity .3s,transform .45s var(--spring,cubic-bezier(.2,.8,.2,1));max-width:92%;will-change:transform,opacity}
 #utoast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}#utoast button{background:rgba(255,255,255,.18);min-height:36px;padding:4px 14px}
 @media (max-width:640px){
   #table,#koTable{min-width:0!important}#table tbody,#koTable tbody,#table tr,#koTable tr,#table td,#koTable td{display:block}
@@ -176,7 +176,7 @@ summary:hover{background:#fff}
 }
 @media print{#stepbar,#previewBar,#sharePanel,#utoast{display:none!important}}
 </style>
-</head>
+<style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
 <body>
 <main>
   <header class="noprint">
