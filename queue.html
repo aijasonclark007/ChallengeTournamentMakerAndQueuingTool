@@ -98,7 +98,7 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .pop{animation:pop .5s var(--spring) both}
 @keyframes tabin{from{opacity:0;transform:translateX(var(--tx,0px)) translateY(8px)}to{opacity:1;transform:none}}
 .tabin{animation:tabin .5s var(--spring) both}
-#ov .sheet{transition:transform .45s var(--spring);position:relative;touch-action:pan-y}
+#ov .sheet{transition:transform .45s var(--spring);position:relative;touch-action:pan-x pan-y pinch-zoom}
 #ov .sheet:before{content:"";display:block;width:38px;height:5px;border-radius:3px;background:rgba(60,60,67,.25);margin:-8px auto 12px}
 @media(min-width:600px){#ov .sheet:before{display:none}}
 .btn:active,.seg button:active,.pill:active{transition-duration:.08s}
@@ -106,7 +106,7 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 #tabs{position:relative}
 #tabs .thumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform,width}
 #tabs button{position:relative;z-index:1}#tabs button.on{background:none;box-shadow:none}
-#root{touch-action:pan-y pinch-zoom}
+#root{touch-action:pan-x pan-y pinch-zoom}
 
 .q.sel{background:rgba(0,122,255,.12);outline:2px solid var(--blue);border-radius:10px}
 .q.drop{background:rgba(0,122,255,.16);outline:2px dashed var(--blue);border-radius:10px}
