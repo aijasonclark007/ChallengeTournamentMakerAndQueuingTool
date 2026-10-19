@@ -45,8 +45,8 @@ html.tool-mode,html.tool-mode .tool{touch-action:pan-x pan-y pinch-zoom}
 @media (orientation:landscape) and (max-height:520px){header.bar .brand small{display:none}header.bar .brand .logo{width:34px;height:34px}header.bar .brand b{font-size:15px}}
 html.tool-mode footer{display:none}
 html.tool-mode main.wide{padding:10px 12px 12px}
-html.tool-mode .tool{height:calc(100dvh - var(--hdr,64px) - 22px);min-height:0}
-@supports not (height:100dvh){html.tool-mode .tool{height:calc(100vh - var(--hdr,64px) - 22px)}}
+html.tool-mode .tool{position:fixed;top:calc(var(--hdr,64px) + 10px);left:12px;width:calc(100% - 24px);height:calc(100vh - var(--hdr,64px) - 22px);height:calc(100dvh - var(--hdr,64px) - 22px);min-height:0}   /* pinned under the header: the page's spare scroll (for Safari's bars) never moves it */
+
 h1{font-size:clamp(30px,6vw,40px);letter-spacing:-.03em;line-height:1.08;margin:6px 0 4px;font-weight:800}
 h2{font-size:13px;color:var(--mute);font-weight:600;margin:28px 0 8px 16px;letter-spacing:.01em;text-transform:none}
 .lead{color:var(--mute);margin:0 0 8px;max-width:60ch}
