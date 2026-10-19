@@ -206,6 +206,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       '<label>Team 1 players</label>' + inp('qa1', 'Player 1') + inp('qa2', 'Partner (leave empty for singles)') + '<label>Team 2 players</label>' + inp('qb1', 'Player 1') + inp('qb2', 'Partner (leave empty for singles)') +
       '<datalist id="qn">' + nm.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="go" id="qgo" type="button">Start scoring</button></div>';
   }
+  const fullScreen = on => { if (quick && window.parent !== window) { try { window.parent.postMessage({ t: 'full', on }, location.origin); } catch (e) {} } };   // inside the site shell: hide the site header while scoring
   function bindQuick() {
     Sports.mount();
     const go = $('#qgo'); if (go) go.onclick = () => {
@@ -370,7 +371,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     s1 = sv0 ? sv0.s1 : 0; s2 = sv0 ? sv0.s2 : 0; hist = []; flipped = false; sv = null; swapAsked = Math.max(s1, s2) >= MID;
     try { const l = JSON.parse(localStorage.getItem('ump.' + slug + '.' + mid) || 'null'); if (l && ((sv0 && l.s1 === s1 && l.s2 === s2) || (!sv0 && !l.s1 && !l.s2))) { hist = l.hist || []; sv = l.sv === undefined ? null : l.sv; } } catch (e) {}
     $('#smid').textContent = cur.court + ' · ' + cur.time + ' · ' + cur.bracket;
-    $('#score').classList.add('on'); paint();
+    $('#score').classList.add('on'); paint(); fullScreen(true);
     if ((!sv0 || sv0.status !== 'done') && sv === null && s1 + s2 === 0) setTimeout(() => setServe(), 350);   // new match: ask who serves first
     if (!sv0 || sv0.status !== 'done') { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
   }
@@ -384,7 +385,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   async function closeMatch() {
     // leaving a match nobody has scored in: take it off LIVE so it is not shown as playing
     if (cur && s1 === 0 && s2 === 0 && scores[cur.mid] && scores[cur.mid].status === 'live') resetLive(true);
-    $('#score').classList.remove('on'); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
+    $('#score').classList.remove('on'); fullScreen(false); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
   $('#back').onclick = () => closeMatch();
   $('#rst').onclick = async () => {
     if (!cur) return; const st = scores[cur.mid];
