@@ -277,6 +277,8 @@ const M = {
       if (s.players.some(p => p.name.toLowerCase() === name.toLowerCase())) return;
       s.players.push({ id: pid[xi], name, level: LEVELS.includes(x.level) ? x.level : 'Mid', status: x.status || 'out', since: t0, games: 0, paid: false, sample: !!x.sample }); }); }; },
   removeSamples: () => s => { const busy = onCourtIds(s); s.players = s.players.filter(p => !p.sample || busy.has(p.id)); },
+  renamePlayer: (id, name) => s => { name = String(name || '').trim().slice(0, 40); if (!name) throw new Error('Type a name first.'); const p = byId(s, id); if (!p) return;
+    if (s.players.some(x => x.id !== id && x.name.toLowerCase() === name.toLowerCase())) throw new Error('Someone is already named ' + name + '.'); p.name = name; },
   setLevel: (id, level) => s => { const p = byId(s, id); if (p && LEVELS.includes(level)) p.level = level; },
   setStatus: (id, st) => s => { const p = byId(s, id); if (!p) return; if (onCourtIds(s).has(id)) throw new Error(p.name + ' is on a court.');
     if (st === 'in' && p.status !== 'in') p.since = Date.now(); p.status = st; },
@@ -561,7 +563,7 @@ function playersView() {
   return '<div class="card"><div class="two"><div><label class="lab" for="pn">Player name</label><input id="pn" type="text" maxlength="40" placeholder="Juan Dela Cruz"></div><div><label class="lab" for="pl">Level</label><select id="pl">' + LEVELS.map(l => '<option' + (l === 'Mid' ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div></div>' +
     '<div class="row" style="margin-top:10px"><button class="btn" id="padd">Add player</button><button class="btn ghost" id="pbulk">Add many</button><button class="btn ghost" id="psample">Sample players</button>' + (s.players.some(p => p.sample) ? '<button class="btn ghost" id="pclr">Clear samples</button>' : '') + (backend.type === 'cloud' ? '<button class="btn ghost" id="ppool">From my saved players</button>' : '') + '</div></div>' +
     '<div style="margin:14px 4px 10px"><div class="row" style="margin:0 0 8px;align-items:baseline"><b style="font-size:17px">' + s.players.length + ' players</b><span class="mute small">' + s.players.filter(p => p.status === 'in').length + ' here</span></div><div class="plact"><button class="btn ghost sm" id="pall">Check everyone in</button><button class="btn ghost sm" id="pnone">Mark everyone not here</button><button class="btn ghost sm" id="psave">Save all to my pool</button><button class="btn danger sm" id="prem">Remove all</button></div></div><!--FIND-->' +
-    '<div class="card">' + (list.length ? list.map(p => '<div class="q" data-name="' + esc(p.name.toLowerCase()) + '"><div class="grow"><b>' + esc(p.name) + '</b><div class="small mute">' + p.games + ' games · ' + (recs[p.id] ? recs[p.id].w : 0) + ' wins</div></div>' +
+    '<div class="card">' + (list.length ? list.map(p => '<div class="q" data-name="' + esc(p.name.toLowerCase()) + '"><div class="grow" data-ed="' + p.id + '" style="cursor:pointer" title="Tap to edit name"><b>' + esc(p.name) + '</b> <span class="mute" aria-hidden="true">\u270E</span><div class="small mute">' + p.games + ' games · ' + (recs[p.id] ? recs[p.id].w : 0) + ' wins</div></div>' +
       '<select data-lv="' + p.id + '" style="width:92px">' + LEVELS.map(l => '<option' + (p.level === l ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
       '<button class="pill ' + status(p) + '" data-st="' + p.id + '" style="min-width:76px;padding:7px 10px">' + label[status(p)] + '</button><button class="xbtn" data-rm="' + p.id + '" title="Remove player" aria-label="Remove player">\u2715</button></div>').join('') : '<div class="mute">No players yet. Add a few above, or use Add many.</div>') + '</div>' +
     '<div class="small mute" style="margin:8px 4px">Tap a status to switch between Not here, Here and Break. Only players marked Here join the queue.</div>';
@@ -848,6 +850,10 @@ function bind() {
   const pall = $('#pall'); if (pall) pall.onclick = () => act(M.checkInAll());
   const pnone = $('#pnone'); if (pnone) pnone.onclick = () => { const busy = onCourtIds(view).size; act(M.checkOutAll()); toast(busy ? 'Everyone is marked Not here, except players still on a court.' : 'Everyone is marked Not here.'); };
   const prem = $('#prem'); if (prem) prem.onclick = () => { if (!view.players.length) return toast('There are no players to remove.'); if (confirm('Remove all ' + view.players.length + ' players from this list? Games and history are kept. This cannot be undone.')) act(M.removeAll()); };
+  $$('[data-ed]').forEach(el => el.onclick = () => { const p = byId(view, el.dataset.ed); if (!p) return;
+    modal('Edit name', '<label class="lab" for="pedit">Player name</label><input id="pedit" type="text" maxlength="40" value="' + esc(p.name) + '">',
+      [{ label: 'Save', cls: 'green', fn: sh => { const name = sh.querySelector("#pedit").value; try { M.renamePlayer(p.id, name)(clone(view)); } catch (e) { toast(e.message); return false; } act(M.renamePlayer(p.id, name)); } }]);
+    setTimeout(() => { const i = $("#pedit"); if (i) { i.focus(); i.select(); } }, 60); });
   $$('[data-lv]').forEach(sel => sel.onchange = () => act(M.setLevel(sel.dataset.lv, sel.value)));
   $$('[data-st]').forEach(b => b.onclick = () => { const p = byId(view, b.dataset.st); if (!p) return; act(M.setStatus(p.id, p.status === 'in' ? 'break' : p.status === 'break' ? 'out' : 'in')); });
   $$('[data-rm]').forEach(b => b.onclick = () => { const p = byId(view, b.dataset.rm); if (p && confirm('Remove ' + p.name + '?')) act(M.removePlayer(p.id)); });
