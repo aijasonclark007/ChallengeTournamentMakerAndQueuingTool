@@ -101,7 +101,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 .qform{background:#fff;border-radius:20px;padding:16px;margin:10px 0 6px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06)}
 .qform h3{margin:0 0 10px;font-size:18px}.qform label{display:block;font-size:12px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 5px}
 .qform input,.qform select{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;font:inherit;font-size:16px;margin-bottom:6px}
-.qform .sp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qform .sp button{padding:14px 8px;border-radius:14px;background:#EEF1F7;font-weight:800;font-size:16px;border:2px solid transparent;transition:transform .35s cubic-bezier(.22,1,.36,1),background .2s,border-color .2s}
+.sportnote{font-weight:800;margin:2px 0 10px}.sportnote span{color:var(--mute);font-weight:600;font-size:13px}.qform .sp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qform .sp button{padding:14px 8px;border-radius:14px;background:#EEF1F7;font-weight:800;font-size:16px;border:2px solid transparent;transition:transform .35s cubic-bezier(.22,1,.36,1),background .2s,border-color .2s}
 .qform .sp button.on{background:#fff;border-color:var(--blue,#007AFF);box-shadow:0 0 0 4px rgba(0,122,255,.12)}.qform .sp button:active{transform:scale(.96)}
 .qform .go{width:100%;margin-top:12px;padding:15px;border-radius:14px;background:var(--lime);color:#0B1B33;font-weight:900;font-size:17px}
 .qclr{display:block;margin:18px auto 0;background:none;color:var(--mute);font-weight:700;padding:10px}
@@ -125,6 +125,9 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="sports/badminton/rules.js"></script>
+<script src="sports/pickleball/rules.js"></script>
+<script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
 <script>
@@ -135,8 +138,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   const P = quick ? { configured: true, umpireGet: async () => { const d = qload(); return { name: 'Scoring', matches: d.matches, scores: Object.values(d.scores) }; },
     umpireScore: async (sl, k, id, a, b, st) => { const d = qload(); d.scores[id] = { id, s1: a, s2: b, status: st }; qsave(d); },
     umpireReset: async (sl, k, id) => { const d = qload(); delete d.scores[id]; qsave(d); }, liveChannel: () => ({ ping() {} }) } : window.Platform;
-  const $ = s => document.querySelector(s), TARGET = 31, MID = 16;   // first to 31 wins, sudden death
-  const defSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };
+  const $ = s => document.querySelector(s), TARGET = Sports.get('badminton').target, MID = Sports.get('badminton').swapAt;   // first to 31 wins, sudden death
+  const defSport = Sports.current;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
   let swapAsked = false, data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
@@ -199,12 +202,11 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   function quickForm() {
     const sp = qSport || defSport(), nm = qNames();
     const inp = (id, ph) => '<input id="' + id + '" type="text" maxlength="30" list="qn" autocomplete="off" placeholder="' + ph + '">';
-    return '<div class="qform"><h3>New match</h3><label>Sport</label><div class="sp"><button type="button" data-qs="badminton" class="' + (sp === 'badminton' ? 'on' : '') + '">\uD83C\uDFF8 Badminton</button><button type="button" data-qs="pickleball" class="' + (sp === 'pickleball' ? 'on' : '') + '">\uD83C\uDFD3 Pickleball</button></div>' +
+    return '<div class="qform"><h3>New match</h3><div class="sportnote">' + Sports.get(sp).icon + ' ' + Sports.get(sp).name + ' <span>\u00B7 change on the Sports tab</span></div>' +
       '<label>Team 1 players</label>' + inp('qa1', 'Player 1') + inp('qa2', 'Partner (leave empty for singles)') + '<label>Team 2 players</label>' + inp('qb1', 'Player 1') + inp('qb2', 'Partner (leave empty for singles)') +
       '<datalist id="qn">' + nm.map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="go" id="qgo" type="button">Start scoring</button></div>';
   }
   function bindQuick() {
-    $('#list').querySelectorAll('[data-qs]').forEach(b => b.onclick = () => { qSport = b.dataset.qs; try { localStorage.setItem('sport', qSport); } catch (e) {} $('#list').querySelectorAll('[data-qs]').forEach(x => x.classList.toggle('on', x === b)); buzz(8); });
     const go = $('#qgo'); if (go) go.onclick = () => {
       const v = id => ($('#' + id).value || '').trim(), t1 = [v('qa1'), v('qa2')].filter(Boolean), t2 = [v('qb1'), v('qb2')].filter(Boolean);
       if (!t1.length || !t2.length) return toast('Type at least one player for each team.');
@@ -248,9 +250,9 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   // If the serving side wins the rally, its two players swap courts and the same player serves again. If the other side wins, service is over and it serves next.
   // pickleball (traditional side-out): only the serving side scores; the side that wins the rally is tapped. State adds n = server number (1/2), first = the team that serves first (it only gets one server).
   const isPB = () => ((cur && cur.sport) || (data && data.sport)) === 'pickleball';
-  const won = (a = s1, b = s2) => isPB() ? Math.max(a, b) >= 11 && Math.abs(a - b) >= 2 : Math.max(a, b) >= TARGET;     // pickleball: 11, win by 2
-  const goal = () => isPB() ? 'first to 11, win by 2' : 'first to ' + TARGET;
-  const ICON = () => isPB() ? '\uD83C\uDFD3' : '\uD83C\uDFF8';
+  const won = (a = s1, b = s2) => Sports.get(isPB() ? 'pickleball' : 'badminton').won(a, b);
+  const goal = () => Sports.get(isPB() ? 'pickleball' : 'badminton').goal;
+  const ICON = () => Sports.get(isPB() ? 'pickleball' : 'badminton').icon;
   const parts = n => String(n || '').split(/\s*\/\s*/).filter(Boolean);
   const isDbl = () => cur && parts(cur.t1).length > 1 && parts(cur.t2).length > 1;
   const CT = c => c === 'R' ? 'right' : 'left';

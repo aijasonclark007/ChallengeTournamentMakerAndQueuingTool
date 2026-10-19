@@ -208,7 +208,6 @@ summary:hover{background:#fff}
       <div class="wrap" style="margin:0"><table id="tlist" style="min-width:560px"></table></div>
       <div class="row">
         <div style="flex:1;min-width:220px"><label for="tname">Tournament name</label><input id="tname" type="text" placeholder="e.g. November 8 Tournament"></div>
-        <div><label for="tsport">Sport</label><select id="tsport"><option value="badminton">\uD83C\uDFF8 Badminton</option><option value="pickleball">\uD83C\uDFD3 Pickleball</option></select></div>
         <button id="tNew" class="go" type="button">Create new</button>
         <button id="tRename" class="ghost" type="button">Rename current</button>
       </div>
@@ -303,6 +302,9 @@ summary:hover{background:#fff}
 <div id="printView"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="sports/badminton/rules.js"></script>
+<script src="sports/pickleball/rules.js"></script>
+<script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
 <script>
@@ -1186,8 +1188,8 @@ document.addEventListener('click', e => {
 let preview = false;
 let tid = null, saveTimer = null, delArm = null, cloudList = [], opening = false;
 const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
-const defaultSport = () => { try { return localStorage.getItem('sport') === 'pickleball' ? 'pickleball' : 'badminton'; } catch (e) { return 'badminton'; } };   // chosen on the Sports tab
-const capture = () => ({ v: 1, sport: $('#tsport').value, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value,
+const defaultSport = Sports.current;   // chosen on the Sports tab
+const capture = () => ({ v: 1, sport: Sports.current(), players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value,
   locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin });
 function describe(st) {
   let t = parsePlayers(st.players || '').length + ' players';
@@ -1210,7 +1212,6 @@ async function saveNow() {
     note('Saved to your account at ' + clock() + '.'); renderTList();
   } catch (err) { note('Could not save to the cloud (' + err.message + '). Your work is still on this page. Press Save again, or copy the backup text below.', true); }
 }
-$('#tsport').addEventListener('change', () => queueSave());
 const queueSave = () => { if (!tid || !Platform.user || opening || preview) return; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 2500); };
 ['click', 'change', 'input'].forEach(ev => document.addEventListener(ev, queueSave, true));
 // the Save buttons of sections 1 to 3, and Build schedule, upload straight away
@@ -1229,10 +1230,9 @@ function resetState() {
   draw = null; sched = null; results = {}; ko = null; koSched = null; koResults = {}; coin = {}; gopt = {}; selP = selT = null;
   locks = { add: false, teams: false, brackets: false };
   $('#drawSec').classList.add('hidden'); ['#schedSec', '#standSec', '#koSec'].forEach(x => $(x).classList.add('hidden'));
-  $('#loadMsg').textContent = ''; $('#tsport').value = defaultSport(); $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00';
+  $('#loadMsg').textContent = ''; $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00';
 }
 function applyState(st) {
-  $('#tsport').value = st.sport === 'pickleball' ? 'pickleball' : 'badminton';
   $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00';
   gopt = st.gopt || {}; locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
   if (st.draw) { draw = createDraw(parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
@@ -1440,7 +1440,7 @@ function matchList() {
     const kd = committed(koResults), by = {}; resolveKnockout(ko, kd).matches.forEach(m => { by[m.id] = m; });
     koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, level: m.level, bracket: m.roundName, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   }
-  const sp = $('#tsport').value; return out.map(x => Object.assign(x, { sport: sp }));      // the umpire page scores by this sport's rules
+  const sp = Sports.current(); return out.map(x => Object.assign(x, { sport: sp }));      // the umpire page scores by this sport's rules
 }
 function showUmp() {
   const box = $('#umpBox'); box.classList.toggle('hidden', !(pubSlug && pubKey && sched)); if (!(pubSlug && pubKey && sched)) return;
@@ -1476,7 +1476,7 @@ setInterval(pullLive, 15000);
 let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pubSlug) { liveSubFor = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, () => pullLive()); } catch (e) {} } };
 // keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
 let pubSig = null, pubBusy = false, pubLast = 0;
-const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim(), $('#tsport').value]) : null;
+const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim(), Sports.current()]) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
   const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
