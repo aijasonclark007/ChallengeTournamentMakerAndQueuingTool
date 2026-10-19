@@ -112,11 +112,11 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 <script src="platform.js"></script>
 <script>
 (() => {
-  const $ = s => document.querySelector(s), P = window.Platform, TARGET = 31;   // first to 31 wins, sudden death
+  const $ = s => document.querySelector(s), P = window.Platform, TARGET = 31, MID = 16;   // first to 31 wins, sudden death
   const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k'), court = q.get('c');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
-  let data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
+  let swapAsked = false, data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
   const toast = (t) => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
   const dot = k => { $('#dot').className = 'dot' + (k ? ' ' + k : ''); };
 
@@ -247,6 +247,17 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       sh.classList.add('on');
     });
   }
+  function askSwap() {                         // first side to reach 16: remind the umpire to change ends
+    const sh = $('#sv'), O = $('#svO'), t = s1 >= MID && s2 < MID ? cur.t1 : s2 >= MID && s1 < MID ? cur.t2 : (s1 >= s2 ? cur.t1 : cur.t2);
+    const end = swap => { sh.classList.remove('on'); sh.onclick = null; if (swap) { flipped = !flipped; buzz([10, 30, 10]); paint(); } };
+    $('#svT').textContent = 'Swap sides'; $('#svP').textContent = t + ' reached ' + MID + '. Both teams change ends (court sides) now.';
+    O.classList.remove('has-pick');
+    O.innerHTML = '<button data-s="1">\u21C5 Swap sides</button><button data-s="0" style="background:#fff;border:1.5px solid var(--line)">Not now</button>';
+    O.querySelectorAll('button').forEach(b => b.onclick = () => { b.classList.add('picked'); O.classList.add('has-pick'); buzz(10); setTimeout(() => end(b.dataset.s === '1'), 320); });
+    sh.onclick = e => { if (e.target === sh) end(false); };
+    const sheet = sh.querySelector('.sheet'); sheet.classList.remove('step'); void sheet.offsetWidth; sheet.classList.add('step');
+    sh.classList.add('on'); buzz([20, 40, 20]);
+  }
   async function setServe() { if (!cur) return; const v = await chooseServe(); if (!v) return; sv = v; save(false, true); paint(); }
   function paint(bump) {
     const m = cur, done = state(m) === 'done' && scores[m.mid] && scores[m.mid].status === 'done';
@@ -278,6 +289,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     hist.push([s1, s2, JSON.stringify(sv || null)]); if (i === 0) s1++; else s2++;
     const prevK = sv ? sv.k : null; if (sv) sv = svStep(sv, i);
     buzz(10); save(false); paint(i);
+    if (!swapAsked && Math.max(s1, s2) >= MID && s1 < TARGET && s2 < TARGET) { swapAsked = true; setTimeout(askSwap, 450); }
     if (sv && s1 < TARGET && s2 < TARGET && sv.k !== prevK) {            // the rally went to the other side: service over
       const w = svWho(sv, s1, s2); toast('Service over. ' + w.server + ' serves from the ' + CT(w.court) + ' court.'); buzz([10, 40, 10]);
       const el = $('#sides').querySelector('.side.serving'); if (el) el.classList.add('flash');
@@ -286,7 +298,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   async function openMatch(mid) {
     cur = (data.matches || []).find(m => m.mid === mid); if (!cur) return;
     const sv0 = scores[mid] || (cur.res ? { s1: cur.res.a, s2: cur.res.b, status: 'done' } : null);
-    s1 = sv0 ? sv0.s1 : 0; s2 = sv0 ? sv0.s2 : 0; hist = []; flipped = false; sv = null;
+    s1 = sv0 ? sv0.s1 : 0; s2 = sv0 ? sv0.s2 : 0; hist = []; flipped = false; sv = null; swapAsked = Math.max(s1, s2) >= MID;
     try { const l = JSON.parse(localStorage.getItem('ump.' + slug + '.' + mid) || 'null'); if (l && ((sv0 && l.s1 === s1 && l.s2 === s2) || (!sv0 && !l.s1 && !l.s2))) { hist = l.hist || []; sv = l.sv === undefined ? null : l.sv; } } catch (e) {}
     $('#smid').textContent = cur.court + ' · ' + cur.time + ' · ' + cur.bracket;
     $('#score').classList.add('on'); paint();
@@ -295,7 +307,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   }
   function resetLive(quiet) {
     if (!cur) return; const id = cur.mid;
-    enqueue({ id, op: 'reset' }); delete scores[id]; s1 = 0; s2 = 0; hist = []; sv = null;
+    enqueue({ id, op: 'reset' }); delete scores[id]; s1 = 0; s2 = 0; hist = []; sv = null; swapAsked = false;
     try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {}
     if (!quiet) toast('Match taken off LIVE.');
   }
@@ -313,7 +325,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     resetLive(false); paint(); closeMatch();
   };
   $('#swap').onclick = () => { flipped = !flipped; buzz(8); paint(); };
-  $('#undo').onclick = () => { if (!hist.length) return; const h = hist.pop(); s1 = h[0]; s2 = h[1]; if (h.length > 2) { try { sv = JSON.parse(h[2]); } catch (e) { sv = null; } } buzz(8); save(false); paint(); };
+  $('#undo').onclick = () => { if (!hist.length) return; const h = hist.pop(); s1 = h[0]; s2 = h[1]; if (Math.max(s1, s2) < MID) swapAsked = false; if (h.length > 2) { try { sv = JSON.parse(h[2]); } catch (e) { sv = null; } } buzz(8); save(false); paint(); };
   const ask = (t, p, yes) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
   $('#fin').onclick = async () => {
     if (!cur || s1 === s2) return;
