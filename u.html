@@ -225,7 +225,18 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     };
     const cl = $('#qclr'); if (cl) cl.onclick = () => { if (!confirm('Remove all matches from this phone?')) return; qsave({ matches: [], scores: {} }); load(); };
   }
-  function renderList() {
+  function renderList() {                                  // the Scoring tab form must never lose what is being typed (iPhone name suggestions fire focus/refresh events)
+    if (quick) {
+      const ae = document.activeElement;
+      if (ae && ae.closest && ae.closest('#list .qform')) return;                        // someone is typing: leave the form alone
+      const keep = {}; ['qa1', 'qa2', 'qb1', 'qb2'].forEach(id => { const e = document.getElementById(id); if (e && e.value) keep[id] = e.value; });
+      renderList0();
+      Object.keys(keep).forEach(id => { const e = document.getElementById(id); if (e) e.value = keep[id]; });
+      return;
+    }
+    renderList0();
+  }
+  function renderList0() {
     $('#ttl').innerHTML = esc(data.name) + '<small>' + (quick ? 'Type the players, then score' : (court ? esc(court) : 'All courts') + ' · live scoring') + '</small>';
     const ms = mine(); let nextFound = false;
     if (quick && !ms.length) { $('#list').innerHTML = quickForm(); bindQuick(); return; }
@@ -417,7 +428,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   if (!quick && (!slug || !key)) { $('#list').innerHTML = '<div class="msg">This link is incomplete. Ask the organizer for your court link.</div>'; return; }
   if (!quick && (!P || !P.configured)) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
   flush(); load();
-  timer = setInterval(() => { if (document.hidden) return; if (pendingN()) flush(); if (!cur) load(); }, 12000);
+  timer = setInterval(() => { if (document.hidden) return; if (pendingN()) flush(); if (!cur && !quick) load(); }, 12000);
   setInterval(() => { if (!document.hidden && pendingN()) flush(); }, 4000);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});   // lets this page open again with no signal
 })();
