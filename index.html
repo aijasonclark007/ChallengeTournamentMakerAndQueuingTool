@@ -328,7 +328,7 @@ function installCard() {
   let app = false; try { app = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; } catch (e) {}
   if (app) return '';
   return '<details class="instcard"><summary><span aria-hidden="true">\uD83D\uDCF1</span> Install on your phone</summary><div class="ib"><div class="mute">Open it like an app from your home screen. It is free and takes 10 seconds.</div>' +
-    '<h4>iPhone (use Safari)</h4><ol><li>Tap the <b>Share</b> button (square with an arrow) at the bottom.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>.</li></ol>' +
+    '<h4>iPhone (use Safari)</h4><ol><li>Tap the <b>\u2022\u2022\u2022</b> (3 dots) at the bottom right, then tap <b>Share</b>. (Older iPhones show a Share button, a square with an arrow, instead.)</li><li>Scroll down and tap <b>Add to Home Screen</b> (it may be under <b>View More</b>).</li><li>Tap <b>Add</b>.</li></ol>' +
     '<h4>Android (use Chrome)</h4><ol><li>Tap the <b>\u22EE</b> menu at the top right.</li><li>Tap <b>Install app</b> (or <b>Add to Home screen</b>).</li><li>Tap <b>Install</b>.</li></ol></div></details>';
 }
 function sportsPage() {
