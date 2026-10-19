@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Challenge - Tournament Manager by Ai Jason Clark</title>
-<meta name="description" content="Challenge - Tournament Manager by Ai Jason Clark: sports scoring, draw and schedule tool, and queuing tool for badminton and pickleball.">
-<meta property="og:title" content="Challenge - Tournament Manager by Ai Jason Clark">
+<title>Challenge - Match Day by Ai Jason Clark</title>
+<meta name="description" content="Challenge - Match Day by Ai Jason Clark: sports scoring, draw and schedule tool, and queuing tool for badminton and pickleball.">
+<meta property="og:title" content="Challenge - Match Day by Ai Jason Clark">
 <meta property="og:description" content="Score badminton and pickleball matches, build the draw and game schedule, and run the queue on court.">
 <meta property="og:type" content="website">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Challenge"><meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -173,7 +173,7 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
             <ellipse cx="54" cy="96" rx="4" ry="2.6" fill="#FFF6D6" opacity=".6" transform="rotate(-25 54 96)"/>
           </g></symbol></defs></svg>
 <header class="bar"><div class="bar-in">
-  <div class="brand"><button type="button" class="logo" id="logo" aria-label="Choose sport" aria-haspopup="true" aria-expanded="false"></button><div id="spMenu" class="spmenu" hidden></div><a href="#/sports" class="bname"><span><b>Challenge - Tournament Manager</b><small>by Ai Jason Clark</small></span></a></div>
+  <div class="brand"><button type="button" class="logo" id="logo" aria-label="Choose sport" aria-haspopup="true" aria-expanded="false"></button><div id="spMenu" class="spmenu" hidden></div><a href="#/sports" class="bname"><span><b>Challenge - Match Day</b><small>by Ai Jason Clark</small></span></a></div>
   <nav class="seg" aria-label="Main">
     <a href="#/sports" data-p="sports">Sports</a>
     <a href="#/score" data-p="score">Scoring</a>
@@ -186,7 +186,7 @@ button.linkchip{border:0;font:inherit;font-size:14px;font-weight:600;cursor:poin
 <main id="main"><div id="view" class="view"></div><div id="tools" style="display:none"></div></main>
 <footer>
   <div class="contact"><b>Contact us</b><span>Comments or suggestions for the website?</span><a href="mailto:aijasonclark@gmail.com?subject=Challenge%20Tournament%20Management%3A%20comments%20and%20suggestions">aijasonclark@gmail.com</a></div>
-  &copy; <span id="yr"></span> Challenge - Tournament Manager by Ai Jason Clark
+  &copy; <span id="yr"></span> Challenge - Match Day by Ai Jason Clark
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="sports/badminton/rules.js"></script>
@@ -390,7 +390,7 @@ async function route() {
   const order = ['sports', 'score', 'draw', 'queue'], dir = Math.sign(order.indexOf(tab) - order.indexOf(prevTab)); prevTab = tab;
   $('#view').style.setProperty('--tx', (dir * 48) + 'px'); placeNavThumb(true);
   $('#main').classList.toggle('wide', page === 'score' || page === 'draw' || page === 'queue');
-  document.title = 'Challenge - Tournament Manager by Ai Jason Clark';
+  document.title = 'Challenge - Match Day by Ai Jason Clark';
   if (tok !== rt) return;
   if (page === 'score' || page === 'draw' || page === 'queue') { showTool(page, arg); return; }
   if (page === 'reset' || (cloud && P.recoveryPending && P.recoveryPending())) { setView(resetPage()); return initReset(); }   // came from a password-reset email (don't touch the hash yet: supabase is still reading the token from it)
