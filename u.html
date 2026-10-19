@@ -90,6 +90,13 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   .banner{padding:6px 12px;font-size:13px;margin:0 max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left))}
   .acts{padding:2px max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}.acts button{padding:10px 8px}
 }
+/* phone held upright: keep the top compact (the cards already show who serves and receives) */
+@media (orientation:portrait){
+  .sbar{padding:8px 12px}.sbar button{padding:7px 12px;font-size:14px}.sbar .mid{font-size:12px;line-height:1.25}
+  .srvbar{margin:6px 12px 0;padding:7px 12px;font-size:13.5px;line-height:1.25}.srvbar small{display:none}.srvbar button{padding:6px 11px;font-size:12.5px}
+  .srvbar span b:last-of-type{font-weight:700}
+  .side .nm{font-size:18px;padding:0 10px}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
