@@ -398,12 +398,18 @@ function takeRemote(row) {
 async function poll() {
   if (backend.type !== 'cloud') return;
   if (pending.length) return flush();
-  try { takeRemote(await P.getQueueSession(backend.id)); setSync('live'); } catch (e) { setSync('offline'); }
+  if (document.hidden) return;                                              // nobody is looking: do not ask
+  try {                                                                      // ask only for the version number; download the queue only when it moved
+    const v = P.getQueueVersion ? await P.getQueueVersion(backend.id) : null;
+    if (!v || v.version > server.version) takeRemote(await P.getQueueSession(backend.id));
+    setSync('live');
+  } catch (e) { setSync('offline'); }
 }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 function watch() {
   if (unsub) unsub(); unsub = null; clearInterval(pollTimer);
   if (backend.type !== 'cloud') return;
-  unsub = P.subscribeQueue(backend.id, takeRemote); pollTimer = setInterval(poll, 4000);
+  unsub = P.subscribeQueue(backend.id, takeRemote); pollTimer = setInterval(poll, 20000);        // live pushes do the real work; this is only a safety net
 }
 let renderSig = '';
 function safeRender() { if (rendered && JSON.stringify(view) === renderSig) return;     // nothing changed since the last draw: skip the second redraw (it made new items blink twice)
