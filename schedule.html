@@ -44,6 +44,7 @@ button:focus-visible,.pl:focus-visible,input:focus-visible,textarea:focus-visibl
 .tag{display:inline-block;padding:3px 12px;border-radius:999px;font-weight:700;font-size:14px;border:1px solid currentColor}
 .ON_TIME{color:var(--ok)}.NEEDS_EXTENSION{color:var(--warn)}.EXCEEDS_LIMIT{color:var(--bad)}
 .warn{color:var(--warn);font-size:14px;margin:4px 0 0}
+#bkBox>.row{margin-top:12px}.bkrow{display:flex;align-items:center;gap:12px;padding:12px 2px;border-top:1px solid var(--line)}.bkrow:last-child{border-bottom:1px solid var(--line)}.bkrow .grow{flex:1;min-width:0}.bkrow button{flex:none}#bkBox #bkBox details,#bkBox details{margin-top:18px}#bkBox>.hint{margin:10px 2px 0}
 .wrap{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
 table{border-collapse:collapse;width:100%;min-width:640px}
 th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;font-size:14px}
@@ -234,7 +235,7 @@ summary:hover{background:#fff}
       <details id="bkBox"><summary>Backup and restore</summary>
         <p class="hint">Your work is backed up online automatically (about every 10 minutes while you edit, and before you delete a tournament). Tap Restore to bring an earlier version back as a new tournament.</p>
         <div class="row"><button id="bkNow" class="ghost" type="button">Back up now</button></div>
-        <div class="wrap" style="margin:0"><table id="bkList" style="min-width:520px"></table></div>
+        <div id="bkList" style="margin-top:16px"></div>
         <p id="bkMsg" class="hint"></p>
         <details><summary>Copy as text (optional)</summary>
           <p class="hint">An extra copy you can keep in a note or email. Paste it back here to restore it as a new tournament.</p>
@@ -1255,7 +1256,7 @@ async function renderBackups() {
   try {
     const rows = (await Platform.listBackups()).filter(r => sportOfRow(r) === tSport);
     $('#bkMsg').textContent = rows.length ? '' : 'No online backups yet. The first one is made automatically after your next change, or tap Back up now.';
-    t.innerHTML = rows.length ? '<tr><th>Tournament</th><th>Progress</th><th>Saved</th><th></th></tr>' + rows.map(r => '<tr><td><b>' + esc(r.name) + '</b></td><td>' + esc(r.info || 'Empty') + '</td><td class="nw">' + new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="nw"><button class="ghost" data-bkrest="' + r.id + '" type="button">Restore</button></td></tr>').join('') : '';
+    t.innerHTML = rows.map(r => '<div class="bkrow"><div class="grow"><b>' + esc(r.name) + '</b><div class="hint" style="min-height:0">' + esc(r.info || 'Empty') + ' · ' + new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</div></div><button class="ghost" data-bkrest="' + r.id + '" type="button">Restore</button></div>').join('');
   } catch (e) { t.innerHTML = ''; bkProblem(e); }
 }
 $('#bkBox').addEventListener('toggle', () => { if ($('#bkBox').open) renderBackups(); });
