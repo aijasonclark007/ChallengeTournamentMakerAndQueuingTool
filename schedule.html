@@ -272,6 +272,7 @@ summary:hover{background:#fff}
           <button id="shuffleTeams" class="ghost" type="button">Shuffle teams</button>
         </div></div>
       <p id="hintT" class="hint"></p>
+      <div id="plAct" class="row" style="margin:0 0 10px;gap:8px;flex-wrap:wrap;align-items:center"></div>
       <div id="unpaired"></div>
       <div id="teams"></div>
     </section>
@@ -364,6 +365,8 @@ summary:hover{background:#fff}
  *   draw.swapPlayers('Ana', 'Ben');                // swap two players (same level) between teams
  *   draw.swapTeams('T1', 'T5');                    // swap two teams between brackets (same level)
  *   draw.moveTeam('T3', 'High-B');                 // move a team into another bracket (same level)
+ *   draw.changeLevel('Ana', 'Mid');                // move one player to another level (their partner waits, unpaired)
+ *   draw.pairUp('Ben', 'Cy');                      // make a team from two waiting players of the same level
  *   const result = draw.generate();                // build the schedule from the edited draw
  *   const saved = draw.toJSON();                   // save the edited draw (e.g. to your Sheet)
  *   generateScheduleFromBrackets(saved.brackets);  // rebuild the same schedule later
@@ -476,6 +479,41 @@ function createDraw(registrations, options) {
       from.teams.splice(from.teams.indexOf(t), 1);
       to.teams.push(t);
       if (!from.teams.length) brackets.splice(brackets.indexOf(from), 1);
+      return api;
+    },
+    /** Move one player to another skill level. Their partner stays behind, unpaired, in the old level; the moved player waits for a partner in the new level. */
+    changeLevel(name, newLevel) {
+      const level = opt.levels.find(l => l.toLowerCase() === String(newLevel || '').trim().toLowerCase());
+      if (!level) throw new Error('Unknown skill level: ' + newLevel);
+      const P = locatePlayer(name);
+      if (P.level === level) throw new Error(P.name + ' is already in ' + level);
+      const moved = P.name;
+      if (P.team) {
+        const t = P.team, b = bracketOf(t);
+        if (b) { b.teams.splice(b.teams.indexOf(t), 1); if (!b.teams.length) brackets.splice(brackets.indexOf(b), 1); }
+        teams.splice(teams.indexOf(t), 1);
+        t.players.filter(p => keyOf(p) !== keyOf(moved)).forEach(p => unpaired.push({ name: p, level: t.level }));
+      } else {
+        unpaired.splice(unpaired.findIndex(p => keyOf(p.name) === keyOf(moved)), 1);
+      }
+      unpaired.push({ name: moved, level });
+      return api;
+    },
+    /** Make a team from two waiting players of the same level. The team goes into the emptiest bracket that has room, or a new bracket. */
+    pairUp(a, b) {
+      const A = unpaired.find(p => keyOf(p.name) === keyOf(a)), B = unpaired.find(p => keyOf(p.name) === keyOf(b));
+      if (!A || !B) throw new Error('Both players must be waiting for a partner');
+      if (A === B) throw new Error('Pick two different players');
+      if (A.level !== B.level) throw new Error('Partners must be in the same skill level');
+      unpaired = unpaired.filter(p => p !== A && p !== B);
+      const t = newTeam([A.name, B.name], A.level, null); teams.push(t);
+      const open = brackets.filter(x => x.level === t.level && x.teams.length < opt.bracketSize).sort((x, y) => x.teams.length - y.teams.length)[0];
+      if (open) open.teams.push(t);
+      else {
+        const used = brackets.filter(x => x.level === t.level).map(x => x.id); let i = 0, id;
+        do { id = t.level + '-' + String.fromCharCode(65 + i++); } while (used.includes(id));
+        brackets.push({ id, name: t.level + ' Bracket ' + id.slice(-1), level: t.level, teams: [t] });
+      }
       return api;
     },
     /** Pair the players again at random. The brackets are redrawn too, because the teams changed. */
@@ -917,9 +955,9 @@ $('#drawBtn').onclick = startDraw;
 const manT = () => $('#manualTeams').checked, manB = () => $('#manualBrackets').checked;
 let selP = null, selT = null;   // picked player (teams) and picked team (brackets)
 
-function chip(name, level) {
+function chip(name, level, waiting) {
   const m = manT();
-  return '<span class="pl' + (m ? ' ed' : '') + (selP && selP.name === name ? ' on' : '') + '" data-p="' + esc(name) + '" data-l="' + level + '"' +
+  return '<span class="pl' + (m ? ' ed' : '') + (selP && selP.name === name ? ' on' : '') + '" data-p="' + esc(name) + '" data-l="' + level + '"' + (waiting ? ' data-w="1"' : '') +
     (m ? ' tabindex="0" role="button"' : '') + '>' + esc(name) + '</span>';
 }
 function renderTeams(msg, isErr) {
@@ -929,9 +967,10 @@ function renderTeams(msg, isErr) {
       '<div class="team"><span class="n" style="color:var(--mute);font-size:12px">' + t.id + '</span>' + t.players.map(p => chip(p, l)).join('') + '</div>').join('') + '</div>').join('');
   $('#unpaired').innerHTML = st.unpaired.length
     ? '<div class="card" style="margin-bottom:12px"><b>Waiting for a partner</b><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">' +
-      st.unpaired.map(p => chip(p.name, p.level)).join('') + '</div></div>' : '';
-  const h = msg || (manT() ? (!selP ? 'Tap a player to pick them, then tap another player of the same level to swap partners.' : 'Picked ' + selP.name + '. Tap another ' + selP.level + ' player to swap.') : '');
+      st.unpaired.map(p => chip(p.name, p.level, true)).join('') + '</div></div>' : '';
+  const h = msg || (manT() ? (!selP ? 'Tap a player to pick them. Then tap another player of the same level to swap partners (or to pair two waiting players), or change their level.' : 'Picked ' + selP.name + '. Tap another ' + selP.level + ' player ' + (selP.waiting ? 'to pair them or swap' : 'to swap') + ', or move ' + selP.name + ' to another level below.') : '');
   $('#hintT').textContent = h; $('#hintT').className = 'hint' + (isErr ? ' err' : '');
+  $('#plAct').innerHTML = manT() && selP ? '<span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '';
 }
 function renderBrackets(msg, isErr) {
   const st = draw.getState(), m = manB();
@@ -957,8 +996,11 @@ document.addEventListener('click', e => {
   if ((p && manT() && blocked('#hintT')) || (((t || mv) && manB()) && blocked('#hintB'))) return;
   try {
     if (p && manT()) {
-      if (selP && selP.name !== p.dataset.p) { draw.swapPlayers(selP.name, p.dataset.p); selP = null; hideResults(); }
-      else selP = selP && selP.name === p.dataset.p ? null : { name: p.dataset.p, level: p.dataset.l };
+      if (selP && selP.name !== p.dataset.p) {
+        if (selP.waiting && p.dataset.w) { const a = selP.name; draw.pairUp(a, p.dataset.p); selP = null; hideResults(); renderDraw(); renderTeams(a + ' and ' + p.dataset.p + ' are now a team. Press "Build schedule" again when you are done changing the draw.'); return; }
+        draw.swapPlayers(selP.name, p.dataset.p); selP = null; hideResults();
+      }
+      else selP = selP && selP.name === p.dataset.p ? null : { name: p.dataset.p, level: p.dataset.l, waiting: !!p.dataset.w };
       renderDraw();
     } else if ((t || mv) && manB()) {
       if (mv && selT) { draw.moveTeam(selT.id, mv.dataset.b); selT = null; hideResults(); }
@@ -969,6 +1011,18 @@ document.addEventListener('click', e => {
       renderBrackets();
     }
   } catch (err) { if (p) { selP = null; renderTeams(err.message, true); } else { selT = null; renderBrackets(err.message, true); } }
+});
+document.addEventListener('click', e => {                 // Change level: move the picked player to another skill level
+  const c = e.target.closest && e.target.closest('[data-chlv]'); if (!c || !draw || !selP) return;
+  if (blocked('#hintT')) return;
+  const name = selP.name, from = selP.level, lvl = c.dataset.chlv;
+  try {
+    const before = draw.getState(), tm = before.teams.find(t => t.players.includes(name)), partner = tm ? tm.players.find(x => x !== name) : null;
+    draw.changeLevel(name, lvl); selP = null; hideResults();
+    $('#players').value = $('#players').value.split('\n').map(l => { const q = l.split(/[,\t]/); return (q[0] || '').trim().toLowerCase() === name.toLowerCase() ? (q[0].trim() + ', ' + lvl) : l; }).join('\n');
+    renderDraw();
+    renderTeams(name + ' moved to ' + lvl + ' and is waiting for a partner.' + (partner ? ' ' + partner + ' stays in ' + from + ' waiting for a partner.' : '') + ' Tap two waiting players of the same level to pair them.');
+  } catch (err) { selP = null; renderTeams(err.message, true); }
 });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('pl')) { e.preventDefault(); e.target.click(); } });
 
