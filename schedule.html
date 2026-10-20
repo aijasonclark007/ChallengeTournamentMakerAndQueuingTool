@@ -231,11 +231,17 @@ summary:hover{background:#fff}
         <button id="tRename" class="ghost" type="button">Rename current</button>
       </div>
       <p id="saveNote" class="hint"></p>
-      <details><summary>Backup and restore</summary>
-        <p class="hint">An extra copy you can keep in a note or email. Paste it back here to restore it as a new tournament.</p>
-        <textarea id="backup" style="min-height:90px" placeholder="Backup text appears here"></textarea>
-        <div class="row"><button id="bShow" class="ghost" type="button">Show backup of this tournament</button><button id="bLoad" class="ghost" type="button">Restore from the text above</button></div>
-        <p id="bMsg" class="hint"></p>
+      <details id="bkBox"><summary>Backup and restore</summary>
+        <p class="hint">Your work is backed up online automatically (about every 10 minutes while you edit, and before you delete a tournament). Tap Restore to bring an earlier version back as a new tournament.</p>
+        <div class="row"><button id="bkNow" class="ghost" type="button">Back up now</button></div>
+        <div class="wrap" style="margin:0"><table id="bkList" style="min-width:520px"></table></div>
+        <p id="bkMsg" class="hint"></p>
+        <details><summary>Copy as text (optional)</summary>
+          <p class="hint">An extra copy you can keep in a note or email. Paste it back here to restore it as a new tournament.</p>
+          <textarea id="backup" style="min-height:90px" placeholder="Backup text appears here"></textarea>
+          <div class="row"><button id="bShow" class="ghost" type="button">Show backup of this tournament</button><button id="bLoad" class="ghost" type="button">Restore from the text above</button></div>
+          <p id="bMsg" class="hint"></p>
+        </details>
       </details>
     </div>
   </section>
@@ -1231,9 +1237,33 @@ async function saveNow() {
     const r = await Platform.saveTournament({ id: tid, name, info, state: st });
     const e = cloudList.find(x => x.id === tid);
     if (e) Object.assign(e, { name, info, updated_at: r.updated_at }); else cloudList.unshift({ id: tid, name, info, updated_at: r.updated_at });
-    note('Saved to your account at ' + clock() + '.'); renderTList();
+    note('Saved to your account at ' + clock() + '.'); renderTList(); autoBackup(false);
   } catch (err) { note('Could not save to the cloud (' + err.message + '). Your work is still on this page. Press Save again, or copy the backup text below.', true); }
 }
+// ----- automatic online backups: a snapshot at most every 10 minutes while you work, kept per tournament (newest 15)
+let lastBak = {}, lastBakJson = {};
+async function autoBackup(force) {
+  if (!tid || !Platform.user || preview || !Platform.saveBackup) return;
+  const st = capture(), json = JSON.stringify(st);
+  if (!force && (Date.now() - (lastBak[tid] || 0) < 10 * 60 * 1000 || json === lastBakJson[tid])) return;
+  lastBak[tid] = Date.now(); lastBakJson[tid] = json;
+  try { await Platform.saveBackup({ draw_id: tid, name: $('#tname').value.trim() || 'Untitled tournament', info: describe(st), state: st }); Platform.pruneBackups(tid, 15).catch(() => {}); if ($('#bkBox').open) renderBackups(); } catch (e) { bkProblem(e); }
+}
+const bkProblem = e => { const m = $('#bkMsg'); if (m) m.textContent = /draw_backups|relation|schema cache/i.test(e.message || '') ? 'Online backups need one more setup step: run supabase-step9.sql in Supabase (SQL Editor).' : 'Could not back up online: ' + e.message; };
+async function renderBackups() {
+  const t = $('#bkList'); if (!Platform.user || !Platform.listBackups) return;
+  try {
+    const rows = (await Platform.listBackups()).filter(r => sportOfRow(r) === tSport);
+    $('#bkMsg').textContent = rows.length ? '' : 'No online backups yet. The first one is made automatically after your next change, or tap Back up now.';
+    t.innerHTML = rows.length ? '<tr><th>Tournament</th><th>Progress</th><th>Saved</th><th></th></tr>' + rows.map(r => '<tr><td><b>' + esc(r.name) + '</b></td><td>' + esc(r.info || 'Empty') + '</td><td class="nw">' + new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="nw"><button class="ghost" data-bkrest="' + r.id + '" type="button">Restore</button></td></tr>').join('') : '';
+  } catch (e) { t.innerHTML = ''; bkProblem(e); }
+}
+$('#bkBox').addEventListener('toggle', () => { if ($('#bkBox').open) renderBackups(); });
+$('#bkNow').onclick = async () => { await autoBackup(true); await renderBackups(); if (!$('#bkMsg').textContent) $('#bkMsg').textContent = 'Backed up at ' + clock() + '.'; };
+document.addEventListener('click', async e => {
+  const b = e.target.closest && e.target.closest('[data-bkrest]'); if (!b) return;
+  try { const r = await Platform.loadBackup(b.dataset.bkrest); await addTournament((r.name || 'Restored tournament') + ' (restored)', r.state); $('#bkMsg').textContent = 'Restored as a new tournament.'; } catch (err) { bkProblem(err); }
+});
 const queueSave = () => { if (!tid || !Platform.user || opening || preview) return; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 2500); };
 ['click', 'change', 'input'].forEach(ev => document.addEventListener(ev, queueSave, true));
 // the Save buttons of sections 1 to 3, and Build schedule, upload straight away
@@ -1291,6 +1321,7 @@ document.addEventListener('click', async e => {
     if (delArm !== d.dataset.del) { delArm = d.dataset.del; renderTList(); setTimeout(() => { delArm = null; renderTList(); }, 4000); return; }
     const id = d.dataset.del; delArm = null;
     try {
+      try { const row = await Platform.loadTournament(id); await Platform.saveBackup({ draw_id: id, name: row.name, info: row.info, state: row.state }); } catch (x) {}   // keep a copy so a deleted tournament can be restored
       await Platform.deleteTournament(id); cloudList = cloudList.filter(x => x.id !== id);
       if (id === tid) { tid = null; if (cloudList.length) await openT(cloudList[0].id); else await addTournament('Tournament 1', null); } else renderTList();
     } catch (err) { note('Could not delete: ' + err.message, true); }

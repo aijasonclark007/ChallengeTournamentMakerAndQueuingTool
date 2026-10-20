@@ -48,6 +48,14 @@
     return run(sb.from(T.draws).upsert({ id: t.id, user_id: user.id, name: t.name, info: t.info || '', state: t.state }, { onConflict: 'id' }).select('id, updated_at').single());
   };
   const deleteTournament = id => { need(); return run(sb.from(T.draws).delete().eq('id', id)); };
+  // automatic online backups (table draw_backups, see supabase-step9.sql)
+  const listBackups = () => { need(); return run(sb.from('draw_backups').select('id, draw_id, name, info, created_at, sport:state->>sport').order('created_at', { ascending: false }).limit(60)); };
+  const loadBackup = id => { need(); return run(sb.from('draw_backups').select('*').eq('id', id).single()); };
+  const saveBackup = b => { need(); return run(sb.from('draw_backups').insert({ user_id: user.id, draw_id: b.draw_id || null, name: b.name || '', info: b.info || '', state: b.state }).select('id, created_at').single()); };
+  async function pruneBackups(drawId, keep) {          // keep only the newest few snapshots of one tournament
+    need(); const rows = await run(sb.from('draw_backups').select('id').eq('draw_id', drawId).order('created_at', { ascending: false }).range(keep, keep + 100));
+    if (rows && rows.length) await run(sb.from('draw_backups').delete().in('id', rows.map(r => r.id)));
+  }
 
   // ---------- saved player pool (for the queuing tool) ----------
   // One pool per sport, with no database change: pickleball names are stored as "pickleball::Name"; old rows without a prefix are badminton.
@@ -248,7 +256,7 @@
   window.Platform = {
     configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, updatePassword, isOrganizer,
     recoveryPending: () => recovery, recoveryError: () => recoveryErr, onRecovery: fn => recSubs.push(fn),
-    listTournaments, loadTournament, saveTournament, deleteTournament,
+    listTournaments, loadTournament, saveTournament, deleteTournament, listBackups, loadBackup, saveBackup, pruneBackups,
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
