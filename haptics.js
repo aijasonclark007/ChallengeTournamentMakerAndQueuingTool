@@ -1,3 +1,4 @@
+/* v2: redeploy marker */
 /* Haptics for the whole site. Android/Chrome: navigator.vibrate. iPhone Safari (iOS 17.4+): Safari has no vibrate, but toggling a hidden
    <input type="checkbox" switch> gives a light tap, so we use that inside the user's tap. Users can turn it off (localStorage 'haptics' = 'off'). */
 (function () {
