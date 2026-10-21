@@ -1030,7 +1030,7 @@ function renderTeams(msg, isErr) {
   $('#teams').innerHTML = LEVELS.filter(l => st.teams.some(t => t.level === l)).map(l =>
     '<h3 class="lvl">Skill Level: ' + l + '</h3>' + (selP && !selP.waiting && selP.level === l ? act : '') + '<div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
       '<div class="team"><span class="n" style="color:var(--mute);font-size:12px">' + t.id + '</span>' + t.players.map(p => chip(p, l)).join('') + '</div>').join('') + '</div>').join('');
-  $('#lateAdd').innerHTML = manT() ? '<div class="card" style="margin-bottom:12px"><b>Add a late player</b><div class="hint" style="min-height:0;margin:4px 0 8px">Adds one player without touching any current team or bracket. They wait below until you pair them with another waiting player of the same level.</div><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><input id="lateName" type="text" maxlength="40" placeholder="Player name" autocomplete="off" style="flex:1;min-width:160px"><select id="lateLvl" aria-label="Skill level">' + LEVELS.map(l => '<option' + (l === lateLvl ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button type="button" class="go" data-lateadd>Add player</button></div></div>' : '';
+  $('#lateAdd').innerHTML = manT() ? '<div class="card" style="margin-bottom:12px"><b>Add late players</b><div class="hint" style="min-height:0;margin:4px 0 8px">Type or paste one or many names (one per line, straight from Google Sheets works). Add ", High" or a Level column to set a level per name; otherwise the level below is used. They wait below until you pair them; no current team or bracket changes.</div><textarea id="lateName" rows="3" placeholder="Player name&#10;Player name, Mid" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px"></textarea><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><label style="display:flex;gap:6px;align-items:center;color:var(--ink)">Level <select id="lateLvl" aria-label="Skill level" style="min-height:40px;padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit">' + LEVELS.map(l => '<option' + (l === lateLvl ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label><button type="button" class="go" data-lateadd>Add players</button></div></div>' : '';
   $('#unpaired').innerHTML = st.unpaired.length
     ? '<div class="card" style="margin-bottom:12px"><b>Waiting for a partner</b><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">' +
       st.unpaired.map(p => chip(p.name, p.level, true)).join('') + '</div>' + (selP && selP.waiting ? '<div style="margin-top:10px">' + act + '</div>' : '') + '</div>' : '';
@@ -1102,18 +1102,30 @@ document.addEventListener('click', e => {                 // Change level: move 
     renderTeams(name + ' moved to ' + lvl + ' and is waiting for a partner.' + (partner ? ' ' + partner + ' stays in ' + from + ' waiting for a partner.' : '') + ' Tap two waiting players of the same level to pair them.');
   } catch (err) { selP = null; renderTeams(err.message, true); }
 });
-document.addEventListener('click', e => {                 // Add a late player (waits for a partner; nothing else changes)
+document.addEventListener('click', e => {                 // Add late players (one or many; each waits for a partner, nothing else changes)
   if (!(e.target.closest && e.target.closest('[data-lateadd]')) || !draw) return;
   if (blocked('#hintT')) return;
-  const nm = ($('#lateName').value || '').trim().replace(/\s+/g, ' '); lateLvl = $('#lateLvl').value;
-  try {
-    draw.addPlayer(nm, lateLvl); selP = null; rnOn = false; hideResults();
-    const ta = $('#players'); ta.value = ta.value.replace(/\s+$/, '') + '\n' + nm + ', ' + lateLvl;
-    renderDraw(); renderTeams(nm + ' added to ' + lateLvl + ' and is waiting for a partner. Add one more ' + lateLvl + ' player, then tap the two waiting players to pair them.');
-    const i = $('#lateName'); if (i) i.focus();
-  } catch (err) { renderTeams(err.message, true); const i = $('#lateName'); if (i) { i.value = nm; i.focus(); } }
+  const raw = $('#lateName').value; lateLvl = $('#lateLvl').value;
+  const lvOf = x => LEVELS.find(l => l.toLowerCase() === String(x || '').trim().toLowerCase());
+  const list = [];
+  raw.split(/\r?\n/).forEach(line => {
+    const c = line.split(/[\t,]/).map(x => x.trim());
+    if (c.length > 1 && lvOf(c[1])) list.push([c[0], lvOf(c[1])]);
+    else c.forEach(x => { if (x) list.push([x, lateLvl]); });
+  });
+  const todo = list.filter(x => x[1]);
+  if (!todo.length) { renderTeams('Type or paste a name first.', true); return; }
+  const added = [], bad = [];
+  todo.forEach(([nm, lv]) => { try { draw.addPlayer(nm, lv); added.push([nm, lv]); } catch (err) { bad.push(nm + ' (' + err.message.replace(/\.$/, '') + ')'); } });
+  selP = null; rnOn = false;
+  if (added.length) {
+    hideResults();
+    const ta = $('#players'); ta.value = ta.value.replace(/\s+$/, '') + '\n' + added.map(x => x[0].replace(/\s+/g, ' ') + ', ' + x[1]).join('\n');
+    renderDraw();
+  }
+  renderTeams((added.length ? added.length + ' player' + (added.length > 1 ? 's' : '') + ' added and waiting for a partner. Tap two waiting players of the same level to pair them.' : '') + (bad.length ? ' Not added: ' + bad.join('; ') + '.' : ''), !added.length);
+  if (bad.length) { const i = $('#lateName'); if (i) i.value = bad.map(x => x.split(' (')[0]).join('\n'); }
 });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'lateName') { e.preventDefault(); const b = document.querySelector('[data-lateadd]'); if (b) b.click(); } });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('pl')) { e.preventDefault(); e.target.click(); } });
 
 const LABEL = { ON_TIME: 'Finishes on time', NEEDS_EXTENSION: 'Needs the extension', EXCEEDS_LIMIT: 'Too long', NO_GAMES: 'No games' };
