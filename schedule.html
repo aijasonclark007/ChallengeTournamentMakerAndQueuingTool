@@ -366,6 +366,7 @@ summary:hover{background:#fff}
  *   draw.swapTeams('T1', 'T5');                    // swap two teams between brackets (same level)
  *   draw.moveTeam('T3', 'High-B');                 // move a team into another bracket (same level)
  *   draw.changeLevel('Ana', 'Mid');                // move one player to another level (their partner waits, unpaired)
+ *   draw.renamePlayer('Ana', 'Anna');              // fix a typo in a player's name
  *   draw.pairUp('Ben', 'Cy');                      // make a team from two waiting players of the same level
  *   const result = draw.generate();                // build the schedule from the edited draw
  *   const saved = draw.toJSON();                   // save the edited draw (e.g. to your Sheet)
@@ -423,6 +424,25 @@ function createDraw(registrations, options) {
     });
   }
   function shuffleAll() { pairAll(); makeBrackets(); }
+  // pools are what "Shuffle teams" pairs from, so level changes and renames must reach them too
+  function poolsMove(name, level) {
+    const k = keyOf(name);
+    opt.levels.forEach(l => {
+      const s = pools[l].singles.findIndex(p => keyOf(p.name) === k); if (s >= 0) pools[l].singles.splice(s, 1);
+      pools[l].teams = pools[l].teams.filter(t => {
+        const i = t.players.findIndex(p => keyOf(p) === k); if (i < 0) return true;
+        t.players.splice(i, 1); t.players.forEach(p => pools[l].singles.push({ name: p, level: l })); return false;
+      });
+    });
+    pools[level].singles.push({ name, level });
+  }
+  function poolsRename(oldName, newName) {
+    const k = keyOf(oldName);
+    opt.levels.forEach(l => {
+      pools[l].singles.forEach(p => { if (keyOf(p.name) === k) p.name = newName; });
+      pools[l].teams.forEach(t => { t.players = t.players.map(p => keyOf(p) === k ? newName : p); if (t.auto) t.name = t.players.join(' / '); });
+    });
+  }
   function newTeam(players, level, customName) {
     return { id: 'T' + (nextTeamId++), name: customName || players.join(' / '), custom: !!customName, players, level };
   }
@@ -497,6 +517,19 @@ function createDraw(registrations, options) {
         unpaired.splice(unpaired.findIndex(p => keyOf(p.name) === keyOf(moved)), 1);
       }
       unpaired.push({ name: moved, level });
+      poolsMove(moved, level);
+      return api;
+    },
+    /** Fix a player's name (a typo, say). Names must stay unique. */
+    renamePlayer(oldName, newName) {
+      const nu = String(newName || '').trim().replace(/\s+/g, ' ');
+      if (!nu) throw new Error('Type a name first.');
+      const P = locatePlayer(oldName);
+      if (keyOf(nu) !== keyOf(P.name)) {
+        const taken = teams.some(t => t.players.some(p => keyOf(p) === keyOf(nu))) || unpaired.some(p => keyOf(p.name) === keyOf(nu));
+        if (taken) throw new Error('Someone is already named ' + nu + '. Names must be unique.');
+      }
+      const was = P.name; P.set(nu); poolsRename(was, nu);
       return api;
     },
     /** Make a team from two waiting players of the same level. The team goes into the emptiest bracket that has room, or a new bracket. */
@@ -953,7 +986,7 @@ function startDraw() {
 $('#drawBtn').onclick = startDraw;
 
 const manT = () => $('#manualTeams').checked, manB = () => $('#manualBrackets').checked;
-let selP = null, selT = null;   // picked player (teams) and picked team (brackets)
+let selP = null, selT = null, rnOn = false;   // picked player (teams), picked team (brackets), and whether the Rename box is open
 
 function chip(name, level, waiting) {
   const m = manT();
@@ -970,7 +1003,8 @@ function renderTeams(msg, isErr) {
       st.unpaired.map(p => chip(p.name, p.level, true)).join('') + '</div></div>' : '';
   const h = msg || (manT() ? (!selP ? 'Tap a player to pick them. Then tap another player of the same level to swap partners (or to pair two waiting players), or change their level.' : 'Picked ' + selP.name + '. Tap another ' + selP.level + ' player ' + (selP.waiting ? 'to pair them or swap' : 'to swap') + ', or move ' + selP.name + ' to another level below.') : '');
   $('#hintT').textContent = h; $('#hintT').className = 'hint' + (isErr ? ' err' : '');
-  $('#plAct').innerHTML = manT() && selP ? '<span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '';
+  $('#plAct').innerHTML = manT() && selP && rnOn ? '<input id="rnIn" type="text" maxlength="40" value="' + esc(selP.name) + '" style="flex:1;min-width:160px"><button type="button" class="go" data-rnsave>Save name</button><button type="button" class="ghost" data-rncancel>Cancel</button>'
+    : manT() && selP ? '<button type="button" class="ghost" data-rnstart>Rename ' + esc(selP.name) + '</button> <span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '';
 }
 function renderBrackets(msg, isErr) {
   const st = draw.getState(), m = manB();
@@ -1000,7 +1034,7 @@ document.addEventListener('click', e => {
         if (selP.waiting && p.dataset.w) { const a = selP.name; draw.pairUp(a, p.dataset.p); selP = null; hideResults(); renderDraw(); renderTeams(a + ' and ' + p.dataset.p + ' are now a team. Press "Build schedule" again when you are done changing the draw.'); return; }
         draw.swapPlayers(selP.name, p.dataset.p); selP = null; hideResults();
       }
-      else selP = selP && selP.name === p.dataset.p ? null : { name: p.dataset.p, level: p.dataset.l, waiting: !!p.dataset.w };
+      else { rnOn = false; selP = selP && selP.name === p.dataset.p ? null : { name: p.dataset.p, level: p.dataset.l, waiting: !!p.dataset.w }; }
       renderDraw();
     } else if ((t || mv) && manB()) {
       if (mv && selT) { draw.moveTeam(selT.id, mv.dataset.b); selT = null; hideResults(); }
@@ -1012,13 +1046,26 @@ document.addEventListener('click', e => {
     }
   } catch (err) { if (p) { selP = null; renderTeams(err.message, true); } else { selT = null; renderBrackets(err.message, true); } }
 });
+document.addEventListener('click', e => {                 // Rename the picked player (fix a typo)
+  const t = e.target.closest && e.target.closest('[data-rnstart],[data-rnsave],[data-rncancel]'); if (!t || !draw || !selP) return;
+  if (t.hasAttribute('data-rnstart')) { rnOn = true; renderTeams(); const i = $('#rnIn'); if (i) { i.focus(); i.select(); } return; }
+  if (t.hasAttribute('data-rncancel')) { rnOn = false; renderTeams(); return; }
+  if (blocked('#hintT')) return;
+  const old = selP.name, nu = ($('#rnIn').value || '').trim();
+  try {
+    draw.renamePlayer(old, nu); rnOn = false; selP = null; hideResults();
+    $('#players').value = $('#players').value.split('\n').map(l => { const q = l.split(/[,\t]/); return (q[0] || '').trim().toLowerCase() === old.toLowerCase() ? (nu.replace(/\s+/g, ' ') + l.slice(l.indexOf(q[0]) + q[0].length)) : l; }).join('\n');
+    renderDraw(); renderTeams('Renamed ' + old + ' to ' + nu.replace(/\s+/g, ' ') + '. Press "Build schedule" again if you had already built it.');
+  } catch (err) { renderTeams(err.message, true); const i = $('#rnIn'); if (i) i.focus(); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'rnIn') { e.preventDefault(); const b = document.querySelector('[data-rnsave]'); if (b) b.click(); } });
 document.addEventListener('click', e => {                 // Change level: move the picked player to another skill level
   const c = e.target.closest && e.target.closest('[data-chlv]'); if (!c || !draw || !selP) return;
   if (blocked('#hintT')) return;
   const name = selP.name, from = selP.level, lvl = c.dataset.chlv;
   try {
     const before = draw.getState(), tm = before.teams.find(t => t.players.includes(name)), partner = tm ? tm.players.find(x => x !== name) : null;
-    draw.changeLevel(name, lvl); selP = null; hideResults();
+    draw.changeLevel(name, lvl); selP = null; rnOn = false; hideResults();
     $('#players').value = $('#players').value.split('\n').map(l => { const q = l.split(/[,\t]/); return (q[0] || '').trim().toLowerCase() === name.toLowerCase() ? (q[0].trim() + ', ' + lvl) : l; }).join('\n');
     renderDraw();
     renderTeams(name + ' moved to ' + lvl + ' and is waiting for a partner.' + (partner ? ' ' + partner + ' stays in ' + from + ' waiting for a partner.' : '') + ' Tap two waiting players of the same level to pair them.');
