@@ -291,6 +291,7 @@ summary:hover{background:#fff}
           <button id="shuffleTeams" class="ghost" type="button">Shuffle teams</button>
         </div></div>
       <p id="hintT" class="hint"></p>
+      <div id="lateAdd"></div>
       <div id="unpaired"></div>
       <div id="teams"></div>
     </section>
@@ -565,6 +566,17 @@ function createDraw(registrations, options) {
         do { id = t.level + '-' + String.fromCharCode(65 + i++); } while (used.includes(id));
         brackets.push({ id, name: t.level + ' Bracket ' + id.slice(-1), level: t.level, teams: [t] });
       }
+      return api;
+    },
+    /** Add a late player. They wait for a partner in their level; nobody else is touched. */
+    addPlayer(name, newLevel) {
+      const nu = String(name || '').trim().replace(/\s+/g, ' ');
+      if (!nu) throw new Error('Type a name first.');
+      const level = opt.levels.find(l => l.toLowerCase() === String(newLevel || '').trim().toLowerCase());
+      if (!level) throw new Error('Unknown skill level: ' + newLevel);
+      const taken = teams.some(t => t.players.some(p => keyOf(p) === keyOf(nu))) || unpaired.some(p => keyOf(p.name) === keyOf(nu));
+      if (taken) throw new Error('Someone is already named ' + nu + '. Names must be unique.');
+      unpaired.push({ name: nu, level }); pools[level].singles.push({ name: nu, level });
       return api;
     },
     /** Pair the players again at random. The brackets are redrawn too, because the teams changed. */
@@ -1004,7 +1016,7 @@ function startDraw() {
 $('#drawBtn').onclick = startDraw;
 
 const manT = () => $('#manualTeams').checked, manB = () => $('#manualBrackets').checked;
-let selP = null, selT = null, rnOn = false;   // picked player (teams), picked team (brackets), and whether the Rename box is open
+let selP = null, selT = null, rnOn = false, lateLvl = 'High';   // picked player (teams), picked team (brackets), and whether the Rename box is open
 
 function chip(name, level, waiting) {
   const m = manT();
@@ -1018,6 +1030,7 @@ function renderTeams(msg, isErr) {
   $('#teams').innerHTML = LEVELS.filter(l => st.teams.some(t => t.level === l)).map(l =>
     '<h3 class="lvl">Skill Level: ' + l + '</h3>' + (selP && !selP.waiting && selP.level === l ? act : '') + '<div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
       '<div class="team"><span class="n" style="color:var(--mute);font-size:12px">' + t.id + '</span>' + t.players.map(p => chip(p, l)).join('') + '</div>').join('') + '</div>').join('');
+  $('#lateAdd').innerHTML = manT() ? '<div class="card" style="margin-bottom:12px"><b>Add a late player</b><div class="hint" style="min-height:0;margin:4px 0 8px">Adds one player without touching any current team or bracket. They wait below until you pair them with another waiting player of the same level.</div><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><input id="lateName" type="text" maxlength="40" placeholder="Player name" autocomplete="off" style="flex:1;min-width:160px"><select id="lateLvl" aria-label="Skill level">' + LEVELS.map(l => '<option' + (l === lateLvl ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button type="button" class="go" data-lateadd>Add player</button></div></div>' : '';
   $('#unpaired').innerHTML = st.unpaired.length
     ? '<div class="card" style="margin-bottom:12px"><b>Waiting for a partner</b><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">' +
       st.unpaired.map(p => chip(p.name, p.level, true)).join('') + '</div>' + (selP && selP.waiting ? '<div style="margin-top:10px">' + act + '</div>' : '') + '</div>' : '';
@@ -1089,6 +1102,18 @@ document.addEventListener('click', e => {                 // Change level: move 
     renderTeams(name + ' moved to ' + lvl + ' and is waiting for a partner.' + (partner ? ' ' + partner + ' stays in ' + from + ' waiting for a partner.' : '') + ' Tap two waiting players of the same level to pair them.');
   } catch (err) { selP = null; renderTeams(err.message, true); }
 });
+document.addEventListener('click', e => {                 // Add a late player (waits for a partner; nothing else changes)
+  if (!(e.target.closest && e.target.closest('[data-lateadd]')) || !draw) return;
+  if (blocked('#hintT')) return;
+  const nm = ($('#lateName').value || '').trim().replace(/\s+/g, ' '); lateLvl = $('#lateLvl').value;
+  try {
+    draw.addPlayer(nm, lateLvl); selP = null; rnOn = false; hideResults();
+    const ta = $('#players'); ta.value = ta.value.replace(/\s+$/, '') + '\n' + nm + ', ' + lateLvl;
+    renderDraw(); renderTeams(nm + ' added to ' + lateLvl + ' and is waiting for a partner. Add one more ' + lateLvl + ' player, then tap the two waiting players to pair them.');
+    const i = $('#lateName'); if (i) i.focus();
+  } catch (err) { renderTeams(err.message, true); const i = $('#lateName'); if (i) { i.value = nm; i.focus(); } }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'lateName') { e.preventDefault(); const b = document.querySelector('[data-lateadd]'); if (b) b.click(); } });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('pl')) { e.preventDefault(); e.target.click(); } });
 
 const LABEL = { ON_TIME: 'Finishes on time', NEEDS_EXTENSION: 'Needs the extension', EXCEEDS_LIMIT: 'Too long', NO_GAMES: 'No games' };
