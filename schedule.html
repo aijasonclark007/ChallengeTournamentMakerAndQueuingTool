@@ -272,7 +272,6 @@ summary:hover{background:#fff}
           <button id="shuffleTeams" class="ghost" type="button">Shuffle teams</button>
         </div></div>
       <p id="hintT" class="hint"></p>
-      <div id="plAct" class="row" style="margin:0 0 10px;gap:8px;flex-wrap:wrap;align-items:center"></div>
       <div id="unpaired"></div>
       <div id="teams"></div>
     </section>
@@ -995,16 +994,16 @@ function chip(name, level, waiting) {
 }
 function renderTeams(msg, isErr) {
   const st = draw.getState();
+  const act = (manT() && selP) ? '<div class="row plact" style="margin:4px 0 12px;gap:8px;flex-wrap:wrap;align-items:center">' + (manT() && selP && rnOn ? '<input id="rnIn" type="text" maxlength="40" value="' + esc(selP.name) + '" style="flex:1;min-width:160px"><button type="button" class="go" data-rnsave>Save name</button><button type="button" class="ghost" data-rncancel>Cancel</button>'
+    : manT() && selP ? '<button type="button" class="ghost" data-rnstart>Rename ' + esc(selP.name) + '</button> <span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '') + '</div>' : '';   // Rename / Change level, shown right under the picked player's Skill Level heading
   $('#teams').innerHTML = LEVELS.filter(l => st.teams.some(t => t.level === l)).map(l =>
-    '<h3 class="lvl">Skill Level: ' + l + '</h3><div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
+    '<h3 class="lvl">Skill Level: ' + l + '</h3>' + (selP && !selP.waiting && selP.level === l ? act : '') + '<div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
       '<div class="team"><span class="n" style="color:var(--mute);font-size:12px">' + t.id + '</span>' + t.players.map(p => chip(p, l)).join('') + '</div>').join('') + '</div>').join('');
   $('#unpaired').innerHTML = st.unpaired.length
     ? '<div class="card" style="margin-bottom:12px"><b>Waiting for a partner</b><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">' +
-      st.unpaired.map(p => chip(p.name, p.level, true)).join('') + '</div></div>' : '';
-  const h = msg || (manT() ? (!selP ? 'Tap a player to pick them. Then tap another player of the same level to swap partners (or to pair two waiting players), or change their level.' : 'Picked ' + selP.name + '. Tap another ' + selP.level + ' player ' + (selP.waiting ? 'to pair them or swap' : 'to swap') + ', or move ' + selP.name + ' to another level below.') : '');
+      st.unpaired.map(p => chip(p.name, p.level, true)).join('') + '</div>' + (selP && selP.waiting ? '<div style="margin-top:10px">' + act + '</div>' : '') + '</div>' : '';
+  const h = msg || (manT() ? (!selP ? 'Tap a player to pick them. Then tap another player of the same level to swap partners (or to pair two waiting players), or change their level.' : 'Picked ' + selP.name + '. Tap another ' + selP.level + ' player ' + (selP.waiting ? 'to pair them or swap' : 'to swap') + '. Rename or change level with the buttons ' + (selP.waiting ? 'in the Waiting box below.' : 'under Skill Level: ' + selP.level + '.')) : '');
   $('#hintT').textContent = h; $('#hintT').className = 'hint' + (isErr ? ' err' : '');
-  $('#plAct').innerHTML = manT() && selP && rnOn ? '<input id="rnIn" type="text" maxlength="40" value="' + esc(selP.name) + '" style="flex:1;min-width:160px"><button type="button" class="go" data-rnsave>Save name</button><button type="button" class="ghost" data-rncancel>Cancel</button>'
-    : manT() && selP ? '<button type="button" class="ghost" data-rnstart>Rename ' + esc(selP.name) + '</button> <span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '';
 }
 function renderBrackets(msg, isErr) {
   const st = draw.getState(), m = manB();
