@@ -40,6 +40,18 @@ button:focus-visible,.pl:focus-visible,input:focus-visible,textarea:focus-visibl
 .pl{background:var(--chip);border-radius:999px;padding:4px 12px;font-size:14px}
 .pl.ed{cursor:pointer}.pl.on{background:var(--sun);color:#0B1B33;font-weight:700}
 .tm{padding:3px 10px;font-size:13px;background:var(--chip);color:var(--ink)}
+/* bracket rows: name on the left, the Swap button in the same place on every row */
+#brackets .team{flex-wrap:nowrap;justify-content:space-between;gap:10px;height:60px;padding:0 10px;box-sizing:border-box}
+#brackets .tn{display:flex;flex-direction:column;justify-content:center;line-height:1.3}
+#brackets .tn b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#brackets .tn small{font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#brackets .bh .n{background:var(--chip);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;margin-left:8px;margin-right:auto}
+#brackets .card{display:flex;flex-direction:column}
+#brackets .grid{align-items:stretch}
+#brackets .team>span{order:1;flex:1;min-width:0;overflow-wrap:anywhere;font-size:14px;line-height:1.3}
+#brackets .tm{order:2;flex:none;width:92px;text-align:center;padding:8px 6px;border-radius:10px;font-weight:600;font-size:13px}
+#brackets .team.on .tm{background:var(--sun);color:#0B1B33}
+#brackets .tm:disabled{opacity:.3;cursor:not-allowed}
 .hint{min-height:24px;font-size:14px;color:var(--mute)}.hint.err{color:var(--bad)}
 .tag{display:inline-block;padding:3px 12px;border-radius:999px;font-weight:700;font-size:14px;border:1px solid currentColor}
 .ON_TIME{color:var(--ok)}.NEEDS_EXTENSION{color:var(--warn)}.EXCEEDS_LIMIT{color:var(--bad)}
@@ -1011,7 +1023,7 @@ function renderBrackets(msg, isErr) {
     '<div class="card"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + b.teams.length + ' teams</span>' +
     (m && selT && selT.level === b.level ? '<button class="mv" data-b="' + b.id + '">Move here</button>' : '') + '</div>' +
     b.teams.map(t => '<div class="team' + (selT && selT.id === t.id ? ' on' : '') + '">' +
-      (m ? '<button class="tm" data-t="' + t.id + '" data-l="' + t.level + '">Swap team</button>' : '') + '<span>' + esc(t.name) + '</span></div>').join('') + '</div>');
+      (m ? '<button class="tm" data-t="' + t.id + '" data-l="' + t.level + '"' + (selT && selT.id !== t.id && selT.level !== t.level ? ' disabled' : '') + '>' + (!selT ? 'Swap team' : selT.id === t.id ? 'Picked \u2713' : selT.level === t.level ? 'Swap here' : 'Other level') + '</button>' : '') + '<span class="tn" title="' + esc(t.name) + '"><b>' + esc(t.custom ? t.name : (t.players[0] || t.name)) + '</b><small>' + esc(t.custom ? t.players.join(' & ') : t.players.slice(1).join(' & ')) + '</small></span></div>').join('') + '</div>');
   const h = msg || (m ? (!selT ? 'Tap "Swap team" on a team, then "Swap team" on another team of the same level, or "Move here" on a bracket. The teams themselves do not change.'
     : 'Team picked. Tap "Swap team" on another ' + selT.level + ' team, or "Move here" on a bracket.') : '');
   $('#hintB').textContent = h; $('#hintB').className = 'hint' + (isErr ? ' err' : '');
