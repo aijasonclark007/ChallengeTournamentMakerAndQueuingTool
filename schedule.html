@@ -40,6 +40,11 @@ button:focus-visible,.pl:focus-visible,input:focus-visible,textarea:focus-visibl
 .pl{background:var(--chip);border-radius:999px;padding:4px 12px;font-size:14px}
 .pl.ed{cursor:pointer}.pl.on{background:var(--sun);color:#0B1B33;font-weight:700}
 .tm{padding:3px 10px;font-size:13px;background:var(--chip);color:var(--ink)}
+/* teams list: same-size rows, ID badge then two equal player pills */
+#teams .team{display:grid;grid-template-columns:34px 1fr 1fr;align-items:center;gap:8px;height:56px;padding:0 10px;margin-top:0;box-sizing:border-box}
+#teams .team .n{text-align:center}
+#teams .pl{display:block;text-align:center;padding:7px 10px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@media(max-width:480px){#teams .team{grid-template-columns:30px 1fr;height:auto;padding:8px 10px}#teams .team .n{grid-row:span 2}}
 /* bracket rows: name on the left, the Swap button in the same place on every row */
 #brackets .team{flex-wrap:nowrap;justify-content:space-between;gap:10px;height:60px;padding:0 10px;box-sizing:border-box}
 #brackets .tn{display:flex;flex-direction:column;justify-content:center;line-height:1.3}
