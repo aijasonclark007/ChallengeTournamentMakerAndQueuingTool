@@ -1042,7 +1042,7 @@ let selP = null, selT = null, rnOn = false, lateLvl = 'High';   // picked player
 function chip(name, level, waiting) {
   const m = manT();
   return '<span class="pl' + (m ? ' ed' : '') + (selP && selP.name === name ? ' on' : '') + '" data-p="' + esc(name) + '" data-l="' + level + '"' + (waiting ? ' data-w="1"' : '') +
-    (m ? ' tabindex="0" role="button"' : '') + '>' + esc(name) + '</span>';
+    (m ? ' tabindex="0" role="button"' : '') + '>' + esc(name) + (waiting ? ' <small style="font-weight:500;color:var(--mute)">· ' + esc(level) + '</small>' : '') + '</span>';
 }
 function renderTeams(msg, isErr) {
   const st = draw.getState();
