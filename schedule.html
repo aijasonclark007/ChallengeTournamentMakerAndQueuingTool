@@ -132,6 +132,7 @@ h1{font-size:clamp(26px,5vw,34px);line-height:1.1}h2{font-size:20px}
 button{border-radius:14px;min-height:44px;padding:10px 18px;background:var(--blue);color:#fff;font-weight:600}
 button.go,.lockbtn{background:var(--blue)!important;color:#fff!important}
 button.ghost{background:var(--chip);color:var(--blue);border:0}
+button.cxl{background:rgba(255,59,48,.12)!important;color:#C4001A!important}
 .lockbtn.ed{background:var(--chip)!important;color:var(--blue)!important;border:0!important}
 .sv,.mv{border-radius:10px;min-height:36px;padding:5px 14px}.sv{background:var(--green,#34C759);color:#fff}.sv.ed{background:var(--chip);color:var(--blue);border:0}.mv{background:var(--chip);color:var(--blue)}
 th{background:#F2F2F7;color:var(--mute);font-size:13px;font-weight:700;letter-spacing:.02em}
@@ -1088,7 +1089,7 @@ $('#shuffleTeams').onclick = () => {   // choose which level to pair again, or a
   if (lv.length < 2) { doShuffleT(null); return; }
   const box = $('#shufPickT');
   if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
-  box.innerHTML = '<div class="card" style="margin-bottom:12px"><b>Which teams do you want to shuffle?</b><div class="hint" style="min-height:0;margin:4px 0 8px">Only the level you pick is paired again (and its brackets redrawn). The other levels stay as they are.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="go shufoptT" data-lv="">All levels</button>' + lv.map(l => '<button type="button" class="ghost shufoptT" data-lv="' + l + '">' + l + ' only</button>').join('') + '<button type="button" class="ghost" data-shufxT>Cancel</button></div></div>';
+  box.innerHTML = '<div class="card" style="margin-bottom:12px"><b>Which teams do you want to shuffle?</b><div class="hint" style="min-height:0;margin:4px 0 8px">Only the level you pick is paired again (and its brackets redrawn). The other levels stay as they are.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="go shufoptT" data-lv="">All levels</button>' + lv.map(l => '<button type="button" class="ghost shufoptT" data-lv="' + l + '">' + l + ' only</button>').join('') + '<button type="button" class="ghost cxl" data-shufxT>Cancel</button></div></div>';
   box.classList.remove('hidden');
 };
 function doShuffleT(level) {
@@ -1106,7 +1107,7 @@ $('#shuffleBrackets').onclick = () => {   // choose which level to redraw, or al
   if (lv.length < 2) { doShuffleB(null); return; }
   const box = $('#shufPick');
   if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
-  box.innerHTML = '<div class="card" style="margin-bottom:12px"><b>Which brackets do you want to shuffle?</b><div class="hint" style="min-height:0;margin:4px 0 8px">Only the level you pick is redrawn. The teams and the other levels stay as they are.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="go shufopt" data-lv="">All levels</button>' + lv.map(l => '<button type="button" class="ghost shufopt" data-lv="' + l + '">' + l + ' only</button>').join('') + '<button type="button" class="ghost" data-shufx>Cancel</button></div></div>';
+  box.innerHTML = '<div class="card" style="margin-bottom:12px"><b>Which brackets do you want to shuffle?</b><div class="hint" style="min-height:0;margin:4px 0 8px">Only the level you pick is redrawn. The teams and the other levels stay as they are.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="go shufopt" data-lv="">All levels</button>' + lv.map(l => '<button type="button" class="ghost shufopt" data-lv="' + l + '">' + l + ' only</button>').join('') + '<button type="button" class="ghost cxl" data-shufx>Cancel</button></div></div>';
   box.classList.remove('hidden');
 };
 function doShuffleB(level) {
