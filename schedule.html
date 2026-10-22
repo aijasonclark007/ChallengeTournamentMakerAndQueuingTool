@@ -303,6 +303,7 @@ summary:hover{background:#fff}
           <button id="genBtn" class="go" type="button">Build schedule</button>
         </div></div>
       <p id="hintB" class="hint"></p>
+      <div id="shufPick" class="hidden"></div>
       <div id="brackets"></div>
     </section>
   </div>
@@ -427,9 +428,10 @@ function createDraw(registrations, options) {
       pools[level].teams.forEach(t => teams.push(newTeam(t.players.slice(), level, t.auto ? null : t.name)));
     });
   }
-  function makeBrackets() {
-    brackets = [];
+  function makeBrackets(only) {   // only = one level to redraw; the other levels keep their brackets as they are
+    const old = brackets.slice(); brackets = [];
     opt.levels.forEach(level => {
+      if (only && level !== only) { old.filter(b => b.level === level).forEach(b => brackets.push(b)); return; }
       const levelTeams = shuffle(teams.filter(t => t.level === level), rand);
       const n = levelTeams.length;
       if (!n) return;
@@ -607,9 +609,11 @@ function createDraw(registrations, options) {
       return api;
     },
     /** Redraw the brackets only. The teams stay exactly as they are (including manual swaps). */
-    reshuffleBrackets(seed) {
-      if (seed !== undefined) rand = makeRng(seed);
-      makeBrackets();
+    reshuffleBrackets(seed, level) {
+      if (seed !== undefined && seed !== null) rand = makeRng(seed);
+      const only = level ? opt.levels.find(l => l.toLowerCase() === String(level).toLowerCase()) : null;
+      if (level && !only) throw new Error('Unknown skill level: ' + level);
+      makeBrackets(only);
       return api;
     },
     /** Throw away every manual change and draw everything again at random. */
@@ -1074,7 +1078,25 @@ const renderDraw = () => { renderTeams(); renderBrackets(); };
 $('#manualTeams').onchange = () => { selP = null; renderTeams(); };
 $('#manualBrackets').onchange = () => { selT = null; renderBrackets(); };
 $('#shuffleTeams').onclick = () => { if (blocked('#hintT')) return; draw.reshuffleTeams(); selP = selT = null; hideResults(); renderTeams(); renderBrackets('Teams were paired again, so the brackets were redrawn too.'); };
-$('#shuffleBrackets').onclick = () => { if (blocked('#hintB')) return; draw.reshuffleBrackets(); selT = null; hideResults(); renderBrackets('Brackets were redrawn. The teams did not change.'); };
+$('#shuffleBrackets').onclick = () => {   // choose which level to redraw, or all of them
+  if (blocked('#hintB')) return;
+  const lv = LEVELS.filter(l => draw.getState().brackets.some(b => b.level === l));
+  if (lv.length < 2) { doShuffleB(null); return; }
+  const box = $('#shufPick');
+  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+  box.innerHTML = '<div class="card" style="margin-bottom:12px"><b>Which brackets do you want to shuffle?</b><div class="hint" style="min-height:0;margin:4px 0 8px">Only the level you pick is redrawn. The teams and the other levels stay as they are.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="go shufopt" data-lv="">All levels</button>' + lv.map(l => '<button type="button" class="ghost shufopt" data-lv="' + l + '">' + l + ' only</button>').join('') + '<button type="button" class="ghost" data-shufx>Cancel</button></div></div>';
+  box.classList.remove('hidden');
+};
+function doShuffleB(level) {
+  $('#shufPick').classList.add('hidden');
+  if (blocked('#hintB')) return;
+  draw.reshuffleBrackets(undefined, level || null); selT = null; hideResults();
+  renderBrackets(level ? level + ' brackets were redrawn. The teams and other levels did not change.' : 'Brackets were redrawn. The teams did not change.');
+}
+document.addEventListener('click', e => {
+  const o = e.target.closest && e.target.closest('.shufopt'); if (o && draw) { doShuffleB(o.dataset.lv); return; }
+  if (e.target.closest && e.target.closest('[data-shufx]')) $('#shufPick').classList.add('hidden');
+});
 
 document.addEventListener('click', e => {
   if (!draw) return;
@@ -1865,8 +1887,8 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   $('#uundo').onclick = () => { if (!usnap) return; const st = JSON.parse(usnap); usnap = null; toast.classList.remove('on'); resetState(); applyState(st); applyLocks(); prev = { draw: false, sched: false }; refresh(); queueSave(); };
   const UNDO = { '#shuffleTeams': 'Teams reshuffled', '#shuffleBrackets': 'Brackets redrawn', '#clearScores': 'Scores cleared', '#drawBtn': 'Players paired again' };
   document.addEventListener('click', e => {
-    const b = e.target.closest && e.target.closest(Object.keys(UNDO).join(',')); if (!b) return;
-    const snap = JSON.stringify(capture()), msg = UNDO['#' + b.id];
+    const b = e.target.closest && e.target.closest(Object.keys(UNDO).join(',') + ',.shufopt'); if (!b) return;
+    const snap = JSON.stringify(capture()), msg = UNDO['#' + b.id] || 'Brackets redrawn';
     setTimeout(() => { if (JSON.stringify(capture()) !== snap && draw) offer(msg + '.', snap); }, 80);
   }, true);
 
