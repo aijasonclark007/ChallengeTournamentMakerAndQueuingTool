@@ -446,7 +446,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   }
   function ckApply(k, who) {                              // one place for every clock action (buttons here, or commands from the Match Control page)
     if (k === 'all') { ckPeople().forEach(p => { ck.att[p.name] = true; }); if (ck.dEnd) { ck.dEnd = null; ck.dOver = false; } ck.dOk = true; }
-    else if (k === 'dstart') { ck.dEnd = Date.now() + CK_SECS * 1000; ck.dOver = false; ck.dOk = false; }
+    else if (k === 'dstart') { ck.dEnd = Date.now() + CK_SECS * 1000; ck.dOver = false; ck.dOk = false; ck.dExt = false; }
+    else if (k === 'dext') { if (ck.dEnd && ck.dEnd <= Date.now() && !ck.dExt) { ck.dExt = true; ck.dEnd = Date.now() + CK_SECS * 1000; ck.dOver = false; ck.log.push('Default timer extended by 5:00'); } }
     else if (k === 'dstop') { ck.dEnd = null; ck.dOver = false; }
     else if (k === 'mstart') { ck.mWho = who || ''; ck.mEnd = Date.now() + CK_SECS * 1000; ck.mOver = false; ck.mAt = Date.now(); }
     else if (k === 'mstop') { if (ck.mEnd) { const used = Math.min(CK_SECS, Math.round((Date.now() - ck.mAt) / 1000)); ck.log.push('Medical timeout: ' + ck.mWho + ', ' + Math.floor(used / 60) + ':' + String(used % 60).padStart(2, '0') + ' used'); } ck.mEnd = null; ck.mOver = false; }
@@ -472,9 +473,10 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       scores[cur.mid] = { id: cur.mid, s1: p.s1, s2: p.s2, status: 'done' }; buzz([100, 60, 100]); toast('Match recorded as a default: ' + p.s1 + ' - ' + p.s2); closeMatch();
     } else if (p.t === 'cmd' && cur && ck && cur.mid === p.mid) {
       ckApply(p.cmd, p.who); ckSave(); ckPaint(); if ($('#ck').classList.contains('on')) ckSheet(); ckBroadcast();
-      buzz([60, 40, 60]); toast('Match Control: ' + ({ dstart: 'default timer started', dstop: 'timer stopped', all: 'everyone marked here', mstop: 'medical timeout ended' }[p.cmd] || 'clock updated'));
+      buzz([60, 40, 60]); toast('Match Control: ' + ({ dstart: 'default timer started', dstop: 'timer stopped', dext: 'timer extended 5 minutes', all: 'everyone marked here', mstop: 'medical timeout ended' }[p.cmd] || 'clock updated'));
     }
   }
+  function ckLocked() { return !!ck && !ckAllHere() && !ckStarted() && !(ck.dEnd && ck.dEnd <= Date.now()); }   // attendance popup can't be dismissed until everyone is here (or default time is up)
   function ckSheet() {
     const now = Date.now(), ppl = ckPeople(), dLeft = ck.dEnd ? ck.dEnd - now : 0, mLeft = ck.mEnd ? ck.mEnd - now : 0;
     let h = '<h3>Court clock</h3><p style="margin:0 0 4px;color:var(--mute)">' + esc(cur.t1) + ' vs ' + esc(cur.t2) + '</p>';
@@ -484,7 +486,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     if (ck.dEnd) {
       const over = dLeft <= 0;
       h += '<div class="big' + (over ? ' over' : '') + '" id="ckDt">' + (over ? '0:00' : mmss(dLeft)) + '</div>';
-      if (over) { const d = ckDefaulted(); h += '<div class="res">Time is up. ' + (d.length ? d.map(x => esc(x.team) + ' defaults (' + esc(x.miss.join(', ')) + ' not here)').join('. ') + '.' : 'Everyone is here.') + '</div><p class="note">Use Cancel match or Finish match to close it out as the organizer decides.</p>'; }
+      if (over) { const d = ckDefaulted(); h += '<div class="res">Time is up. ' + (d.length ? d.map(x => esc(x.team) + ' defaults (' + esc(x.miss.join(', ')) + ' not here)').join('. ') + '.' : 'Everyone is here.') + '</div><p class="note">Use Cancel match or Finish match to close it out as the organizer decides.</p>'; if (!ck.dExt && d.length) h += '<div class="b2"><button type="button" class="go" data-ca="dext">Extend another 5:00</button></div>'; }
       else { const d = ckDefaulted(); h += '<p class="note">Still missing: ' + (d.length ? esc(d.flatMap(x => x.miss).join(', ')) : 'nobody') + '. Tick each player as they arrive.</p>'; }
       h += '<div class="b2"><button type="button" class="stop" data-ca="dstop">Stop timer</button></div>';
     } else if (ck.dOk || ckAllHere()) h += '<div class="res ok">Everyone is here. No default timer needed.</div>';
@@ -498,7 +500,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       h += '<select id="ckWho" aria-label="Who needs the timeout">' + ppl.map(p => '<option>' + esc(p.name) + '</option>').join('') + '</select><div class="b2"><button type="button" class="med" data-ca="mstart">Start 5:00 medical timeout</button></div>';
     }
     if (ck.log.length) h += '<div class="log">' + ck.log.map(x => esc(x)).join('<br>') + '</div>';
-    h += '<div class="b2" style="margin-top:16px"><button type="button" data-ca="close">Close</button></div>';
+    h += ckLocked() ? '<p class="note" style="margin-top:16px">This stays open until everyone is here. Tap Everyone is here, or tick each player.</p>' : '<div class="b2" style="margin-top:16px"><button type="button" data-ca="close">Close</button></div>';
     $('#ckS').innerHTML = h;
   }
   function ckOpen() { if (!cur || !ck) return; ckSheet(); $('#ck').classList.add('on'); }
@@ -507,7 +509,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     if (ckToss && cur && ck && !ck.dEnd && sv === null && s1 + s2 === 0) { ckToss = false; setTimeout(() => setServe(), 250); }
   }
   $('#ck').addEventListener('click', e => {
-    if (e.target.id === 'ck') { ckClose(); return; }
+    if (e.target.id === 'ck') { if (!ckLocked()) ckClose(); return; }
     if (!cur || !ck) return;
     const w = e.target.closest('[data-who]'), a = e.target.closest('[data-ca]');
     if (w) {
@@ -515,7 +517,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       if (ck.dEnd && ckAllHere()) { ck.dEnd = null; ck.dOver = false; ck.dOk = true; toast('Everyone is here. Default timer stopped.'); }
     } else if (a) {
       const k = a.dataset.ca; buzz(10);
-      if (k === 'close') { ckClose(); return; }
+      if (k === 'close') { if (!ckLocked()) ckClose(); return; }
       ckApply(k, ($('#ckWho') || {}).value);
     } else return;
     ckSave(); ckSheet(); ckPaint();
