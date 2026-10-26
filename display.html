@@ -173,7 +173,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     const c = $('#clock'); if (c) c.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
-  if (!slug || !key || !court) { $('#stage').innerHTML = '<div class="idle"><div class="big">This TV link is incomplete<i>Copy it from Draw &amp; Schedule: Live scoring for umpires &gt; TV display link</i></div></div>'; return; }
+  if (!slug || !key || !court) { $('#stage').innerHTML = '<div class="idle"><div class="big">This TV link is incomplete<i>Copy it from Draw &amp; Schedule: Live scoring for umpires &gt; TV link (columns or rows)</i></div></div>'; return; }
   if (!P || !P.configured) { $('#stage').innerHTML = '<div class="idle"><div class="big">The cloud is not connected</div></div>'; return; }
   try { P.liveChannel('ctl-' + slug + '-' + key, onBc); } catch (e) {}
   try { P.liveChannel('slive-' + slug, () => load()); } catch (e) {}      // a score was saved: fetch it right away
