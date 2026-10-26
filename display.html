@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#06142B">
 <title>Court Display</title>
+<script>if (/\/t\/[^/]+\/?$/.test(location.pathname)) document.write('<base href="' + location.pathname.replace(/t\/[^/]*\/?$/, '') + '">');</script>
 <style>
 :root{--bg:#06142B;--panel:#0E2347;--ink:#FFFFFF;--mute:#9FB3D6;--lime:#8DC63F;--amber:#FF9F0A;--blue:#0A84FF;--red:#FF453A}
 *{box-sizing:border-box}
@@ -76,7 +77,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 <script src="platform.js"></script>
 <script>
 (() => {
-  const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k'), court = q.get('c');
+  const q = new URLSearchParams(location.search);
+  let slug = q.get('s'), key = q.get('k'), court = q.get('c');
+  const shortCode = q.get('t') || ((location.pathname.match(/\/t\/([A-Za-z0-9]+)\/?$/) || [])[1] || '');       // short link: /t/K7M2Q
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const P = window.Platform;
@@ -189,6 +192,15 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     const c = $('#clock'); if (c) c.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
+  async function start() {
+  if (shortCode && !(slug && key && court)) {
+    $('#stage').innerHTML = '<div class="idle"><div class="big">Loading court ' + esc(shortCode.toUpperCase()) + '</div></div>';
+    try {
+      const r = P && P.configured ? await P.getTvCode(shortCode) : null;
+      if (r) { slug = r.slug; key = r.key; court = r.court; if (!q.get('layout') && r.layout === 'rows') { let saved = null; try { saved = localStorage.getItem('tvlayout'); } catch (e) {} if (!saved) layout = 'rows'; } }
+    } catch (e) {}
+    if (!(slug && key && court)) { $('#stage').innerHTML = '<div class="idle"><div class="big">This TV code was not found<i>Check the code, or use the long link from Draw &amp; Schedule</i></div></div>'; return; }
+  }
   if (!slug || !key || !court) { $('#stage').innerHTML = '<div class="idle"><div class="big">This TV link is incomplete<i>Copy it from Draw &amp; Schedule: Live scoring for umpires &gt; TV link (columns or rows)</i></div></div>'; return; }
   if (!P || !P.configured) { $('#stage').innerHTML = '<div class="idle"><div class="big">The cloud is not connected</div></div>'; return; }
   try { P.liveChannel('ctl-' + slug + '-' + key, onBc); } catch (e) {}
@@ -211,6 +223,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   });
   document.addEventListener('click', fs, { once: true }); document.addEventListener('keydown', fs, { once: true });
   setTimeout(() => $('#hint').classList.add('off'), 15000);
+  }
+  start();
 })();
 </script>
 </body>
