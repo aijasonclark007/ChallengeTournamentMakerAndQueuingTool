@@ -38,6 +38,7 @@ button:disabled{opacity:.4;cursor:default}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .btns button{flex:1 1 130px;padding:11px 10px;border-radius:12px;background:var(--chip);font-weight:800;font-size:14px}
 .btns .go{background:var(--orange);color:#fff}.btns .ok{background:var(--green);color:#fff}.btns .stop{background:#FFE5E3;color:#B3261E}
+.more{margin-top:8px}.more summary{cursor:pointer;color:var(--mute);font-size:13px;font-weight:700;padding:4px 0}
 .next{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
 .next div{font-size:14px;padding:3px 0}.next span{color:var(--mute);font-size:12px;margin-right:6px}
 .msg{padding:50px 20px;text-align:center;color:var(--mute)}
@@ -61,6 +62,7 @@ button:disabled{opacity:.4;cursor:default}
   const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const P = window.Platform;
+  const openMore = {};
   let data = null, scores = {}, clocks = {}, ctl = null, alarmed = {}, err = null;
 
   function beep() { try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; const c = new A(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .25; o.start(); setTimeout(() => { try { o.stop(); c.close(); } catch (e) {} }, 900); } catch (e) {} }
@@ -89,6 +91,13 @@ button:disabled{opacity:.4;cursor:default}
   function cmd(mid, c, who) { send({ t: 'cmd', mid, cmd: c, who }); toast('Sent to the umpire.'); }
   function call(m) { send({ t: 'call', mid: m.mid, label: m.t1 + ' vs ' + m.t2 }); toast('Called: ' + m.t1 + ' vs ' + m.t2); }
 
+  const target = m => m.sport === 'pickleball' ? 11 : 31;      // a default counts as a full game to nothing: 31-0 (pickleball 11-0)
+  async function recordDefault(m, side) {
+    const T = target(m), loser = side === 0 ? m.t1 : m.t2, winner = side === 0 ? m.t2 : m.t1, s1 = side === 0 ? 0 : T, s2 = side === 0 ? T : 0;
+    if (!confirm(loser + ' defaults.\n' + winner + ' wins ' + T + ' - 0.\nThis is final and goes to the scoreboard. Record it?')) return;
+    try { await P.umpireScore(slug, key, m.mid, s1, s2, 'done'); } catch (e) { toast(e.message || 'Could not save.'); return; }
+    send({ t: 'defrec', mid: m.mid, s1, s2 }); delete clocks[m.mid]; toast('Recorded: ' + winner + ' wins ' + T + ' - 0.'); load();
+  }
   function courtsOf() {
     const by = {};
     (data.matches || []).forEach(m => { (by[m.court] = by[m.court] || []).push(m); });
@@ -134,7 +143,13 @@ button:disabled{opacity:.4;cursor:default}
           if (!clk.allHere) btn.push('<button class="ok" data-c="all" data-m="' + esc(cur.mid) + '">Everyone is here</button>');
           if (clk.mLeft != null) btn.push('<button class="stop" data-c="mstop" data-m="' + esc(cur.mid) + '">End medical timeout</button>');
         }
+        if (on && clk.dLeft != null && left(clk, 'dLeft') <= 0 && state(cur) !== 'done') {
+          const ds = clk.defSides || [];
+          if (ds.length === 1) btn.unshift('<button class="stop" data-def="' + esc(cur.mid) + '" data-side="' + ds[0] + '">Record default: ' + esc(ds[0] === 0 ? cur.t1 : cur.t2) + ' loses ' + target(cur) + '-0</button>');
+          else if (ds.length > 1) h += '<div class="clock over">Both teams are missing. Pick who defaults below, or decide manually.</div>';
+        }
         if (btn.length) h += '<div class="btns">' + btn.join('') + '</div>';
+        if (state(cur) !== 'done') h += '<details class="more" data-mid="' + esc(cur.mid) + '"' + (openMore[cur.mid] ? ' open' : '') + '><summary>Record a default</summary><div class="btns"><button class="stop" data-def="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' defaults</button><button class="stop" data-def="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' defaults</button></div><div class="meta">Counts as ' + target(cur) + ' - 0 for the other team.</div></details>';
       } else h += '<div class="meta">' + (doneN ? 'All ' + doneN + ' matches on this court are finished.' : 'No matches ready on this court.') + '</div>';
       if (rest.length) h += '<div class="next"><div class="lbl">Coming up</div>' + rest.map(m => '<div><span>' + esc(m.time) + '</span>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div>').join('') + '</div>';
       h += '<div class="meta" style="margin-top:8px">' + doneN + ' of ' + ct.list.length + ' finished</div>';
@@ -148,6 +163,8 @@ button:disabled{opacity:.4;cursor:default}
       (alerts.length ? '<div class="alerts">' + alerts.map(a => '<div class="alert">' + esc(a) + '</div>').join('') + '</div>' : '') +
       '<div class="grid">' + cards.join('') + '</div>' + (err ? '<p class="meta" style="text-align:center">Connection problem: ' + esc(err) + '. Showing the last data.</p>' : '');
     app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => call(all.find(m => m.mid === b.dataset.call)));
+    app.querySelectorAll('details.more').forEach(d => d.addEventListener('toggle', () => { openMore[d.dataset.mid] = d.open; }));
+    app.querySelectorAll('[data-def]').forEach(b => b.onclick = () => recordDefault(all.find(m => m.mid === b.dataset.def), +b.dataset.side));
     app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => cmd(b.dataset.m, b.dataset.c));
   }
 

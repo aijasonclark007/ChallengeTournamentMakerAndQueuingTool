@@ -426,7 +426,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   const ckAllHere = () => ckPeople().every(p => ck.att[p.name]);
   function ckDefaulted() {                      // a team defaults when any of its players is missing
     const out = [];
-    [cur.t1, cur.t2].forEach((n, side) => { const miss = ckPeople().filter(p => p.side === side && !ck.att[p.name]).map(p => p.name); if (miss.length) out.push({ team: n, miss }); });
+    [cur.t1, cur.t2].forEach((n, side) => { const miss = ckPeople().filter(p => p.side === side && !ck.att[p.name]).map(p => p.name); if (miss.length) out.push({ team: n, side, miss }); });
     return out;
   }
   function beep() { try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; const c = new A(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .25; o.start(); setTimeout(() => { try { o.stop(); c.close(); } catch (e) {} }, 1100); } catch (e) {} }
@@ -459,7 +459,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     if (!ck) { ctl.ping({ t: 'ck', mid: cur.mid, closed: true }); return; }
     const now = Date.now(), d = ckDefaulted();
     ctl.ping({ t: 'ck', mid: cur.mid, court: cur.court, t1: cur.t1, t2: cur.t2, s1, s2, here: ckPeople().map(p => [p.name, !!ck.att[p.name]]),
-      dLeft: ck.dEnd ? ck.dEnd - now : null, mLeft: ck.mEnd ? ck.mEnd - now : null, mWho: ck.mWho || '', missing: d.flatMap(x => x.miss), allHere: ckAllHere() });
+      dLeft: ck.dEnd ? ck.dEnd - now : null, mLeft: ck.mEnd ? ck.mEnd - now : null, mWho: ck.mWho || '', missing: d.flatMap(x => x.miss), defSides: d.map(x => x.side), allHere: ckAllHere() });
   }
   function ckCommand(p) {
     if (!p || !p.t) return;
@@ -467,6 +467,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       called[p.mid] = true; buzz([200, 100, 200]); toast('Called to court: ' + (p.label || 'your next match'));
       if (cur && cur.mid === p.mid && ck && !ck.dEnd && !ckAllHere()) { ckApply('dstart'); ckSave(); ckPaint(); ckBroadcast(); }
       if (!cur && data) renderList();
+    } else if (p.t === 'defrec' && cur && cur.mid === p.mid) {      // the organizer recorded a default for this match
+      scores[cur.mid] = { id: cur.mid, s1: p.s1, s2: p.s2, status: 'done' }; buzz([100, 60, 100]); toast('Match recorded as a default: ' + p.s1 + ' - ' + p.s2); closeMatch();
     } else if (p.t === 'cmd' && cur && ck && cur.mid === p.mid) {
       ckApply(p.cmd, p.who); ckSave(); ckPaint(); if ($('#ck').classList.contains('on')) ckSheet(); ckBroadcast();
       buzz([60, 40, 60]); toast('Match Control: ' + ({ dstart: 'default timer started', dstop: 'timer stopped', all: 'everyone marked here', mstop: 'medical timeout ended' }[p.cmd] || 'clock updated'));
