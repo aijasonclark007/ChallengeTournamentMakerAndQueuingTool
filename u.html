@@ -584,6 +584,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   if (!quick && (!P || !P.configured)) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
   if (!quick) { try { ctl = P.liveChannel('ctl-' + slug + '-' + key, ckCommand); } catch (e) {} }
   flush(); load();
+  if (!quick) { try { P.liveChannel('slive-' + slug, () => { if (!cur) load(); }); } catch (e) {} }      // court changes from Match Control show up right away
   timer = setInterval(() => { if (document.hidden) return; if (pendingN()) flush(); if (!cur && !quick) load(); }, 12000);
   setInterval(() => { if (!document.hidden && pendingN()) flush(); }, 4000);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});   // lets this page open again with no signal

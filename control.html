@@ -41,6 +41,7 @@ button:disabled{opacity:.4;cursor:default}
 .more{margin-top:8px}.more summary{cursor:pointer;color:var(--mute);font-size:13px;font-weight:700;padding:4px 0}
 .next{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
 .next div{font-size:14px;padding:3px 0}.next span{color:var(--mute);font-size:12px;margin-right:6px}
+.tools{margin-top:10px;background:var(--chip);border-radius:12px;padding:2px 12px}.tools summary{font-weight:800;font-size:14px;padding:10px 0;cursor:pointer}.tools .row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.tools select,.tools input{flex:1 1 130px;min-width:0;padding:10px;border-radius:10px;border:1px solid #D1D1D6;font:inherit;font-size:15px;background:#fff}.tools .stop{background:#FFE5E3;color:#B3261E}.tools h4{margin:6px 0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}.tools .btns{margin-top:0}.tag2{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;background:#FFE5E3;color:#B3261E;margin-left:6px}
 .msg{padding:50px 20px;text-align:center;color:var(--mute)}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:.3s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -98,6 +99,18 @@ button:disabled{opacity:.4;cursor:default}
     try { await P.umpireScore(slug, key, m.mid, s1, s2, 'done'); } catch (e) { toast(e.message || 'Could not save.'); return; }
     send({ t: 'defrec', mid: m.mid, s1, s2 }); delete clocks[m.mid]; toast('Recorded: ' + winner + ' wins ' + T + ' - 0.'); load();
   }
+  const base = () => location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
+  const umpUrl = court => base() + 'u.html?s=' + encodeURIComponent(slug) + '&k=' + encodeURIComponent(key) + (court ? '&c=' + encodeURIComponent(court) : '');
+  let slch = null;
+  async function changed(msg) { toast(msg); try { slch && slch.ping(); } catch (e) {} await load(); }
+  async function doMove(mid, court) { try { await P.moveMatch(slug, key, mid, court); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not move.')); return; } changed(court ? 'Moved to ' + court + '.' : 'Put back on its original court.'); }
+  async function doAdd(court, t1, t2, sport) {
+    if (!t1.trim() || !t2.trim()) { toast('Type both teams.'); return; }
+    try { await P.addExtraMatch(slug, key, court, t1.trim(), t2.trim(), sport, new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not add.')); return; }
+    changed('Added to ' + court + '.');
+  }
+  async function doRemove(mid) { if (!confirm('Remove this extra match?')) return; try { await P.removeExtraMatch(slug, key, mid); } catch (e) { toast(e.message || 'Could not remove.'); return; } changed('Extra match removed.'); }
+  async function copy(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg); } catch (e) { prompt('Copy this link', t); } }
   function courtsOf() {
     const by = {};
     (data.matches || []).forEach(m => { (by[m.court] = by[m.court] || []).push(m); });
@@ -154,6 +167,13 @@ button:disabled{opacity:.4;cursor:default}
       } else h += '<div class="meta">' + (doneN ? 'All ' + doneN + ' matches on this court are finished.' : 'No matches ready on this court.') + '</div>';
       if (rest.length) h += '<div class="next"><div class="lbl">Coming up</div>' + rest.map(m => '<div><span>' + esc(m.time) + '</span>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div>').join('') + '</div>';
       h += '<div class="meta" style="margin-top:8px">' + doneN + ' of ' + ct.list.length + ' finished</div>';
+      const movable = ct.list.filter(m => state(m) !== 'done'), others = courts.filter(x => x.name !== ct.name), sp = (ct.list[0] && ct.list[0].sport) || 'badminton';
+      h += '<details class="tools" data-tc="' + esc(ct.name) + '"' + (openMore['t:' + ct.name] ? ' open' : '') + '><summary>Court changes &amp; extra match</summary>';
+      h += '<h4>Move a match to another court</h4>' + (movable.length && others.length ? '<div class="row"><select data-mv="' + esc(ct.name) + '">' + movable.map(m => '<option value="' + esc(m.mid) + '">' + esc(m.time) + ' · ' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + (m.moved ? ' (moved from ' + esc(m.from) + ')' : '') + '</option>').join('') + '</select><select data-to="' + esc(ct.name) + '">' + others.map(x => '<option>' + esc(x.name) + '</option>').join('') + '</select></div><div class="btns"><button class="go" data-domove="' + esc(ct.name) + '">Move match</button><button data-back="' + esc(ct.name) + '">Put back on original court</button></div>' : '<div class="meta" style="margin-bottom:10px">Nothing to move here.</div>');
+      h += '<h4 style="margin-top:12px">Add an extra match here</h4><div class="row"><input data-x1="' + esc(ct.name) + '" placeholder="Team 1 (e.g. Ann / Ben)"><input data-x2="' + esc(ct.name) + '" placeholder="Team 2"></div><div class="row"><select data-xs="' + esc(ct.name) + '"><option value="badminton"' + (sp === 'pickleball' ? '' : ' selected') + '>Badminton</option><option value="pickleball"' + (sp === 'pickleball' ? ' selected' : '') + '>Pickleball</option></select></div><div class="btns"><button class="go" data-doadd="' + esc(ct.name) + '">Add match</button></div>';
+      const ex = ct.list.filter(m => m.extra && state(m) === 'up');
+      if (ex.length) h += '<h4 style="margin-top:12px">Extra matches waiting</h4>' + ex.map(m => '<div class="row" style="align-items:center"><span style="flex:1">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</span><button class="stop" style="padding:8px 12px;border-radius:10px;font-weight:800" data-rmx="' + esc(m.mid) + '">Remove</button></div>').join('');
+      h += '<h4 style="margin-top:12px">Umpire missing?</h4><div class="btns"><button data-ulink="' + esc(ct.name) + '">Copy umpire link for ' + esc(ct.name) + '</button></div><div class="meta" style="margin:6px 0 10px">Send it to anyone. Opening it on their phone puts them on this court.</div></details>';
       return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + pill + '</div>' + h + '</div>';
     });
     // sound once per new alert
@@ -163,6 +183,13 @@ button:disabled{opacity:.4;cursor:default}
     app.innerHTML = '<div class="sum"><span>Live <b>' + nLive + '</b></span><span>Finished <b>' + nDone + '</b> of <b>' + all.length + '</b></span><span>Courts <b>' + courts.length + '</b></span></div>' +
       (alerts.length ? '<div class="alerts">' + alerts.map(a => '<div class="alert">' + esc(a) + '</div>').join('') + '</div>' : '') +
       '<div class="grid">' + cards.join('') + '</div>' + (err ? '<p class="meta" style="text-align:center">Connection problem: ' + esc(err) + '. Showing the last data.</p>' : '');
+    app.querySelectorAll('details.tools').forEach(d => d.addEventListener('toggle', () => { openMore['t:' + d.dataset.tc] = d.open; }));
+    const val = (sel, c) => { const e = app.querySelector('[' + sel + '="' + c.replace(/"/g, '\\"') + '"]'); return e ? e.value : ''; };
+    app.querySelectorAll('[data-domove]').forEach(b => b.onclick = () => doMove(val('data-mv', b.dataset.domove), val('data-to', b.dataset.domove)));
+    app.querySelectorAll('[data-back]').forEach(b => b.onclick = () => doMove(val('data-mv', b.dataset.back), ''));
+    app.querySelectorAll('[data-doadd]').forEach(b => b.onclick = () => doAdd(b.dataset.doadd, val('data-x1', b.dataset.doadd), val('data-x2', b.dataset.doadd), val('data-xs', b.dataset.doadd)));
+    app.querySelectorAll('[data-rmx]').forEach(b => b.onclick = () => doRemove(b.dataset.rmx));
+    app.querySelectorAll('[data-ulink]').forEach(b => b.onclick = () => copy(umpUrl(b.dataset.ulink), 'Umpire link for ' + b.dataset.ulink + ' copied.'));
     app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => call(all.find(m => m.mid === b.dataset.call)));
     app.querySelectorAll('details.more').forEach(d => d.addEventListener('toggle', () => { openMore[d.dataset.mid] = d.open; }));
     app.querySelectorAll('[data-def]').forEach(b => b.onclick = () => recordDefault(all.find(m => m.mid === b.dataset.def), +b.dataset.side));
@@ -172,7 +199,7 @@ button:disabled{opacity:.4;cursor:default}
   if (!slug || !key) { $('#app').innerHTML = '<div class="msg">This link is incomplete. Open Match Control from the "Live scoring for umpires" box in Draw &amp; Schedule.</div>'; return; }
   if (!P || !P.configured) { $('#app').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
   try { ctl = P.liveChannel('ctl-' + slug + '-' + key, onCk); } catch (e) {}
-  try { P.liveChannel('slive-' + slug, () => load()); } catch (e) {}
+  try { slch = P.liveChannel('slive-' + slug, () => load()); } catch (e) {}
   load();
   setInterval(() => { if (!document.hidden) load(); }, 10000);
   setInterval(() => {                                           // countdowns tick every second without redrawing the buttons
