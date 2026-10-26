@@ -96,6 +96,7 @@ tr.first td{border-top:2px solid var(--line)}
 .kr{display:flex;align-items:center;gap:6px;height:30px;padding-right:5px;border-top:1px solid var(--line);font-size:13px}
 .kr .sd{width:24px;align-self:stretch;display:flex;align-items:center;justify-content:center;background:var(--chip);color:var(--mute);font-size:12px}
 .kr .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kr.kd{cursor:grab}.kr.kd .nm{cursor:pointer}.kr.drag{opacity:.4}.kr.over{background:rgba(10,132,255,.22)}.kr.pick{outline:2px solid #0A84FF;outline-offset:-2px;background:rgba(10,132,255,.14)}
 .kr .sc{width:44px;padding:2px 4px;font-size:13px}
 .kr em{font-style:normal;font-size:10px;font-weight:700;background:var(--sun);color:#0B1B33;border-radius:6px;padding:0 5px;margin-left:4px}
 .kr.win .nm{font-weight:700}.kr.win .sc{background:#F08A3C;border-color:#F08A3C;color:#0B1B33;font-weight:700}
@@ -1575,14 +1576,91 @@ function renderStandings() {
   });
   const left = Object.values(st).reduce((n, x) => n + x.total - x.scored, 0);
   $('#koHint').textContent = left ? left + ' group game(s) still have no score, so the standings can still change.' : 'All group games are scored.';
-  if (ko) $('#koHint').textContent += ' The knockout round was already created. Press "Create knockout round" again to update it.';
+  const have = koHave(), wait = withDefaults(gopt).levels.filter(l => sched.brackets.some(b => b.level === l) && !have.has(l));
+  $('#koHint').textContent = (ko ? 'Knockout created for: ' + [...have].join(', ') + '. ' : '') + (wait.length ? 'Each level\'s knockout is created by itself once all of its group games are scored (waiting for ' + wait.join(', ') + '). ' : '') + $('#koHint').textContent;
+  const added = autoKo();
+  if (added.length) { $('#koSec').classList.remove('hidden'); renderKo(); say('#kMsg', added.join(' and ') + ' knockout round created automatically, all group games of that level are scored.'); queueSave(); renderStandings(); }
 }
 
-function makeKnockout() {
-  const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin });
-  ko = buildKnockout(sched.brackets, st, Object.assign({ coin }, gopt));
-  koSched = scheduleKnockout(ko, sched.summary.slotsUsed, gopt, sched.matches);
+// ----- knockout rounds are built per level: a level's knockout appears by itself as soon as all of its group games are scored -----
+const koHave = () => new Set(ko ? ko.champions.map(c => c.level) : []);
+const levelDone = l => { const c = committed(results), ms = sched.matches.filter(m => m.level === l); return ms.length > 0 && ms.every(m => c[m.id]); };
+const koSig = (k, l) => JSON.stringify(k.matches.filter(m => m.level === l).map(m => m.slots.map(x => x.team ? x.team.name : x.winnerOf)));
+function koSkeleton() {      // times and courts for every level's knockout, worked out once from the group schedule (so they never jump around)
+  const k = buildKnockout(sched.brackets, computeStandings(sched.brackets, sched.matches, {}, { coin }), Object.assign({ coin }, gopt));
+  const s = scheduleKnockout(k, sched.summary.slotsUsed, gopt, sched.matches);
+  s.matches.forEach(m => { m.start = fmt(slotStartMin(m.slot)); m.end = fmt(slotStartMin(m.slot) + slotLen()); });
+  return { k, s };
 }
+function koSetLevels(levels) {            // build (or rebuild) the knockout for these levels only; other levels stay exactly as they are
+  const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin });
+  const nk = buildKnockout(sched.brackets, st, Object.assign({ coin }, gopt, { levels }));
+  const by = {}; koSkeleton().s.matches.forEach(x => { by[x.id] = x; });
+  const timed = nk.matches.every(m => by[m.id]) ? nk.matches.map(m => by[m.id]) : scheduleKnockout(nk, sched.summary.slotsUsed, gopt, sched.matches.concat(koSched ? koSched.matches.filter(x => !levels.includes(x.level)) : [])).matches;
+  const keep = x => !levels.includes(x.level), old = ko;
+  if (old) old.matches.filter(m => !keep(m)).forEach(m => { if (!(koResults[m.id] && koResults[m.id].saved)) delete koResults[m.id]; });
+  ko = { matches: (old ? old.matches.filter(keep) : []).concat(nk.matches), champions: (old ? old.champions.filter(keep) : []).concat(nk.champions),
+    ties: (old ? old.ties.filter(keep) : []).concat(nk.ties), sig: Object.assign({}, old && old.sig) };
+  levels.forEach(l => { ko.sig[l] = koSig(nk, l); });
+  koSched = { matches: (koSched ? koSched.matches.filter(keep) : []).concat(timed).sort((a, b) => a.slot - b.slot || a.court - b.court), summary: koSched ? koSched.summary : { finishesAt: null, status: 'ON_TIME' } };
+  retime();
+}
+function makeKnockout() {
+  ko = null; koSched = null;
+  koSetLevels(withDefaults(gopt).levels.filter(l => sched.brackets.some(b => b.level === l)));
+}
+function autoKo() {      // returns the levels that were just created or re-seeded
+  if (!sched || preview) return [];
+  const have = koHave(), add = [];
+  withDefaults(gopt).levels.forEach(l => {
+    if (!levelDone(l)) return;
+    if (!have.has(l)) { add.push(l); return; }
+    if (ko.matches.some(m => m.level === l && koResults[m.id] && koResults[m.id].saved)) return;     // already being played: leave it alone
+    if (ko.sig && ko.sig[l] !== undefined) {
+      const nk = buildKnockout(sched.brackets, computeStandings(sched.brackets, sched.matches, committed(results), { coin }), Object.assign({ coin }, gopt, { levels: [l] }));
+      if (koSig(nk, l) !== ko.sig[l]) add.push(l);                                                  // a group score changed: seed it again
+    }
+  });
+  if (add.length) koSetLevels(add);
+  return add;
+}
+// the knockout including levels that are not ready yet (their teams show "To be decided", times and courts already set)
+function fullKo() {
+  const sk = koSkeleton(), have = koHave();
+  if (!ko || !koSched) return { k: sk.k, ks: sk.s, real: have };
+  const miss = sk.k.matches.filter(m => !have.has(m.level)), ids = new Set(miss.map(m => m.id));
+  return { k: { matches: ko.matches.concat(miss), champions: ko.champions, ties: ko.ties }, ks: { matches: koSched.matches.concat(sk.s.matches.filter(x => ids.has(x.id))), summary: koSched.summary }, real: have };
+}
+// swap two teams in the knockout (drag, or tap one and then the other)
+let koPick = null;
+function koSwap(a, b) {
+  const A = ko.matches.find(x => x.id === a.m), B = ko.matches.find(x => x.id === b.m), sv = m => !!(koResults[m.id] && koResults[m.id].saved);
+  if (!A || !B) return;
+  if (A.level !== B.level) return say('#kMsg', 'Teams can only swap with a team of the same skill level.');
+  if (sv(A) || sv(B)) return say('#kMsg', 'A game that already has a saved score cannot change teams. Press Edit on it first.');
+  const s1 = A.slots[a.k], s2 = B.slots[b.k];
+  if (!s1 || !s2 || !s1.team || !s2.team || s1 === s2) return;
+  A.slots[a.k] = s2; B.slots[b.k] = s1;
+  [A, B].forEach(m => { if (koResults[m.id] && !koResults[m.id].saved) delete koResults[m.id]; });
+  koPick = null; renderKo(); queueSave();
+  const same = [A, B].some(m => m.slots[0].team && m.slots[1].team && m.slots[0].bracket === m.slots[1].bracket);
+  say('#kMsg', 'Swapped ' + s1.team.name + ' and ' + s2.team.name + '.' + (same ? ' Note: two teams from the same group now meet in the first game.' : ''));
+}
+document.addEventListener('dragstart', e => { const r = e.target.closest && e.target.closest('.kr.kd'); if (!r) return; koPick = null; e.dataTransfer.setData('text/plain', r.dataset.km + '|' + r.dataset.ks); e.dataTransfer.effectAllowed = 'move'; r.classList.add('drag'); });
+document.addEventListener('dragend', e => { document.querySelectorAll('.kr.drag,.kr.over').forEach(x => x.classList.remove('drag', 'over')); });
+document.addEventListener('dragover', e => { const r = e.target.closest && e.target.closest('.kr.kd'); if (!r) return; e.preventDefault(); document.querySelectorAll('.kr.over').forEach(x => x.classList.remove('over')); r.classList.add('over'); });
+document.addEventListener('drop', e => {
+  const r = e.target.closest && e.target.closest('.kr.kd'); if (!r) return; e.preventDefault();
+  const p = (e.dataTransfer.getData('text/plain') || '').split('|'); if (p.length !== 2) return;
+  koSwap({ m: p[0], k: +p[1] }, { m: r.dataset.km, k: +r.dataset.ks });
+});
+document.addEventListener('click', e => {      // tap one team, then tap another (works on phones)
+  const n = e.target.closest && e.target.closest('.kr.kd .nm'); if (!n) return;
+  const r = n.closest('.kr'), me = { m: r.dataset.km, k: +r.dataset.ks };
+  if (!koPick) { koPick = me; renderKo(); say('#kMsg', 'Picked ' + n.textContent + '. Tap another team of the same level to swap, or tap it again to cancel.'); }
+  else if (koPick.m === me.m && koPick.k === me.k) { koPick = null; renderKo(); say('#kMsg', ''); }
+  else koSwap(koPick, me);
+});
 document.addEventListener('click', e => {
   const c = e.target.closest && e.target.closest('.coin'), k = e.target.closest && e.target.closest('.coinko');
   if (c) {
@@ -1590,9 +1668,10 @@ document.addEventListener('click', e => {
     rows.filter(r => r.won === key.won && r.pf === key.pf && r.pd === key.pd).forEach(r => { coin[r.team.name] = Math.random(); });
     renderStandings();
   } else if (k) {
-    if (Object.values(koResults).some(r => r.saved)) { say('#kMsg', 'Edit the saved knockout scores first, then toss the coin.'); return; }
-    ko.ties[+k.dataset.i].teams.forEach(n => { coin[n] = Math.random(); });
-    makeKnockout(); koResults = {}; renderKo();
+    const tie = ko.ties[+k.dataset.i];
+    if (ko.matches.some(m => m.level === tie.level && koResults[m.id] && koResults[m.id].saved)) { say('#kMsg', 'Edit the saved ' + tie.level + ' knockout scores first, then toss the coin.'); return; }
+    tie.teams.forEach(n => { coin[n] = Math.random(); });
+    koSetLevels([tie.level]); renderKo(); queueSave();
   }
 });
 $('#koBtn').onclick = () => {
@@ -1634,8 +1713,9 @@ function koChart(level, rs, sch, seedOf, result) {
       svg += '<path d="M' + x1 + ' ' + fr.ym + 'H' + xm + 'V' + y2 + 'H' + me.x + '" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/>';
     });
     const row = k => {
-      const t = m['team' + k], key = k === 1 ? 'a' : 'b', bye = t && m.slots[k - 1].team && m.round > 1;
-      return '<div class="kr' + (m.winner && m.winner === t ? ' win' : '') + '"><span class="sd">' + ((t && seedOf[t.name]) || '') + '</span><span class="nm" title="' + (t ? esc(t.name) : '') + '">' +
+      const t = m['team' + k], key = k === 1 ? 'a' : 'b', bye = t && m.slots[k - 1].team && m.round > 1, mv = t && m.slots[k - 1].team && !locked;
+      const pk = koPick && koPick.m === m.id && koPick.k === k - 1;
+      return '<div class="kr' + (m.winner && m.winner === t ? ' win' : '') + (mv ? ' kd' : '') + (pk ? ' pick' : '') + '"' + (mv ? ' draggable="true" data-km="' + m.id + '" data-ks="' + (k - 1) + '"' : '') + '><span class="sd">' + ((t && seedOf[t.name]) || '') + '</span><span class="nm" title="' + (t ? esc(t.name) : '') + '">' +
         (t ? esc(t.name) : 'To be decided') + '</span>' + (bye ? '<em>BYE</em>' : '') + scoreBox(m.id, key, 'k', r[key], locked || !ready) + '</div>';
     };
     html += '<div class="kb" style="left:' + me.x + 'px;top:' + (me.ym - YM) + 'px"><div class="kh">' + (x ? esc(x.courtName) + ' · ' + x.start : '') + '</div>' + row(1) + row(2) +
@@ -1989,17 +2069,12 @@ function pubBody(web) {
     if (bs.length) h += '<p>' + lvl(l) + '</p><div class="brk">' + bs.map(b => '<div class="bk"><b>' + esc(b.name) + '</b><ol>' + b.teams.map(t => '<li>' + esc(t.name) + '</li>').join('') + '</ol></div>').join('') + '</div>';
   });
   // knockout: real teams once it has been created, otherwise the times and courts with "To be decided"
-  const real = !!(ko && koSched);
-  let k = ko, ks = koSched;
-  if (!real) {
-    k = buildKnockout(sched.brackets, computeStandings(sched.brackets, sched.matches, {}, { coin }), Object.assign({ coin }, gopt));
-    ks = scheduleKnockout(k, sched.summary.slotsUsed, gopt, sched.matches);
-  }
+  const fk = fullKo(), k = fk.k, ks = fk.ks, real = fk.real.size > 0, allReal = k.matches.every(m => fk.real.has(m.level));
   if (k.matches.length) {
     const kd = real ? committed(koResults) : {}, rs = resolveKnockout(k, kd), by = {}, slots = {};
-    rs.matches.forEach(m => { by[m.id] = real ? m : Object.assign({}, m, { team1: null, team2: null }); });
+    rs.matches.forEach(m => { by[m.id] = fk.real.has(m.level) ? m : Object.assign({}, m, { team1: null, team2: null }); });
     ks.matches.forEach(x => { (slots[x.slot] = slots[x.slot] || []).push(x); });
-    h += '<h2>Knockout round</h2>' + (real ? '' : '<p class="upd">The teams will be known after the group games. The times and courts below are already set.</p>');
+    h += '<h2>Knockout round</h2>' + (allReal ? '' : '<p class="upd">Teams show up here as soon as a level\'s group games are finished. The times and courts below are already set.</p>');
     Object.keys(slots).sort((a, b) => a - b).forEach(n => {
       h += '<div class="slot"><h3>' + slots[n][0].start + ' - ' + slots[n][0].end + '</h3>' +
         slots[n].map(x => row(Object.assign({}, by[x.id], { bracket: by[x.id].roundName }), x.courtName, kd[x.id], 'k:' + x.id)).join('') + '</div>';
@@ -2093,7 +2168,7 @@ setInterval(pullLive, 15000);
 let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pubSlug) { liveSubFor = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, () => pullLive()); } catch (e) {} } };
 // keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
 let pubSig = null, pubBusy = false, pubLast = 0;
-const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)]) : null;
+const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)]) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
   const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
