@@ -82,7 +82,7 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
 </head>
 <body>
 <div class="top"><h1 id="ttl">Match Control<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
-<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
+<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
 <div class="wrap" id="app"><div class="msg">Loading...</div></div>
 <div class="sh" id="es"><div><h2 style="margin:0 0 2px;font-size:19px">Fix the score</h2><p class="meta" id="esMsg" style="margin:0"></p><div class="sc"><b id="esT1"></b><input id="esA" type="number" inputmode="numeric" min="0" max="99"><b id="esT2"></b><input id="esB" type="number" inputmode="numeric" min="0" max="99"></div><div class="btns"><button class="go" id="esSave">Save score</button><button id="esCancel">Cancel</button></div></div></div>
 <div id="toast"></div>
@@ -137,6 +137,27 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
     if (!confirm(loser + ' defaults.\n' + winner + ' wins ' + T + ' - 0.\nThis is final and goes to the scoreboard. Record it?')) return;
     try { await P.umpireScore(slug, key, m.mid, s1, s2, 'done'); } catch (e) { toast(e.message || 'Could not save.'); return; }
     logIt('Default recorded on ' + m.court + ': ' + loser + ' defaulted, ' + winner + ' wins ' + T + '-0'); send({ t: 'defrec', mid: m.mid, s1, s2 }); delete clocks[m.mid]; toast('Recorded: ' + winner + ' wins ' + T + ' - 0.'); load();
+  }
+  // injury or retirement during a game: the other team wins and the points already played stay (a game not started counts as a full default)
+  async function recordRetire(m, side) {
+    const T = target(m), sc = score(m) || { s1: 0, s2: 0 }, loser = side === 0 ? m.t1 : m.t2, winner = side === 0 ? m.t2 : m.t1;
+    if (!sc.s1 && !sc.s2) return recordDefault(m, side);
+    let a = sc.s1, b = sc.s2;
+    if (side === 0 && b <= a) b = a + 1; if (side === 1 && a <= b) a = b + 1;
+    if (!confirm(loser + ' retires.\n' + winner + ' wins ' + (side === 0 ? b + ' - ' + a : a + ' - ' + b) + ' (the score so far).\nThis is final and goes to the scoreboard. Record it?')) return;
+    try { await P.umpireScore(slug, key, m.mid, a, b, 'done'); } catch (e) { toast(e.message || 'Could not save.'); return; }
+    logIt('Retired on ' + m.court + ': ' + loser + ' retired, ' + winner + ' wins ' + a + '-' + b); send({ t: 'defrec', mid: m.mid, s1: a, s2: b }); delete clocks[m.mid]; toast('Recorded: ' + winner + ' wins.'); load();
+  }
+  // a team leaves the event: every game it has not finished is recorded as a default for the other team (finished games keep their scores)
+  const teamsLeft = () => { const set = new Set(); ((data && data.matches) || []).forEach(m => { if (state(m) !== 'done' && ready(m)) { set.add(m.t1); set.add(m.t2); } }); return [...set].sort((a, b) => String(a).localeCompare(String(b))); };
+  const wdGames = t => ((data && data.matches) || []).filter(m => state(m) !== 'done' && ready(m) && (m.t1 === t || m.t2 === t)).sort(bySlot);
+  async function withdrawTeam(t) {
+    const gs = wdGames(t); if (!gs.length) { toast('Nothing left to default for ' + t + '.'); return; }
+    if (!confirm(t + ' withdraws.\n' + gs.length + ' unplayed game' + (gs.length > 1 ? 's are' : ' is') + ' recorded as a default (the other team wins ' + (gs.every(m => target(m) === target(gs[0])) ? target(gs[0]) + ' - 0' : 'by default') + '). Games already played keep their scores.\nThis cannot be undone. Continue?')) return;
+    let n = 0;
+    try { for (const m of gs) { const T = target(m), side = m.t1 === t ? 0 : 1; await P.umpireScore(slug, key, m.mid, side === 0 ? 0 : T, side === 0 ? T : 0, 'done'); delete clocks[m.mid]; n++; send({ t: 'defrec', mid: m.mid, s1: side === 0 ? 0 : T, s2: side === 0 ? T : 0 }); } }
+    catch (e) { toast((n ? n + ' done, then: ' : '') + (e.message || 'Could not save.')); logIt(t + ' withdrew: ' + n + ' game(s) defaulted before an error'); load(); return; }
+    logIt(t + ' withdrew: ' + n + ' game' + (n > 1 ? 's' : '') + ' recorded as defaults'); toast(t + ' withdrawn: ' + n + ' game' + (n > 1 ? 's' : '') + ' defaulted.'); panelKind = ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); renderPanel(); load();
   }
   const base = () => location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
   const umpUrl = court => base() + 'u.html?s=' + encodeURIComponent(slug) + '&k=' + encodeURIComponent(key) + (court ? '&c=' + encodeURIComponent(court) : '');
@@ -201,6 +222,10 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
       if (logRows == null) return '<div class="pn"><h3>Activity log</h3><div class="meta">Loading...</div></div>';
       return '<div class="pn"><h3>Activity log</h3>' + (logRows.length ? logRows.map(r => '<div class="lg"><span>' + esc(new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '</span><div>' + esc(r.body) + '</div></div>').join('') : '<div class="meta">Nothing yet. Moves, defaults, score fixes and announcements are listed here.</div>') + '</div>';
     }
+    if (kind === 'wd') {
+      const ts = teamsLeft(); if (!ts.length) return '<div class="pn"><h3>Withdraw a team</h3><div class="meta">Every team has finished its games.</div></div>';
+      return '<div class="pn"><h3>Withdraw a team</h3><div class="meta" style="margin-bottom:8px">For a team that cannot continue (no substitutes). Every game it has not finished is recorded as a default for the other team. Games already played keep their scores.</div><select id="wdTeam" aria-label="Team">' + ts.map(t => '<option>' + esc(t) + '</option>').join('') + '</select><div class="meta" id="wdInfo" style="margin:8px 0"></div><div class="btns"><button class="stop" id="wdGo">Withdraw this team</button></div></div>';
+    }
     if (kind === 'ann') return '<div class="pn"><h3>Announcement on every court TV, umpire phone and the schedule page</h3><textarea id="annText" maxlength="200" placeholder="e.g. Lunch break until 1:00 PM">' + esc(ann ? ann.body : '') + '</textarea><div class="btns"><button class="go" id="annSet">Show on all screens</button><button class="stop" id="annClr">Clear</button></div>' + (ann ? '<div class="meta" style="margin-top:8px">Live now since ' + esc(new Date(ann.updated_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '.</div>' : '') + '</div>';
     return '';
   }
@@ -212,10 +237,14 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
   }
   function renderPanel() {
     const box = $('#panel'); if (!panelKind) { box.innerHTML = ''; shownKind = ''; return; }
-    if (panelKind === 'ann' && $('#annText')) return;                // never redraw the box someone is typing in
+    if ((panelKind === 'ann' && $('#annText')) || (panelKind === 'wd' && $('#wdTeam'))) return;                // never redraw the box someone is typing in
     box.innerHTML = panelHtml(panelKind);
     if (shownKind === panelKind && box.firstElementChild) box.firstElementChild.style.animation = 'none';      // slide in once when opened; later updates (data arriving, refreshes, typing) swap quietly
     shownKind = panelKind;
+    if (panelKind === 'wd' && $('#wdTeam')) {
+      const upd = () => { const t = $('#wdTeam').value, gs = wdGames(t); $('#wdInfo').textContent = gs.length + ' game' + (gs.length === 1 ? '' : 's') + ' will be recorded as a default: ' + gs.slice(0, 4).map(m => String(m.time).split(' - ')[0] + ' ' + m.court).join(', ') + (gs.length > 4 ? ', ...' : ''); };
+      $('#wdTeam').onchange = upd; upd(); $('#wdGo').onclick = () => withdrawTeam($('#wdTeam').value);
+    }
     const set = $('#annSet'), clr = $('#annClr');
     if (set) set.onclick = async () => { const t = ($('#annText').value || '').trim(); if (!t) { toast('Type a message first.'); return; } try { await P.setAnnouncement(slug, key, t); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step13.sql first.' : (e.message || 'Could not send.')); return; } logIt('Announcement: ' + t); changed('Announcement is live.'); };
     if (clr) clr.onclick = async () => { try { await P.setAnnouncement(slug, key, ''); } catch (e) { toast(e.message || 'Could not clear.'); return; } logIt('Announcement cleared'); ann = null; $('#panel').innerHTML = ''; shownKind = ''; panelKind = ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); changed('Announcement cleared.'); };
@@ -305,7 +334,7 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
       h += '<div class="foot"><div class="meta">' + doneN + ' of ' + ct.list.length + ' finished</div><div class="prog"><i data-p="' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '" style="width:' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '%"></i></div>';
       const movable = ct.list.filter(m => state(m) !== 'done'), others = courts.filter(x => x.name !== ct.name), sp = (ct.list[0] && ct.list[0].sport) || 'badminton';
       h += '<details class="tools" data-tc="' + esc(ct.name) + '"' + (openMore['t:' + ct.name] ? ' open' : '') + '><summary>More options</summary>';
-      if (cur && state(cur) !== 'done') h += '<h4>Record a default</h4><div class="btns" style="margin-bottom:4px"><button class="stop" data-def="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' defaults</button><button class="stop" data-def="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' defaults</button></div><div class="meta" style="margin-bottom:10px">Counts as ' + target(cur) + ' - 0 for the other team.</div>';
+      if (cur && state(cur) !== 'done') h += '<h4>Record a default</h4><div class="btns" style="margin-bottom:4px"><button class="stop" data-def="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' defaults</button><button class="stop" data-def="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' defaults</button></div><div class="meta" style="margin-bottom:10px">Counts as ' + target(cur) + ' - 0 for the other team.</div>' + (score(cur) && (score(cur).s1 || score(cur).s2) ? '<h4>Injured or retired during the game</h4><div class="btns" style="margin-bottom:4px"><button class="stop" data-ret="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' retires</button><button class="stop" data-ret="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' retires</button></div><div class="meta" style="margin-bottom:10px">The other team wins and the score so far stays.</div>' : '');
       h += '<h4>Move a match to another court</h4>' + (movable.length && others.length ? '<div class="row"><select data-mv="' + esc(ct.name) + '">' + movable.map(m => '<option value="' + esc(m.mid) + '">' + esc(m.time) + ' · ' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + (m.moved ? ' (moved from ' + esc(m.from) + ')' : '') + '</option>').join('') + '</select><select data-to="' + esc(ct.name) + '">' + others.map(x => '<option>' + esc(x.name) + '</option>').join('') + '</select></div><div class="btns"><button class="go" data-domove="' + esc(ct.name) + '">Move match</button><button data-back="' + esc(ct.name) + '">Put back on original court</button></div>' : '<div class="meta" style="margin-bottom:10px">Nothing to move here.</div>');
       h += '<h4 style="margin-top:12px">Add an extra match here</h4><div class="row"><input data-x1="' + esc(ct.name) + '" placeholder="Team 1 (e.g. Ann / Ben)"><input data-x2="' + esc(ct.name) + '" placeholder="Team 2"></div><div class="row"><select data-xs="' + esc(ct.name) + '"><option value="badminton"' + (sp === 'pickleball' ? '' : ' selected') + '>Badminton</option><option value="pickleball"' + (sp === 'pickleball' ? ' selected' : '') + '>Pickleball</option></select></div><div class="btns"><button class="go" data-doadd="' + esc(ct.name) + '">Add match</button></div>';
       const ex = ct.list.filter(m => m.extra && state(m) === 'up'), floor = Math.min.apply(null, ct.list.filter(m => !m.extra && state(m) !== 'done').map(m => m.slot).concat([1e9])), rests = restSlots().filter(r => r.slot > floor);
@@ -357,6 +386,7 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
     app.querySelectorAll('[data-ulink]').forEach(b => b.onclick = () => copy(umpUrl(b.dataset.ulink), 'Umpire link for ' + b.dataset.ulink + ' copied.'));
     app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => call(all.find(m => m.mid === b.dataset.call)));
     app.querySelectorAll('details.more').forEach(d => d.addEventListener('toggle', () => { openMore[d.dataset.mid] = d.open; }));
+    app.querySelectorAll('[data-ret]').forEach(b => b.onclick = () => recordRetire(all.find(m => m.mid === b.dataset.ret), +b.dataset.side));
     app.querySelectorAll('[data-def]').forEach(b => b.onclick = () => recordDefault(all.find(m => m.mid === b.dataset.def), +b.dataset.side));
     app.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => cmd(b.dataset.m, b.dataset.c));
   }
