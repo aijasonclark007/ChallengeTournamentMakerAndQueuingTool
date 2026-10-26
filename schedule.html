@@ -1729,6 +1729,7 @@ $('#pubDl').onclick = async () => {
 const pubUrlFor = slug => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 's.html?s=' + slug;
 let pubSlug = null, pubKey = null, ingestPause = 0;
 const ctlUrl = () => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 'control.html?s=' + pubSlug + '&k=' + pubKey;
+const tvUrl = court => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 'display.html?s=' + pubSlug + '&k=' + pubKey + '&c=' + encodeURIComponent(court);
 const umpUrl = court => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 'u.html?s=' + pubSlug + '&k=' + pubKey + '&c=' + encodeURIComponent(court);
 function matchList() {
   const done = committed(results), out = [], nm = t => (t ? t.name : '');
@@ -1743,8 +1744,9 @@ function showUmp() {
   const box = $('#umpBox'); box.classList.toggle('hidden', !(pubSlug && pubKey && sched)); if (!(pubSlug && pubKey && sched)) return;
   $('#ctlLink').href = ctlUrl();
   const courts = [...new Set(sched.matches.map(m => m.courtName))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
-  $('#umpList').innerHTML = courts.map((c, i) => '<div class="umprow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0"><b style="min-width:80px">' + esc(c) + '</b><button class="ghost" data-uc="' + i + '" type="button">Copy link</button><button class="ghost" data-uq="' + i + '" type="button">QR code</button><span data-ub="' + i + '"></span></div>').join('');
+  $('#umpList').innerHTML = courts.map((c, i) => '<div class="umprow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0"><b style="min-width:80px">' + esc(c) + '</b><button class="ghost" data-uc="' + i + '" type="button">Copy link</button><button class="ghost" data-uq="' + i + '" type="button">QR code</button><button class="ghost" data-ut="' + i + '" type="button">TV display link</button><span data-ub="' + i + '"></span></div>').join('');
   $('#umpList').querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const u = umpUrl(courts[+b.dataset.uc]); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Link for ' + courts[+b.dataset.uc] + ' copied.'); });
+  $('#umpList').querySelectorAll('[data-ut]').forEach(b => b.onclick = async () => { const u = tvUrl(courts[+b.dataset.ut]); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'TV display link for ' + courts[+b.dataset.ut] + ' copied. Open it in the TV browser.'); });
   $('#umpList').querySelectorAll('[data-uq]').forEach(b => b.onclick = async () => {
     const slot = $('#umpList').querySelector('[data-ub="' + b.dataset.uq + '"]'); if (slot.innerHTML) { slot.innerHTML = ''; return; }
     if (!window.qrcode) await new Promise(res => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; s.onload = res; s.onerror = res; document.head.appendChild(s); });

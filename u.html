@@ -398,7 +398,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     $('#rst').textContent = quick ? 'Cancel match' : 'Cancel live';
     $('#rst').disabled = done || !(scores[m.mid] && scores[m.mid].status === 'live');
     if (!done) $('#sides').querySelectorAll('.side').forEach(el => el.onclick = () => add(+el.dataset.i));
-    ckPaint();
+    ckPaint(); if (ck) ckBroadcast();
   }
   function add(i) {
     if (won()) return buzz(30);
@@ -459,7 +459,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     if (!ck) { ctl.ping({ t: 'ck', mid: cur.mid, closed: true }); return; }
     const now = Date.now(), d = ckDefaulted();
     ctl.ping({ t: 'ck', mid: cur.mid, court: cur.court, t1: cur.t1, t2: cur.t2, s1, s2, here: ckPeople().map(p => [p.name, !!ck.att[p.name]]),
-      dLeft: ck.dEnd ? ck.dEnd - now : null, mLeft: ck.mEnd ? ck.mEnd - now : null, mWho: ck.mWho || '', missing: d.flatMap(x => x.miss), defSides: d.map(x => x.side), allHere: ckAllHere() });
+      dLeft: ck.dEnd ? ck.dEnd - now : null, mLeft: ck.mEnd ? ck.mEnd - now : null, mWho: ck.mWho || '', missing: d.flatMap(x => x.miss), defSides: d.map(x => x.side), allHere: ckAllHere(),
+      flip: flipped, won: won(), srv: (sv && !won()) ? (() => { const w = svWho(sv, s1, s2); return { k: sv.k, server: w.server, recv: w.recv, court: w.court }; })() : null });
   }
   function ckCommand(p) {
     if (!p || !p.t) return;

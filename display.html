@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#06142B">
+<title>Court Display</title>
+<style>
+:root{--bg:#06142B;--panel:#0E2347;--ink:#FFFFFF;--mute:#9FB3D6;--lime:#8DC63F;--amber:#FF9F0A;--blue:#0A84FF;--red:#FF453A}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;cursor:none;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,"Segoe UI",Roboto,Arial,sans-serif}
+.stage{height:100%;display:flex;flex-direction:column;padding:2.2vh 2.6vw}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:2vw;height:9vh;font-size:3.4vh;font-weight:700;color:var(--mute);white-space:nowrap}
+.bar b{color:var(--ink)}.bar .grow{flex:1;overflow:hidden;text-overflow:ellipsis}
+.bar .clk{font-variant-numeric:tabular-nums;color:var(--ink)}
+.dot{display:inline-block;width:1.6vh;height:1.6vh;border-radius:50%;background:var(--lime);margin-right:1vw;vertical-align:middle}.dot.err{background:var(--red)}
+.main{flex:1;min-height:0;display:flex;gap:2vw}
+.team{flex:1;min-width:0;background:var(--panel);border-radius:3vh;border:.7vh solid transparent;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:3vh 1.5vw;text-align:center;transition:border-color .3s}
+.team.srv{border-color:var(--lime);box-shadow:0 0 6vh rgba(141,198,63,.25)}
+.team.win{background:#143B1E;border-color:var(--lime)}
+.names{font-weight:800;font-size:5.6vh;line-height:1.15;width:100%}
+.names div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pts{font-weight:900;font-size:36vh;line-height:.9;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.tag{height:6vh;display:flex;align-items:center;justify-content:center;font-size:3.4vh;font-weight:800;color:var(--lime);letter-spacing:.04em}
+.tag.r{color:var(--mute);font-weight:700}
+.info{margin-top:1.6vh;min-height:8vh;display:flex;align-items:center;justify-content:center;gap:1vw;font-size:3.4vh;font-weight:700;color:var(--mute);text-align:center}
+.banner{width:100%;padding:1.6vh 2vw;border-radius:2vh;font-size:4vh;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.banner.amber{background:var(--amber);color:#2b1800}.banner.blue{background:var(--blue);color:#fff}.banner.red{background:var(--red);color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.55}}
+/* between matches */
+.idle{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2.4vh;min-height:0}
+.idle .lab{font-size:4.4vh;font-weight:800;color:var(--lime);letter-spacing:.12em;text-transform:uppercase}
+.idle .big{font-size:9vh;font-weight:900;line-height:1.1}
+.idle .big i{display:block;font-style:normal;font-size:4.6vh;color:var(--mute);margin:1vh 0}
+.idle .sub{font-size:3.8vh;color:var(--mute);font-weight:700}
+.idle .then{font-size:3.6vh;color:var(--mute);margin-top:2vh}.idle .then b{color:var(--ink)}
+.final{font-size:30vh;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+.hint{position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);background:rgba(255,255,255,.12);padding:1vh 2vw;border-radius:99px;font-size:2.6vh;color:var(--mute);transition:opacity .6s}
+.hint.off{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div class="idle"><div class="big">Loading...</div></div></div>
+<div class="hint" id="hint">Press OK or click once for full screen</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="platform-config.js"></script>
+<script src="platform.js"></script>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k'), court = q.get('c');
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const P = window.Platform;
+  const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+  let data = null, scores = {}, bc = null, netErr = null, lastOk = 0, finalShow = null, prevLive = {};
+
+  const mine = () => ((data && data.matches) || []).filter(m => m.court === court).sort((a, b) => (a.slot - b.slot) || String(a.time).localeCompare(String(b.time)));
+  const state = m => { const s = scores[m.mid]; if (s) return s.status; if (m.res) return 'done'; return 'up'; };
+  const sc = m => scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null);
+  const ready = m => m.t1 && m.t2;
+  const fresh = () => bc && Date.now() - bc.at < 25000;
+  const left = k => bc && bc[k] != null ? bc[k] - (Date.now() - bc.at) : null;
+  const split = n => String(n || 'TBD').split(/\s*(?:\/|&|\band\b)\s*/i).map(x => x.trim()).filter(Boolean);
+
+  async function load() {
+    try {
+      const d = await P.umpireGet(slug, key);
+      data = d; const nsc = {}; (d.scores || []).forEach(x => { nsc[x.id] = x; });
+      mine().forEach(m => { if (prevLive[m.mid] && nsc[m.mid] && nsc[m.mid].status === 'done') finalShow = { mid: m.mid, until: Date.now() + 60000 }; });   // a match just finished: show its result for a minute
+      scores = nsc; prevLive = {}; mine().forEach(m => { if (scores[m.mid] && scores[m.mid].status === 'live') prevLive[m.mid] = 1; });
+      netErr = null; lastOk = Date.now();
+    } catch (e) { netErr = e.message || 'offline'; }
+    draw();
+  }
+
+  function onBc(p) {
+    if (!p || p.t !== 'ck' || !p.mid) return;
+    if (p.closed) { if (bc && bc.mid === p.mid) { bc = null; draw(); } return; }
+    if (p.court !== court) return;
+    bc = Object.assign({}, p, { at: Date.now() }); draw();
+  }
+
+  function banner() {
+    if (!fresh()) return '';
+    const dl = left('dLeft'), ml = left('mLeft');
+    if (ml != null) return '<div class="banner ' + (ml <= 0 ? 'red' : 'blue') + '">' + (ml <= 0 ? 'Medical timeout is over' : 'Medical timeout ' + esc(bc.mWho || '') + ': <span data-cd="mLeft">' + mmss(ml) + '</span>') + '</div>';
+    if (dl != null) { const who = (bc.missing || []).join(', '); return '<div class="banner ' + (dl <= 0 ? 'red' : 'amber') + '">' + (dl <= 0 ? 'Time is up. ' + (who ? esc(who) + ' not here' : '') : 'Waiting for ' + esc(who || 'players') + ': <span data-cd="dLeft">' + mmss(dl) + '</span>') + '</div>'; }
+    return '';
+  }
+
+  function board(m, s1, s2, flip, srv, won) {
+    const order = flip ? [1, 0] : [0, 1], names = [m.t1, m.t2], pts = [s1, s2];
+    const panel = i => {
+      const lines = split(names[i]), serving = srv && srv.k === i, receiving = srv && srv.k !== i, lead = won && pts[i] > pts[1 - i];
+      return '<div class="team' + (serving ? ' srv' : '') + (lead ? ' win' : '') + '"><div class="names">' + lines.map(l => '<div>' + esc(l) + '</div>').join('') + '</div><div class="pts">' + pts[i] + '</div>' +
+        '<div class="tag' + (receiving ? ' r' : '') + '">' + (lead ? 'WINNER' : serving ? '&#127992; SERVING: ' + esc(srv.server).toUpperCase() : receiving ? 'RECEIVING: ' + esc(srv.recv).toUpperCase() : '') + '</div></div>';
+    };
+    return '<div class="main">' + panel(order[0]) + panel(order[1]) + '</div>';
+  }
+
+  function header(m) {
+    return '<div class="bar"><span class="grow"><span class="dot' + (netErr && Date.now() - lastOk > 30000 ? ' err' : '') + '"></span><b>' + esc(court) + '</b>' + (m ? ' &middot; ' + esc(m.bracket) + ' &middot; ' + esc(m.time) : '') + '</span><span class="grow" style="text-align:center;color:var(--ink)">' + esc((data && data.name) || '') + '</span><span class="clk" id="clock"></span></div>';
+  }
+
+  function draw() {
+    const st = $('#stage'); if (!data) { return; }
+    const ms = mine(); let h = '';
+    const live = ms.find(m => state(m) === 'live');
+    const bm = fresh() ? ms.find(m => m.mid === bc.mid) : null;
+    const cur = live || (bm && state(bm) !== 'done' ? bm : null);
+    if (!ms.length) h = header(null) + '<div class="idle"><div class="big">' + esc(court || 'No court selected') + '<i>No matches found for this court.</i></div></div>';
+    else if (cur) {
+      const s = sc(cur) || { s1: 0, s2: 0 }, use = fresh() && bc.mid === cur.mid;
+      h = header(cur) + board(cur, use ? bc.s1 : s.s1, use ? bc.s2 : s.s2, use && bc.flip, use ? bc.srv : null, use && bc.won) + '<div class="info">' + banner() + '</div>';
+    } else if (finalShow && finalShow.until > Date.now() && ms.find(m => m.mid === finalShow.mid)) {
+      const m = ms.find(x => x.mid === finalShow.mid), s = sc(m) || { s1: 0, s2: 0 }, w = s.s1 > s.s2 ? m.t1 : m.t2;
+      h = header(m) + '<div class="idle"><div class="lab">Final</div><div class="big">' + esc(w) + '<i>wins</i></div><div class="final">' + s.s1 + ' &ndash; ' + s.s2 + '</div><div class="sub">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div></div>';
+    } else {
+      const up = ms.filter(m => state(m) === 'up'), nx = up[0], then = up.slice(1, 3);
+      if (!nx) h = header(null) + '<div class="idle"><div class="lab">All done</div><div class="big">All matches on ' + esc(court) + ' are finished<i>Thank you for playing!</i></div></div>';
+      else {
+        const nb = fresh() && bc.mid === nx.mid;
+        h = header(nx) + '<div class="idle"><div class="lab">' + (ready(nx) ? 'Up next' : 'Next match') + '</div>' +
+          (ready(nx) ? '<div class="big">' + esc(nx.t1) + '<i>vs</i>' + esc(nx.t2) + '</div>' : '<div class="big">To be decided</div>') +
+          '<div class="sub">' + esc(nx.bracket) + ' &middot; ' + esc(nx.time) + '</div>' + (nb ? '<div style="width:80%">' + banner() + '</div>' : '') +
+          (then.length ? '<div class="then">Then: ' + then.map(m => '<b>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '</b> (' + esc(String(m.time).split(' - ')[0]) + ')').join(' &middot; ') + '</div>' : '') + '</div>';
+      }
+    }
+    st.innerHTML = h; tick();
+  }
+  function tick() {
+    const c = $('#clock'); if (c) c.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  if (!slug || !key || !court) { $('#stage').innerHTML = '<div class="idle"><div class="big">This TV link is incomplete<i>Copy it from Draw &amp; Schedule: Live scoring for umpires &gt; TV display link</i></div></div>'; return; }
+  if (!P || !P.configured) { $('#stage').innerHTML = '<div class="idle"><div class="big">The cloud is not connected</div></div>'; return; }
+  try { P.liveChannel('ctl-' + slug + '-' + key, onBc); } catch (e) {}
+  try { P.liveChannel('slive-' + slug, () => load()); } catch (e) {}      // a score was saved: fetch it right away
+  load(); setInterval(load, 15000);
+  setInterval(() => {                                                        // every second: countdowns, the clock, and expiring screens, without redrawing the whole page
+    tick();
+    document.querySelectorAll('[data-cd]').forEach(el => { const l = left(el.dataset.cd); if (l != null) { el.textContent = mmss(l); if (l <= 0) draw(); } });
+    if (finalShow && finalShow.until <= Date.now()) { finalShow = null; draw(); }
+    if (bc && !fresh()) { bc = null; draw(); }
+  }, 1000);
+
+  // keep the TV awake and offer full screen once
+  let wake = null; const keep = async () => { try { if (navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request('screen'); } catch (e) {} };
+  keep(); document.addEventListener('visibilitychange', keep);
+  const fs = () => { try { const e = document.documentElement; (e.requestFullscreen || e.webkitRequestFullscreen || function () {}).call(e); } catch (x) {} $('#hint').classList.add('off'); keep(); };
+  document.addEventListener('click', fs, { once: true }); document.addEventListener('keydown', fs, { once: true });
+  setTimeout(() => $('#hint').classList.add('off'), 15000);
+})();
+</script>
+</body>
+</html>
