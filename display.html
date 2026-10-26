@@ -28,6 +28,17 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .banner{width:100%;padding:1.6vh 2vw;border-radius:2vh;font-size:4vh;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
 .banner.amber{background:var(--amber);color:#2b1800}.banner.blue{background:var(--blue);color:#fff}.banner.red{background:var(--red);color:#fff;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.55}}
+/* attendance check */
+.att{flex:1;min-height:0;display:flex;flex-direction:column}
+.atitle{text-align:center;font-size:5vh;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:.6vh 0 1.4vh}
+.atitle span{color:var(--amber)}.atitle.ok span{color:var(--lime)}
+.att .team{justify-content:flex-start;gap:0;padding:2.4vh 1.5vw}
+.att .tl{font-size:3vh;font-weight:800;color:var(--mute);letter-spacing:.14em;margin-bottom:1vh}
+.prow{width:100%;flex:1 1 0;max-height:26vh;display:flex;align-items:center;justify-content:space-between;gap:1vw;padding:1vh 1.8vw;margin-top:1.8vh;border-radius:2.6vh;background:rgba(255,255,255,.06);font-size:6.4vh;font-weight:800;text-align:left}
+.prow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .st{flex:none;font-size:4vh;font-weight:900;letter-spacing:.04em;white-space:nowrap}
+.prow.here{background:rgba(141,198,63,.2)}.prow.here .st{color:var(--lime)}
+.prow.wait .st{color:var(--amber)}.prow.wait .nm{color:#E9EEF8}
 /* between matches */
 .idle{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2.4vh;min-height:0}
 .idle .lab{font-size:4.4vh;font-weight:800;color:var(--lime);letter-spacing:.12em;text-transform:uppercase}
@@ -100,6 +111,14 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     return '<div class="main">' + panel(order[0]) + panel(order[1]) + '</div>';
   }
 
+  function attendance(m) {
+    const map = {}; ((bc && bc.here) || []).forEach(x => { map[x[0]] = x[1]; });
+    const teams = [m.t1, m.t2].map(n => split(n).map(p => [p, !!map[p]]));
+    const all = teams.flat(), n = all.filter(x => x[1]).length;
+    const col = (t, i) => '<div class="team"><div class="tl">TEAM ' + (i + 1) + '</div>' + t.map(p => '<div class="prow ' + (p[1] ? 'here' : 'wait') + '"><span class="nm">' + esc(p[0]) + '</span><span class="st">' + (p[1] ? '&#10003; HERE' : '&#8987; NOT YET') + '</span></div>').join('') + '</div>';
+    return '<div class="att"><div class="atitle">Attendance check <span>&middot; ' + n + ' of ' + all.length + ' here</span></div><div class="main">' + col(teams[0], 0) + col(teams[1], 1) + '</div></div>';
+  }
+
   function header(m) {
     return '<div class="bar"><span class="grow"><span class="dot' + (netErr && Date.now() - lastOk > 30000 ? ' err' : '') + '"></span><b>' + esc(court) + '</b>' + (m ? ' &middot; ' + esc(m.bracket) + ' &middot; ' + esc(m.time) : '') + '</span><span class="grow" style="text-align:center;color:var(--ink)">' + esc((data && data.name) || '') + '</span><span class="clk" id="clock"></span></div>';
   }
@@ -113,7 +132,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     if (!ms.length) h = header(null) + '<div class="idle"><div class="big">' + esc(court || 'No court selected') + '<i>No matches found for this court.</i></div></div>';
     else if (cur) {
       const s = sc(cur) || { s1: 0, s2: 0 }, use = fresh() && bc.mid === cur.mid;
-      h = header(cur) + board(cur, use ? bc.s1 : s.s1, use ? bc.s2 : s.s2, use && bc.flip, use ? bc.srv : null, use && bc.won) + '<div class="info">' + banner() + '</div>';
+      const checking = use && bc.here && !bc.allHere && (bc.s1 || 0) + (bc.s2 || 0) === 0 && !bc.srv;     // the umpire opened the match and players are still arriving
+      if (checking) h = header(cur) + attendance(cur) + '<div class="info">' + (banner() || '<div class="banner amber" style="background:rgba(255,159,10,.18);color:var(--amber)">Players: please come to the court</div>') + '</div>';
+      else h = header(cur) + board(cur, use ? bc.s1 : s.s1, use ? bc.s2 : s.s2, use && bc.flip, use ? bc.srv : null, use && bc.won) + '<div class="info">' + banner() + '</div>';
     } else if (finalShow && finalShow.until > Date.now() && ms.find(m => m.mid === finalShow.mid)) {
       const m = ms.find(x => x.mid === finalShow.mid), s = sc(m) || { s1: 0, s2: 0 }, w = s.s1 > s.s2 ? m.t1 : m.t2;
       h = header(m) + '<div class="idle"><div class="lab">Final</div><div class="big">' + esc(w) + '<i>wins</i></div><div class="final">' + s.s1 + ' &ndash; ' + s.s2 + '</div><div class="sub">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div></div>';
