@@ -349,7 +349,7 @@ summary:hover{background:#fff}
   </section>
   <section id="standSec" class="hidden">
     <div class="bar noprint"><h2>5. Standings</h2>
-      <div class="tools"><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div></div>
+      <div class="tools"><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div><div id="randPick" class="tools hidden"></div></div>
     <p class="hint">Type each game's score in the schedule above. Teams are ranked by match wins, then total points scored, then head-to-head. The top 2 of each bracket advance.</p>
     <div id="standings"></div>
     <div class="bar noprint" style="margin-top:16px"><span id="koHint" class="hint"></span><button id="koBtn" class="go" type="button">Create knockout round</button></div>
@@ -1531,14 +1531,26 @@ document.addEventListener('click', e => {
 
 // ----- test tools: random scores so the knockout round can be built quickly -----
 const randScore = () => { const lose = 8 + Math.floor(Math.random() * 22); return Math.random() < 0.5 ? [31, lose] : [lose, 31]; };
-$('#randGroup').onclick = () => {
+function fillRandom(level) {
+  let n = 0;
   sched.matches.forEach(m => {
+    if (level && m.level !== level) return;
     if (results[m.id] && results[m.id].saved) return;
-    const [a, b] = randScore(); results[m.id] = { a, b, saved: true }; setLocked('g', m.id, a, b, true);
+    const [a, b] = randScore(); results[m.id] = { a, b, saved: true }; setLocked('g', m.id, a, b, true); n++;
   });
-  say('#gMsg', 'Random test scores were filled in and saved. Press "Clear all scores" before you enter the real results.');
-  renderStandings();
+  $('#randPick').classList.add('hidden');
+  say('#gMsg', 'Random test scores were filled in for ' + (level ? 'the ' + level + ' level' : 'all levels') + ' (' + n + ' games). Press "Clear all scores" before you enter the real results.');
+  renderStandings(); queueSave();
+}
+$('#randGroup').onclick = () => {
+  if (!sched) return;
+  const box = $('#randPick');
+  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+  const lv = LEVELS.slice().reverse().filter(l => sched.matches.some(m => m.level === l && !(results[m.id] && results[m.id].saved)));
+  box.innerHTML = lv.map(l => '<button class="ghost test" type="button" data-fl="' + l + '">Fill ' + l + '</button>').join('') + (lv.length > 1 ? '<button class="ghost test" type="button" data-fl="">Fill all levels</button>' : '') + (lv.length ? '' : '<span class="hint">Every game already has a score.</span>');
+  box.classList.remove('hidden');
 };
+$('#randPick').onclick = e => { const b = e.target.closest('[data-fl]'); if (b) fillRandom(b.dataset.fl); };
 $('#randKo').onclick = () => {
   if (!ko) return;
   for (let r = 0; r < 8; r++) {
