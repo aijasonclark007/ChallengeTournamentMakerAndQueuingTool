@@ -29,8 +29,10 @@ iframe{border:0;width:100%;height:100%;display:block}
     f.srcdoc = row.html;
     m.remove(); document.body.appendChild(f);
     const push = async () => { try { const a = await Platform.getAnnouncement(slug).catch(() => null), b = document.getElementById('ann'); if (a) { b.textContent = a.body; if (b.dataset.at !== a.updated_at) { b.dataset.at = a.updated_at; b.style.display = 'block'; } } else { b.style.display = 'none'; b.dataset.at = ''; } } catch (e) {} try { const sc = await Platform.getLiveScores(slug); let mv = []; try { mv = await Platform.getCourtMoves(slug); } catch (e) {} if (f.contentWindow) f.contentWindow.postMessage({ t: 'live', scores: sc, moves: mv }, '*'); } catch (e) {} };
-    let lastHtml = row.html;
-    setInterval(async () => { if (document.hidden) return; try { const r = await Platform.getPublicSchedule(slug); if (r && r.html && r.html !== lastHtml) { lastHtml = r.html; f.srcdoc = r.html; } } catch (e) {} }, 45000);      // new times (running late, moved games) reach people who already have the page open
+    let lastHtml = row.html, lastVer = row.updated_at, light = true;      // light: ask for a tiny version stamp first, download the page only when it changed
+    setInterval(async () => { if (document.hidden) return; try {
+      if (light) { try { const v = await Platform.getScheduleVersion(slug); if (v && v === lastVer) return; if (v) lastVer = v; } catch (e) { light = false; } }   // step 16 not run: fall back to the old full download
+      const r = await Platform.getPublicSchedule(slug); if (r && r.html) { lastVer = r.updated_at || lastVer; if (r.html !== lastHtml) { lastHtml = r.html; f.srcdoc = r.html; } } } catch (e) {} }, 45000);      // new times (running late, moved games) reach people who already have the page open
     f.addEventListener('load', push); setInterval(() => { if (!document.hidden) push(); }, 20000); try { Platform.liveChannel('slive-' + slug, () => push()); } catch (e) {}
   } catch (e) { m.textContent = 'Could not load the schedule: ' + e.message; }
 })();

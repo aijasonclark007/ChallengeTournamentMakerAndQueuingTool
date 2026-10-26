@@ -290,6 +290,10 @@
     needSb(); const r = await sb.rpc('get_public_schedule', { p_slug: String(slug || '') });
     if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
   }
+  async function getScheduleVersion(slug) {                  // a few bytes: when the page was last republished
+    needSb(); const r = await sb.rpc('get_schedule_version', { p_slug: String(slug || '') });
+    if (r.error) fail(r.error); return r.data || null;
+  }
   function subscribeQueue(id, cb) {                         // live pushes; the page also polls as a safety net
     try {
       const ch = sb.channel('queue-' + id).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: QT, filter: 'id=eq.' + id }, p => { if (p && p.new) cb(p.new); }).subscribe();
@@ -317,7 +321,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, resetUmpireKey, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, setExtraSlot, editScore, setAnnouncement, getAnnouncement, addLog, getLog, setMatchNote, getMatchNotes, getCourtMoves, unpublishSchedule, getPublicSchedule,
+    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, resetUmpireKey, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, setExtraSlot, editScore, setAnnouncement, getAnnouncement, addLog, getLog, setMatchNote, getMatchNotes, getCourtMoves, unpublishSchedule, getPublicSchedule, getScheduleVersion,
     liveChannel, whenReady: () => readyP,
     get user() { return user; }
   };
