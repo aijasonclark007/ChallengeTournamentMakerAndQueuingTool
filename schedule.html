@@ -2010,6 +2010,7 @@ const PUB_CSS = `
 .pub .tools button{padding:10px 16px;border-radius:12px;border:0;background:rgba(118,118,128,.12);color:#007AFF;font:inherit;font-weight:700;cursor:pointer}
 .pub .tools button.on{background:#007AFF;color:#fff}
 .pub .slot{margin:12px 0;border:0;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);border-radius:18px;overflow:hidden;background:#fff}
+.pub .brkrow{margin:12px 0;padding:10px 14px;border-radius:14px;background:#FFF3E0;color:#8A4B00;font-weight:700;text-align:center;font-size:15px}
 .pub .slot h3{margin:0;padding:8px 14px;background:#F2F2F7;color:#5F5F66;font-size:14px;letter-spacing:.02em}
 .pub .game{display:flex;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid rgba(60,60,67,.12)}
 .pub .ct{flex:0 0 76px;font-weight:700}.pub .moved .ct{color:#B3261E}.pub .moved .ct:after{content:' (moved)';display:block;font-size:11px;font-weight:700}.pub .info{flex:1;min-width:0}.pub .info small{display:block;color:#5F5F66}
@@ -2099,13 +2100,16 @@ function pubBody(web) {
   const row = (m, court, r, mid) => '<div class="game" data-mid="' + esc(mid || '') + '" data-level="' + m.level + '" data-text="' + esc((m.team1 ? m.team1.name : '') + ' ' + (m.team2 ? m.team2.name : '') + ' ' + m.bracket).toLowerCase() + '">' +
     '<span class="ct">' + court + '</span><div class="info"><small>' + lvl(m.level) + esc(m.bracket) + '</small><div class="teams"><span class="tm">' + (m.team1 ? esc(m.team1.name) : 'To be decided') +
     '</span><span class="vs">vs</span><span class="tm">' + (m.team2 ? esc(m.team2.name) : 'To be decided') + '</span></div></div>' + '<span class="res">' + (r ? r.a + ' - ' + r.b : '') + '</span></div>';
-  let h = '<div class="pub"><h1>' + esc(name) + '</h1><p class="sub">Game schedule</p><p class="upd">Updated ' +
+  const bsp = brkSpans(), brkRow = (from, lo) => (gopt.breaks || []).map((b, i) => (b.from > lo && b.from <= from ? '<div class="brkrow">' + esc(b.name || 'Break') + ' &middot; ' + fmt(bsp[i].start) + ' - ' + fmt(bsp[i].end) + '</div>' : '')).join('');
+  const dlab = (() => { const p = /^(\d{4})-(\d{2})-(\d{2})$/.exec($('#eventDate').value || ''); return p ? new Date(+p[1], +p[2] - 1, +p[3]).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : ''; })();
+  let h = '<div class="pub"><h1>' + esc(name) + '</h1><p class="sub">' + (dlab ? esc(dlab) + ' &middot; ' : '') + 'Game schedule</p><p class="upd">Updated ' +
     new Date().toLocaleString([], { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</p>';
   if (web) h += '<div class="tabs"><button class="on" data-v="sch" type="button">Schedule</button><button data-v="std" type="button">Standings</button></div>';
   if (web) h += '<div class="tools"><input id="q" type="search" placeholder="Search your name or team" aria-label="Search"><button class="on" data-lv="All">All</button><button data-lv="Low">Low</button><button data-lv="Mid">Mid</button><button data-lv="High">High</button></div>';
   h += '<div id="viewSch"><h2>Games</h2>';
   for (let i = 1; i <= sched.summary.slotsUsed; i++) {
     const ms = sched.matches.filter(m => m.slot === i);
+    h += brkRow(i, i - 1);
     if (ms.length) h += '<div class="slot"><h3>' + ms[0].start + ' - ' + ms[0].end + '</h3>' + ms.map(m => row(m, m.courtName, done[m.id], 'g:' + m.id)).join('') + '</div>';
   }
   h += '<h2>Brackets</h2>';
@@ -2120,7 +2124,9 @@ function pubBody(web) {
     rs.matches.forEach(m => { by[m.id] = fk.real.has(m.level) ? m : Object.assign({}, m, { team1: null, team2: null }); });
     ks.matches.forEach(x => { (slots[x.slot] = slots[x.slot] || []).push(x); });
     h += '<h2>Knockout round</h2>' + (allReal ? '' : '<p class="upd">Teams show up here as soon as a level\'s group games are finished. The times and courts below are already set.</p>');
+    let prevN = sched.summary.slotsUsed;
     Object.keys(slots).sort((a, b) => a - b).forEach(n => {
+      h += brkRow(+n, prevN); prevN = +n;
       h += '<div class="slot"><h3>' + slots[n][0].start + ' - ' + slots[n][0].end + '</h3>' +
         slots[n].map(x => row(Object.assign({}, by[x.id], { bracket: by[x.id].roundName }), x.courtName, kd[x.id], 'k:' + x.id)).join('') + '</div>';
     });
