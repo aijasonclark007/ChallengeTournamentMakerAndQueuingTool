@@ -476,7 +476,6 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       buzz([60, 40, 60]); toast('Match Control: ' + ({ dstart: 'default timer started', dstop: 'timer stopped', dext: 'timer extended 5 minutes', all: 'everyone marked here', mstop: 'medical timeout ended' }[p.cmd] || 'clock updated'));
     }
   }
-  function ckLocked() { return !!ck && !ckAllHere() && !ckStarted() && !(ck.dEnd && ck.dEnd <= Date.now()); }   // attendance popup can't be dismissed until everyone is here (or default time is up)
   function ckSheet() {
     const now = Date.now(), ppl = ckPeople(), dLeft = ck.dEnd ? ck.dEnd - now : 0, mLeft = ck.mEnd ? ck.mEnd - now : 0;
     let h = '<h3>Court clock</h3><p style="margin:0 0 4px;color:var(--mute)">' + esc(cur.t1) + ' vs ' + esc(cur.t2) + '</p>';
@@ -500,7 +499,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       h += '<select id="ckWho" aria-label="Who needs the timeout">' + ppl.map(p => '<option>' + esc(p.name) + '</option>').join('') + '</select><div class="b2"><button type="button" class="med" data-ca="mstart">Start 5:00 medical timeout</button></div>';
     }
     if (ck.log.length) h += '<div class="log">' + ck.log.map(x => esc(x)).join('<br>') + '</div>';
-    h += ckLocked() ? '<p class="note" style="margin-top:16px">This stays open until everyone is here. Tap Everyone is here, or tick each player.</p>' : '<div class="b2" style="margin-top:16px"><button type="button" data-ca="close">Close</button></div>';
+    h += '<div class="b2" style="margin-top:16px"><button type="button" data-ca="close">Close</button></div>';
     $('#ckS').innerHTML = h;
   }
   function ckOpen() { if (!cur || !ck) return; ckSheet(); $('#ck').classList.add('on'); }
@@ -509,7 +508,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     if (ckToss && cur && ck && !ck.dEnd && sv === null && s1 + s2 === 0) { ckToss = false; setTimeout(() => setServe(), 250); }
   }
   $('#ck').addEventListener('click', e => {
-    if (e.target.id === 'ck') { if (!ckLocked()) ckClose(); return; }
+    if (e.target.id === 'ck') return;   // tapping the background never closes it; use the Close button
     if (!cur || !ck) return;
     const w = e.target.closest('[data-who]'), a = e.target.closest('[data-ca]');
     if (w) {
@@ -517,7 +516,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       if (ck.dEnd && ckAllHere()) { ck.dEnd = null; ck.dOver = false; ck.dOk = true; toast('Everyone is here. Default timer stopped.'); }
     } else if (a) {
       const k = a.dataset.ca; buzz(10);
-      if (k === 'close') { if (!ckLocked()) ckClose(); return; }
+      if (k === 'close') { ckClose(); return; }
       ckApply(k, ($('#ckWho') || {}).value);
     } else return;
     ckSave(); ckSheet(); ckPaint();
