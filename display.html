@@ -66,13 +66,19 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .final{font-size:30vh;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
 .hint{position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);background:rgba(255,255,255,.12);padding:1vh 2vw;border-radius:99px;font-size:2.6vh;color:var(--mute);transition:opacity .6s}
 .hint.off{opacity:0;pointer-events:none}
-.annb{position:fixed;left:0;right:0;bottom:0;background:var(--amber);color:#1b1200;font-weight:800;font-size:4.4vh;line-height:1.2;padding:2vh 3vw;text-align:center;z-index:9;display:none;box-shadow:0 -1vh 4vh rgba(0,0,0,.4)}.annb.on{display:block}
+.annb{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;padding:6vh 5vw;background:rgba(3,10,25,.82)}
+.annb.on{display:flex;animation:annfade .35s ease}
+.ab{width:100%;max-width:92vw;background:var(--amber);color:#1b1200;border-radius:4vh;padding:6vh 4vw 7vh;text-align:center;box-shadow:0 2vh 10vh rgba(0,0,0,.55);animation:annpop .5s cubic-bezier(.2,1.2,.4,1)}
+.annb.same .ab{animation:none}
+.al{font-size:3.4vh;font-weight:800;letter-spacing:.35em;opacity:.7;margin-bottom:3vh}
+.at{font-weight:900;line-height:1.12;text-wrap:balance;overflow-wrap:anywhere;font-size:12vh}.at.m{font-size:9vh}.at.l{font-size:7vh}.at.xl{font-size:5.4vh}
+@keyframes annfade{from{opacity:0}to{opacity:1}}@keyframes annpop{from{opacity:0;transform:scale(.9) translateY(4vh)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="stage" id="stage"><div class="idle"><div class="big">Loading...</div></div></div>
-<div class="annb" id="annb"></div>
+<div class="annb" id="annb"><div class="ab"><div class="al">ANNOUNCEMENT</div><div class="at" id="annt"></div></div></div>
 <div class="hint" id="hint">Press OK for full screen &middot; left/right arrows change the layout</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
@@ -97,10 +103,17 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   const left = k => bc && bc[k] != null ? bc[k] - (Date.now() - bc.at) : null;
   const split = n => String(n || 'TBD').split(/\s*(?:\/|&|\band\b)\s*/i).map(x => x.trim()).filter(Boolean);
 
+  function showAnn(a) {                                                      // big centred box so it reads from across the hall; size follows the message length
+    const b = $('#annb'), t = $('#annt'); if (!b) return;
+    if (!a) { b.classList.remove('on'); b.dataset.at = ''; return; }
+    const n = a.body.length; t.className = 'at' + (n > 110 ? ' xl' : n > 60 ? ' l' : n > 28 ? ' m' : '');
+    b.classList.toggle('same', b.dataset.at === a.updated_at && b.classList.contains('on'));      // animate only when the message is new
+    t.textContent = a.body; b.dataset.at = a.updated_at; b.classList.add('on');
+  }
   async function load() {
     try {
       const d = await P.umpireGet(slug, key);
-      try { const a = await P.getAnnouncement(slug), b = $('#annb'); if (b) { b.textContent = a ? a.body : ''; b.classList.toggle('on', !!a); } } catch (e) {}
+      try { showAnn(await P.getAnnouncement(slug)); } catch (e) {}
       data = d; const nsc = {}; (d.scores || []).forEach(x => { nsc[x.id] = x; });
       mine().forEach(m => { if (prevLive[m.mid] && nsc[m.mid] && nsc[m.mid].status === 'done') finalShow = { mid: m.mid, until: Date.now() + 60000 }; });   // a match just finished: show its result for a minute
       scores = nsc; prevLive = {}; mine().forEach(m => { if (scores[m.mid] && scores[m.mid].status === 'live') prevLive[m.mid] = 1; });
