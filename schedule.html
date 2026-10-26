@@ -1328,7 +1328,21 @@ function renderLate() {
   $('#brkList').innerHTML = (gopt.breaks || []).map((b, i) => '<div class="shiftl"><span><b>' + esc(b.name || 'Break') + '</b>: ' + b.min + ' min, ' + fmt(brkSpans()[i].start) + ' - ' + fmt(brkSpans()[i].end) + '</span><button class="ghost" data-brkundo="' + i + '" type="button">Remove</button></div>').join('');
 }
 let brkCur = null;
+// the knockout follows the group schedule: after games move, unplayed knockout games are placed again (a game that already has a score never moves)
+function refitKo() {
+  if (!ko || !koSched || !sched) return '';
+  const by = {}; koSkeleton().s.matches.forEach(x => { by[x.id] = x; });
+  const sv = m => !!(koResults[m.id] && koResults[m.id].saved);
+  const next = koSched.matches.map(x => { const n = by[x.id]; return n && !sv(x) && (n.slot !== x.slot || n.court !== x.court) ? Object.assign({}, x, { slot: n.slot, court: n.court, courtName: n.courtName }) : x; });
+  const changed = next.filter((x, i) => x !== koSched.matches[i]).length;
+  if (!changed) return '';
+  const seen = new Set(sched.matches.map(m => m.slot + ':' + m.court));
+  for (const x of next) { const k = x.slot + ':' + x.court; if (seen.has(k)) return 'The knockout times could not be updated by themselves (a court clash). Check the knockout schedule.'; seen.add(k); }
+  koSched.matches = next.sort((a, b) => a.slot - b.slot || a.court - b.court);
+  return changed + ' knockout game' + (changed > 1 ? 's were' : ' was') + ' moved to follow the group schedule.';
+}
 function afterTimeChange(msg) {
+  const koNote = refitKo(); if (koNote) setTimeout(() => say('#gMsg', koNote), 0);
   retime(); renderSchedule(); if (ko) renderKo(); queueSave(); try { autoPublish(); } catch (e) {}
   if (msg) say('#lateMsg', msg);
 }
@@ -2322,7 +2336,7 @@ let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pub
 $('#eventDate').addEventListener('click', e => { try { e.target.showPicker(); } catch (x) {} });      // a tap anywhere on the box opens the calendar
 $('#eventDate').addEventListener('change', () => { queueSave(); try { autoPublish(); } catch (e) {} });
 let pubSig = null, pubBusy = false, pubLast = 0;
-const pubSigNow = () => sched ? JSON.stringify([$('#eventDate').value, [...WD], Object.keys(mnotes).map(k => k + mnotes[k].kind),  committed(results), committed(koResults), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)]) : null;
+const pubSigNow = () => sched ? JSON.stringify([$('#eventDate').value, [...WD], koSched ? koSched.matches.map(m => m.id + ':' + m.slot + ':' + m.court) : '', Object.keys(mnotes).map(k => k + mnotes[k].kind),  committed(results), committed(koResults), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)]) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
   const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
