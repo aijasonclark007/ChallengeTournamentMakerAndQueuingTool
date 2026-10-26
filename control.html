@@ -15,22 +15,24 @@ button:disabled{opacity:.4;cursor:default}
 .top{background:#0A2547;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:10px}
 .top h1{margin:0;font-size:18px;flex:1;line-height:1.2}.top small{display:block;font-weight:500;opacity:.75;font-size:13px}
 .dot{width:10px;height:10px;border-radius:50%;background:#7bd88f;flex:none}.dot.err{background:var(--red)}
-.wrap{max-width:1100px;margin:0 auto;padding:14px 14px 40px}
+.wrap{max-width:1500px;margin:0 auto;padding:14px 14px 40px}
 .sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .sum span{background:var(--card);box-shadow:var(--shadow);border-radius:999px;padding:7px 14px;font-weight:700;font-size:14px}
 .sum b{font-variant-numeric:tabular-nums}
 .alerts{display:grid;gap:8px;margin-bottom:12px}
 .alert{background:#FFE5E3;color:#B3261E;border-radius:14px;padding:12px 14px;font-weight:800;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.6}}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
-.court{background:var(--card);border-radius:20px;box-shadow:var(--shadow);padding:14px;border:2px solid transparent}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:stretch}
+.court{background:var(--card);border-radius:20px;box-shadow:var(--shadow);padding:16px;border:2px solid transparent;display:flex;flex-direction:column}
 .court.live{border-color:var(--green)}.court.warn{border-color:var(--orange)}.court.med{border-color:var(--blue)}.court.over{border-color:var(--red)}
 .ch{display:flex;align-items:center;gap:8px;margin-bottom:8px}.ch h2{margin:0;font-size:19px;flex:1}
 .pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--chip);color:var(--mute);white-space:nowrap}
 .pill.live{background:var(--green);color:#fff}.pill.warn{background:var(--orange);color:#fff}.pill.med{background:var(--blue);color:#fff}.pill.over{background:var(--red);color:#fff}
 .lbl{font-size:12px;font-weight:800;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 2px}
-.vs{font-weight:800;font-size:17px;line-height:1.25}.vs i{font-style:normal;color:var(--mute);font-weight:600;margin:0 6px}
-.score{font-size:34px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0}
+.tms{display:grid;gap:6px;margin:6px 0 2px}
+.tm{display:flex;align-items:center;gap:10px;background:var(--chip);border-radius:12px;padding:8px 12px;min-height:3.4em}
+.tm b{flex:1;font-size:16px;line-height:1.25;font-weight:800;overflow-wrap:anywhere}
+.tm em{font-style:normal;font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;min-width:1.2em;text-align:right}
 .meta{color:var(--mute);font-size:13px}
 .clock{margin:8px 0;padding:10px 12px;border-radius:14px;background:var(--chip);font-weight:700;font-size:14px}
 .clock.warn{background:#FFF4D6;color:#6b4a00}.clock.med{background:#E8F2FF;color:#0A4FA8}.clock.over{background:#FFE5E3;color:#B3261E}
@@ -39,9 +41,13 @@ button:disabled{opacity:.4;cursor:default}
 .btns button{flex:1 1 130px;padding:11px 10px;border-radius:12px;background:var(--chip);font-weight:800;font-size:14px}
 .btns .go{background:var(--orange);color:#fff}.btns .ok{background:var(--green);color:#fff}.btns .stop{background:#FFE5E3;color:#B3261E}
 .more{margin-top:8px}.more summary{cursor:pointer;color:var(--mute);font-size:13px;font-weight:700;padding:4px 0}
-.next{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
-.next div{font-size:14px;padding:3px 0}.next span{color:var(--mute);font-size:12px;margin-right:6px}
-.tools{margin-top:10px;background:var(--chip);border-radius:12px;padding:2px 12px}.tools summary{font-weight:800;font-size:14px;padding:10px 0;cursor:pointer}.tools .row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.tools select,.tools input{flex:1 1 130px;min-width:0;padding:10px;border-radius:10px;border:1px solid #D1D1D6;font:inherit;font-size:15px;background:#fff}.tools .stop{background:#FFE5E3;color:#B3261E}.tools h4{margin:6px 0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}.tools .btns{margin-top:0}.tag2{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;background:#FFE5E3;color:#B3261E;margin-left:6px}
+.next{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+.next .q{display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:center;height:42px;font-size:13.5px;line-height:1.25}
+.next .q span{color:var(--mute);font-size:12px;font-weight:700;white-space:nowrap}
+.next .q p{margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.foot{margin-top:auto;padding-top:10px}
+.prog{height:6px;border-radius:99px;background:var(--chip);overflow:hidden;margin:4px 0 6px}.prog i{display:block;height:100%;background:var(--green);border-radius:99px}
+.tools{margin-top:8px;background:var(--chip);border-radius:12px;padding:2px 12px}.tools summary{font-weight:800;font-size:14px;padding:10px 0;cursor:pointer}.tools .row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.tools select,.tools input{flex:1 1 130px;min-width:0;padding:10px;border-radius:10px;border:1px solid #D1D1D6;font:inherit;font-size:15px;background:#fff}.tools .stop{background:#FFE5E3;color:#B3261E}.tools h4{margin:6px 0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}.tools .btns{margin-top:0}.tag2{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;background:#FFE5E3;color:#B3261E;margin-left:6px}
 .msg{padding:50px 20px;text-align:center;color:var(--mute)}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:.3s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -139,15 +145,15 @@ button:disabled{opacity:.4;cursor:default}
       let cls = '', pill = cur ? (live ? '<span class="pill live">LIVE</span>' : '<span class="pill">Up next</span>') : '<span class="pill">' + (doneN === ct.list.length ? 'All done' : 'Waiting') + '</span>';
       let h = '', clk = cur ? clocks[cur.mid] : null, on = fresh(clk);
       if (cur) {
-        h += '<div class="lbl">' + (live ? 'Playing now' : 'Up next') + ' · ' + esc(cur.time) + ' · ' + esc(cur.bracket) + '</div><div class="vs">' + esc(cur.t1) + '<i>vs</i>' + esc(cur.t2) + '</div>';
-        const s = score(cur); if (s) h += '<div class="score">' + s.s1 + ' - ' + s.s2 + '</div>';
+        const s = score(cur);
+        h += '<div class="lbl">' + (live ? 'Playing now' : 'Up next') + ' · ' + esc(cur.time) + '</div><div class="meta" style="margin-bottom:2px">' + esc(cur.bracket) + '</div><div class="tms"><div class="tm"><b>' + esc(cur.t1) + '</b>' + (s ? '<em>' + s.s1 + '</em>' : '') + '</div><div class="tm"><b>' + esc(cur.t2) + '</b>' + (s ? '<em>' + s.s2 + '</em>' : '') + '</div></div>';
         if (live) cls = 'live';
         if (on) {
           const dl = left(clk, 'dLeft'), ml = left(clk, 'mLeft');
           if (ml != null) { const over = ml <= 0; cls = over ? 'over' : 'med'; pill = '<span class="pill ' + (over ? 'over' : 'med') + '">' + (over ? 'MEDICAL OVER' : 'MEDICAL') + '</span>'; h += '<div class="clock ' + (over ? 'over' : 'med') + '"><b data-cd="mLeft" data-mid="' + esc(cur.mid) + '" data-over="' + (over ? 1 : 0) + '">' + mmss(ml) + '</b>Medical timeout: ' + esc(clk.mWho) + (over ? '. Time is up.' : '') + '</div>'; if (over) alerts.push(ct.name + ': medical timeout is over (' + clk.mWho + ')'); }
           if (dl != null) { const over = dl <= 0; cls = over ? 'over' : (cls === 'med' ? cls : 'warn'); pill = '<span class="pill ' + (over ? 'over' : 'warn') + '">' + (over ? 'DEFAULT TIME UP' : 'DEFAULT TIMER') + '</span>'; h += '<div class="clock ' + (over ? 'over' : 'warn') + '"><b data-cd="dLeft" data-mid="' + esc(cur.mid) + '" data-over="' + (over ? 1 : 0) + '">' + mmss(dl) + '</b>' + (over ? 'Time is up. Not here: ' : 'Waiting for: ') + esc((clk.missing || []).join(', ') || 'nobody') + '</div>'; if (over) alerts.push(ct.name + ': default time is up (' + (clk.missing || []).join(', ') + ')'); }
           if (ml == null && dl == null) h += '<div class="clock">' + (clk.allHere ? 'Everyone is on court.' : 'Not here yet: ' + esc((clk.missing || []).join(', ') || 'nobody')) + '</div>';
-        } else if (!live) h += '<div class="meta" style="margin-top:6px">Clock available once the umpire opens this match.</div>';
+        } else if (!live) h += '<div class="meta" style="margin-top:6px">Umpire has not opened this match yet.</div>';
         const btn = [];
         if (!live && ready(cur)) btn.push('<button class="go" data-call="' + esc(cur.mid) + '">Call to court</button>');
         if (on && state(cur) !== 'done') {
@@ -163,17 +169,17 @@ button:disabled{opacity:.4;cursor:default}
           else if (ds.length > 1) h += '<div class="clock over">Both teams are missing. Pick who defaults below, or decide manually.</div>';
         }
         if (btn.length) h += '<div class="btns">' + btn.join('') + '</div>';
-        if (state(cur) !== 'done') h += '<details class="more" data-mid="' + esc(cur.mid) + '"' + (openMore[cur.mid] ? ' open' : '') + '><summary>Record a default</summary><div class="btns"><button class="stop" data-def="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' defaults</button><button class="stop" data-def="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' defaults</button></div><div class="meta">Counts as ' + target(cur) + ' - 0 for the other team.</div></details>';
       } else h += '<div class="meta">' + (doneN ? 'All ' + doneN + ' matches on this court are finished.' : 'No matches ready on this court.') + '</div>';
-      if (rest.length) h += '<div class="next"><div class="lbl">Coming up</div>' + rest.map(m => '<div><span>' + esc(m.time) + '</span>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div>').join('') + '</div>';
-      h += '<div class="meta" style="margin-top:8px">' + doneN + ' of ' + ct.list.length + ' finished</div>';
+      h += '<div class="next"><div class="lbl" style="margin-top:0">Coming up</div>' + [0, 1, 2].map(n => { const m = rest[n]; return m ? '<div class="q"><span>' + esc(String(m.time).split(' - ')[0]) + '</span><p>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</p></div>' : '<div class="q" style="display:block">' + (n === 0 ? '<span style="font-weight:500">Nothing else ready yet</span>' : '') + '</div>'; }).join('') + '</div>';
+      h += '<div class="foot"><div class="meta">' + doneN + ' of ' + ct.list.length + ' finished</div><div class="prog"><i style="width:' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '%"></i></div>';
       const movable = ct.list.filter(m => state(m) !== 'done'), others = courts.filter(x => x.name !== ct.name), sp = (ct.list[0] && ct.list[0].sport) || 'badminton';
-      h += '<details class="tools" data-tc="' + esc(ct.name) + '"' + (openMore['t:' + ct.name] ? ' open' : '') + '><summary>Court changes &amp; extra match</summary>';
+      h += '<details class="tools" data-tc="' + esc(ct.name) + '"' + (openMore['t:' + ct.name] ? ' open' : '') + '><summary>More options</summary>';
+      if (cur && state(cur) !== 'done') h += '<h4>Record a default</h4><div class="btns" style="margin-bottom:4px"><button class="stop" data-def="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' defaults</button><button class="stop" data-def="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' defaults</button></div><div class="meta" style="margin-bottom:10px">Counts as ' + target(cur) + ' - 0 for the other team.</div>';
       h += '<h4>Move a match to another court</h4>' + (movable.length && others.length ? '<div class="row"><select data-mv="' + esc(ct.name) + '">' + movable.map(m => '<option value="' + esc(m.mid) + '">' + esc(m.time) + ' · ' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + (m.moved ? ' (moved from ' + esc(m.from) + ')' : '') + '</option>').join('') + '</select><select data-to="' + esc(ct.name) + '">' + others.map(x => '<option>' + esc(x.name) + '</option>').join('') + '</select></div><div class="btns"><button class="go" data-domove="' + esc(ct.name) + '">Move match</button><button data-back="' + esc(ct.name) + '">Put back on original court</button></div>' : '<div class="meta" style="margin-bottom:10px">Nothing to move here.</div>');
       h += '<h4 style="margin-top:12px">Add an extra match here</h4><div class="row"><input data-x1="' + esc(ct.name) + '" placeholder="Team 1 (e.g. Ann / Ben)"><input data-x2="' + esc(ct.name) + '" placeholder="Team 2"></div><div class="row"><select data-xs="' + esc(ct.name) + '"><option value="badminton"' + (sp === 'pickleball' ? '' : ' selected') + '>Badminton</option><option value="pickleball"' + (sp === 'pickleball' ? ' selected' : '') + '>Pickleball</option></select></div><div class="btns"><button class="go" data-doadd="' + esc(ct.name) + '">Add match</button></div>';
       const ex = ct.list.filter(m => m.extra && state(m) === 'up');
       if (ex.length) h += '<h4 style="margin-top:12px">Extra matches waiting</h4>' + ex.map(m => '<div class="row" style="align-items:center"><span style="flex:1">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</span><button class="stop" style="padding:8px 12px;border-radius:10px;font-weight:800" data-rmx="' + esc(m.mid) + '">Remove</button></div>').join('');
-      h += '<h4 style="margin-top:12px">Umpire missing?</h4><div class="btns"><button data-ulink="' + esc(ct.name) + '">Copy umpire link for ' + esc(ct.name) + '</button></div><div class="meta" style="margin:6px 0 10px">Send it to anyone. Opening it on their phone puts them on this court.</div></details>';
+      h += '<h4 style="margin-top:12px">Umpire missing?</h4><div class="btns"><button data-ulink="' + esc(ct.name) + '">Copy umpire link for ' + esc(ct.name) + '</button></div><div class="meta" style="margin:6px 0 10px">Send it to anyone. Opening it on their phone puts them on this court.</div></details></div>';
       return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + pill + '</div>' + h + '</div>';
     });
     // sound once per new alert
