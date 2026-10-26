@@ -2279,10 +2279,17 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   }
   window.goStepNow = k => { if (!window.__quiet) goStep(k, true); };
   // Put the step's heading right under the step bar. Finished steps fold up while we scroll, so the page height changes: scroll once, then correct the position after the layout settles.
+  let stopSettle = null;
   function settle(el) {
+    if (stopSettle) stopSettle();
     const top = () => Math.max(0, el.getBoundingClientRect().top + window.scrollY - ($('#stepbar').offsetHeight || 0) - 8);
-    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: top(), behavior: 'smooth' })));
-    [450, 900].forEach(ms => setTimeout(() => { const d = top() - window.scrollY; if (Math.abs(d) > 3) window.scrollTo({ top: top(), behavior: 'auto' }); }, ms));
+    let off = false; const evs = ['wheel', 'touchstart', 'keydown', 'pointerdown', 'mousedown'], stop = () => { off = true; evs.forEach(ev => window.removeEventListener(ev, stop)); stopSettle = null; };
+    stopSettle = stop; evs.forEach(ev => window.addEventListener(ev, stop, { passive: true }));      // the moment the person scrolls or taps, stop correcting the position
+    let lastT = top();
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (!off) { lastT = top(); window.scrollTo({ top: lastT, behavior: 'smooth' }); } }));
+    // only correct when the page layout moved the target (a folded step above); never drag the person back after they scrolled themselves, however they scrolled (scrollbar, trackpad, keys)
+    [450, 900].forEach(ms => setTimeout(() => { if (off) return; const t = top(); if (Math.abs(t - lastT) > 3) { lastT = t; window.scrollTo({ top: t, behavior: 'auto' }); } }, ms));
+    setTimeout(() => { if (!off) stop(); }, 1000);
   }
   window.addEventListener('message', e => { if (e.origin !== location.origin) return; const d = e.data; if (d && d.t === 'goto' && d.tab) { pending = d.tab; refresh(); } });
 
