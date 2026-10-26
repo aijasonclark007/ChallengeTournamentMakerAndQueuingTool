@@ -1385,12 +1385,15 @@ function optimizeWaits() {                  // moves unscored games between time
   const nm = m => [m.team1.name, m.team2.name], S = {}, occ = new Set(ms.map(m => m.slot + ':' + m.court));
   ms.forEach(m => nm(m).forEach(n => { (S[n] = S[n] || []).push(m); }));
   const tc = n => { const v = S[n].map(x => x.slot).sort((a, b) => a - b); let c = 0; for (let i = 1; i < v.length; i++) { const g = v[i] - v[i - 1] - 1; c += g < R ? 1000 + (R - g) * 100 : (g - R) * (g - R); } return c; };
+  const lc = {}; ms.forEach(m => { const c = lc[m.slot] = lc[m.slot] || {}; c[m.level] = (c[m.level] || 0) + 1; });      // games of each level in each time slot
+  const mixMove = (L, from, to) => { const f = lc[from] = lc[from] || {}, t = lc[to] = lc[to] || {}; const d = 2 * ((t[L] || 0) - (f[L] || 0)) + 2; f[L]--; t[L] = (t[L] || 0) + 1; return d * 4.0; };      // keeps levels mixed: a slot full of one level costs more
   const lvls = Object.keys(win), levelPen = () => lvls.reduce((t, l) => t + (ms.some(m => m.level === l && m.slot === win[l][0]) ? 0 : 500), 0);      // every level keeps its first game where it was
   const total = () => Object.keys(S).reduce((t, n) => t + tc(n), 0) + levelPen();
   const os = {}, oc = {}; ms.forEach(m => { os[m.id] = m.slot; oc[m.id] = m.court; }); const mp = m => (m.slot === os[m.id] && m.court === oc[m.id] ? 0 : 0.3);      // a small price for every game that moves, so it only changes what helps
   const start = total(), orig = fixSnap(); let bestAll = start, snapAll = orig;
   for (let run = 0; run < 3; run++) {
     fixRestore(orig);
+    Object.keys(lc).forEach(k => { delete lc[k]; }); ms.forEach(m => { const c = lc[m.slot] = lc[m.slot] || {}; c[m.level] = (c[m.level] || 0) + 1; });
     occ.clear(); ms.forEach(m => occ.add(m.slot + ':' + m.court));
     let cur = total(), best = cur, snap = fixSnap(); const iters = 50000;
     for (let it = 0; it < iters; it++) {
@@ -1403,18 +1406,19 @@ function optimizeWaits() {                  // moves unscored games between time
       }
       const aff = new Set(nm(a).concat(b ? nm(b) : [])); let before = levelPen() + mp(a) + (b ? mp(b) : 0); aff.forEach(n => { before += tc(n); });
       const as = a.slot, ac = a.court;
-      if (b) { const bs = b.slot, bc = b.court; a.slot = bs; a.court = bc; b.slot = as; b.court = ac; } else { a.slot = ns; a.court = nc; }
-      let after = levelPen() + mp(a) + (b ? mp(b) : 0); aff.forEach(n => { after += tc(n); }); const d = after - before;
+      let dmix = 0;
+      if (b) { const bs = b.slot, bc = b.court; a.slot = bs; a.court = bc; b.slot = as; b.court = ac; dmix = mixMove(a.level, as, bs) + mixMove(b.level, bs, as); } else { a.slot = ns; a.court = nc; dmix = mixMove(a.level, as, ns); }
+      let after = levelPen() + mp(a) + (b ? mp(b) : 0); aff.forEach(n => { after += tc(n); }); const d = after - before + dmix;
       if (d <= 0 || Math.random() < Math.exp(-d / T)) {
         cur += d; if (!b) { occ.delete(as + ':' + ac); occ.add(a.slot + ':' + a.court); }
         if (cur < best) { best = cur; snap = fixSnap(); }
-      } else if (b) { const bs = a.slot, bc = a.court; a.slot = as; a.court = ac; b.slot = bs; b.court = bc; } else { a.slot = as; a.court = ac; }
+      } else if (b) { const bs = a.slot, bc = a.court; mixMove(b.level, as, bs); mixMove(a.level, bs, as); a.slot = as; a.court = ac; b.slot = bs; b.court = bc; } else { mixMove(a.level, a.slot, as); a.slot = as; a.court = ac; }
     }
     if (best < bestAll) { bestAll = best; snapAll = snap; }
   }
   fixRestore(snapAll); return start - bestAll;
 }
-const waitStats = () => { const r = fairRows(), g = [].concat.apply([], r.map(x => x.gaps)); return { longest: g.length ? Math.max.apply(null, g) : 0, teams: r.filter(x => x.flags.some(f => f[1] === 'Long wait')).length, same: r.filter(x => x.flags.some(f => f[1] === 'Same court')).length, back: r.filter(x => x.flags.some(f => f[1] === 'Back-to-back')).length }; };
+const waitStats = () => { const r = fairRows(), g = [].concat.apply([], r.map(x => x.gaps)), bs = {}; sched.matches.forEach(m => { (bs[m.slot] = bs[m.slot] || []).push(m.level); }); const single = Object.keys(bs).filter(k => bs[k].length >= 3 && new Set(bs[k]).size === 1).length; return { single, longest: g.length ? Math.max.apply(null, g) : 0, teams: r.filter(x => x.flags.some(f => f[1] === 'Long wait')).length, same: r.filter(x => x.flags.some(f => f[1] === 'Same court')).length, back: r.filter(x => x.flags.some(f => f[1] === 'Back-to-back')).length }; };
 function runFix(kind) {
   if (!sched) return;
   const before = waitStats(), snap = fixSnap(), opt = withDefaults(gopt), bProb = validateSchedule({ matches: sched.matches, brackets: sched.brackets }, opt);
@@ -1428,7 +1432,7 @@ function runFix(kind) {
     if (!moved) { $('#fairMsg').textContent = kind === 'waits' ? 'This is already about as good as it gets. No change.' : 'Courts are already spread as well as possible. No change.'; return; }
     lastFix = snap; $('#fixUndo').classList.remove('hidden');
     afterTimeChange(''); renderFair();
-    $('#fairMsg').textContent = (kind === 'waits' ? 'Longest wait ' + before.longest + ' to ' + after.longest + ' min. Teams with a long wait: ' + before.teams + ' to ' + after.teams + '. ' : '') + 'Teams always on one court: ' + before.same + ' to ' + after.same + '. ' + moved + ' game' + (moved > 1 ? 's' : '') + ' changed' + (kind === 'waits' ? ' (levels keep their start times; scored games stay put)' : '') + '.';
+    $('#fairMsg').textContent = (kind === 'waits' ? 'Longest wait ' + before.longest + ' to ' + after.longest + ' min. Teams with a long wait: ' + before.teams + ' to ' + after.teams + '. Time slots with only one level: ' + before.single + ' to ' + after.single + '. ' : '') + 'Teams always on one court: ' + before.same + ' to ' + after.same + '. ' + moved + ' game' + (moved > 1 ? 's' : '') + ' changed' + (kind === 'waits' ? ' (levels keep their start times; scored games stay put)' : '') + '.';
   }, 30);
 }
 $('#fixWait').onclick = () => runFix('waits');
