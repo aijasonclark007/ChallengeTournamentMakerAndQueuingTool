@@ -99,7 +99,7 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
   const P = window.Platform;
   const openMore = {};
   const seen = { sig: {}, pct: {}, sc: {}, rec: {} }; let seenAny = false;
-  let data = null, scores = {}, clocks = {}, ctl = null, alarmed = {}, err = null, ann = null, panelKind = '', logRows = null;
+  let shownKind = '', data = null, scores = {}, clocks = {}, ctl = null, alarmed = {}, err = null, ann = null, panelKind = '', logRows = null;
 
   function beep() { try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; const c = new A(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .25; o.start(); setTimeout(() => { try { o.stop(); c.close(); } catch (e) {} }, 900); } catch (e) {} }
   const state = m => { const s = scores[m.mid]; if (s) return s.status; if (m.res) return 'done'; return 'up'; };
@@ -207,12 +207,14 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
     renderPanel();
   }
   function renderPanel() {
-    const box = $('#panel'); if (!panelKind) { box.innerHTML = ''; return; }
+    const box = $('#panel'); if (!panelKind) { box.innerHTML = ''; shownKind = ''; return; }
     if (panelKind === 'ann' && $('#annText')) return;                // never redraw the box someone is typing in
     box.innerHTML = panelHtml(panelKind);
+    if (shownKind === panelKind && box.firstElementChild) box.firstElementChild.style.animation = 'none';      // slide in once when opened; later updates (data arriving, refreshes, typing) swap quietly
+    shownKind = panelKind;
     const set = $('#annSet'), clr = $('#annClr');
     if (set) set.onclick = async () => { const t = ($('#annText').value || '').trim(); if (!t) { toast('Type a message first.'); return; } try { await P.setAnnouncement(slug, key, t); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step13.sql first.' : (e.message || 'Could not send.')); return; } logIt('Announcement: ' + t); changed('Announcement is live.'); };
-    if (clr) clr.onclick = async () => { try { await P.setAnnouncement(slug, key, ''); } catch (e) { toast(e.message || 'Could not clear.'); return; } logIt('Announcement cleared'); ann = null; $('#panel').innerHTML = ''; panelKind = ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); changed('Announcement cleared.'); };
+    if (clr) clr.onclick = async () => { try { await P.setAnnouncement(slug, key, ''); } catch (e) { toast(e.message || 'Could not clear.'); return; } logIt('Announcement cleared'); ann = null; $('#panel').innerHTML = ''; shownKind = ''; panelKind = ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); changed('Announcement cleared.'); };
   }
   function initToolbar() {
     $('#tbw').style.display = 'block';
