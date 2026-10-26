@@ -2323,7 +2323,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     if (tabOn === 'fairBox') renderFair();
   };
   $('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); };
-  $('#editSched').addEventListener('click', () => { if (editMode && tabOn !== 'sharePanel') showTab('sharePanel'); });      // starting to edit switches the view to the Share tab
+  $('#editSched').addEventListener('click', () => { if (editMode && tabOn !== 'brkPanel') showTab('brkPanel'); });      // starting to edit switches the view to the Breaks tab
   $('#pubLink').addEventListener('click', () => setTimeout(() => { if (tabOn !== 'sharePanel') showTab('sharePanel'); }, 700));
   const np = { sub: null, t: 0 };
   async function nowTick() {
