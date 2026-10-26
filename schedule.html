@@ -123,7 +123,7 @@ summary b{font-weight:800}
 .fair table{min-width:560px}.fair td,.fair th{font-size:13px;padding:6px 8px;text-align:left;vertical-align:top}
 .fair .tg{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px}.tg.bad{background:rgba(255,59,48,.14);color:#B3261E}.tg.warn{background:rgba(255,149,0,.18);color:#8A5200}
 .mvb{margin-left:8px;padding:5px 10px;font-size:12px;border-radius:9px}
-#lateBox{margin:6px 0 10px}#lateBox .lrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}#lateBox .lrow>div{flex:1 1 150px}#lateBox select,#lateBox input{width:100%}
+#lateBox{margin:6px 0 10px}.lrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}.lrow>div{flex:1 1 150px}.lrow select,.lrow input{width:100%}.lrow label{display:block;margin-bottom:4px}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.tabs button{border-radius:999px;padding:9px 16px;font-weight:700}.tabs .fl{margin-left:6px;font-size:12px}.tabs button.go .fl{color:#fff}
 #toolPanels>*{margin:10px 0}#toolPanels>details,#toolPanels>#brkPanel{background:var(--card);border-radius:16px;padding:14px 16px}
 .tpanel>summary{display:none}#pubDet>summary{display:none}#pubDet{margin-top:8px}
@@ -1276,6 +1276,7 @@ $('#genBtn').onclick = () => {
 const slotLen = () => gopt.slotMinutes || 20;
 const baseStart = s => toMinutes(gopt.startTime || '14:00') + (s - 1) * slotLen();
 const brkAt = s => (gopt.breaks || []).reduce((t, b) => t + (s >= b.from ? b.min : 0), 0);
+const brkSpans = () => { const out = [], used = {}, tot = {}; (gopt.breaks || []).forEach(b => { tot[b.from] = (tot[b.from] || 0) + b.min; }); (gopt.breaks || []).forEach((b, i) => { const start = slotStartMin(b.from) - tot[b.from] + (used[b.from] || 0); out[i] = { start, end: start + b.min }; used[b.from] = (used[b.from] || 0) + b.min; }); return out; };      // breaks before the same game follow each other, never overlap
 const brkBetween = (a, b) => (gopt.breaks || []).reduce((t, x) => t + (x.from > a && x.from <= b ? x.min : 0), 0);      // planned break minutes between slot a and slot b
 const delayAt = s => (gopt.delays || []).reduce((t, d) => t + (s >= d.from ? d.min : 0), 0) + brkAt(s);
 const slotStartMin = s => baseStart(s) + delayAt(s);
@@ -1304,7 +1305,7 @@ function renderLate() {
   sel.value = cur && +cur <= n ? cur : String(firstOpen);
   $('#lateList').innerHTML = (gopt.delays || []).map((d, i) => '<div class="shiftl"><span>From ' + fmt(baseStart(d.from)) + ' (original time): ' + (d.min > 0 ? '+' : '') + d.min + ' min</span><button class="ghost" data-undo="' + i + '" type="button">Undo</button></div>').join('');
   $('#brkFrom').innerHTML = sel.innerHTML.replace(/ \(rest slot\)/g, ''); $('#brkFrom').value = brkCur && +brkCur <= n ? brkCur : sel.value; brkCur = null;
-  $('#brkList').innerHTML = (gopt.breaks || []).map((b, i) => '<div class="shiftl"><span><b>' + esc(b.name || 'Break') + '</b>: ' + b.min + ' min, ' + fmt(slotStartMin(b.from) - b.min) + ' - ' + fmt(slotStartMin(b.from)) + '</span><button class="ghost" data-brkundo="' + i + '" type="button">Remove</button></div>').join('');
+  $('#brkList').innerHTML = (gopt.breaks || []).map((b, i) => '<div class="shiftl"><span><b>' + esc(b.name || 'Break') + '</b>: ' + b.min + ' min, ' + fmt(brkSpans()[i].start) + ' - ' + fmt(brkSpans()[i].end) + '</span><button class="ghost" data-brkundo="' + i + '" type="button">Remove</button></div>').join('');
 }
 let brkCur = null;
 function afterTimeChange(msg) {
@@ -1503,7 +1504,7 @@ function renderSchedule() {
   let html = '<tr><th>Time</th><th>Court</th><th>Bracket</th><th>Match</th></tr>';
   for (let i = 1; i <= s.slotsUsed; i++) {
     const when = slotLabel(i);
-    (gopt.breaks || []).filter(b => b.from === i).forEach(b => { html += '<tr class="rest first"><td class="t">' + fmt(slotStartMin(i) - b.min) + ' - ' + fmt(slotStartMin(i)) + '</td><td colspan="3"><b>' + esc(b.name || 'Break') + '</b>, ' + b.min + ' min, no games</td></tr>'; });
+    (gopt.breaks || []).forEach((b, bi) => { if (b.from !== i) return; const sp = brkSpans()[bi]; html += '<tr class="rest first"><td class="t">' + fmt(sp.start) + ' - ' + fmt(sp.end) + '</td><td colspan="3"><b>' + esc(b.name || 'Break') + '</b>, ' + b.min + ' min, no games</td></tr>'; });
     const ms = sched.matches.filter(m => m.slot === i);
     if (!ms.length) { html += '<tr class="rest first"><td class="t">' + when + '</td><td colspan="3">Rest slot, no games</td></tr>'; continue; }
     ms.forEach((m, j) => {
