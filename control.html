@@ -354,7 +354,7 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
     app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => call(all.find(m => m.mid === b.dataset.call)));
     app.querySelectorAll('details.more').forEach(d => d.addEventListener('toggle', () => { openMore[d.dataset.mid] = d.open; }));
     app.querySelectorAll('[data-def]').forEach(b => b.onclick = () => recordDefault(all.find(m => m.mid === b.dataset.def), +b.dataset.side));
-    app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => cmd(b.dataset.m, b.dataset.c));
+    app.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => cmd(b.dataset.m, b.dataset.c));
   }
 
   if (!slug || !key) { $('#app').innerHTML = '<div class="msg">This link is incomplete. Open Match Control from the "Live scoring for umpires" box in Draw &amp; Schedule.</div>'; return; }
