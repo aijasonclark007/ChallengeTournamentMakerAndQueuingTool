@@ -335,7 +335,7 @@ summary:hover{background:#fff}
   <section id="schedSec" class="hidden">
     <div class="bar noprint">
       <h2>4. Game schedule</h2>
-      <div class="tools"><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button></div>
+      <div class="tools"><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button><button id="sheets" class="ghost" type="button">Court sheets</button></div>
     </div>
     <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:8px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubDots" class="ghost" type="button" aria-label="More sharing options">More</button></div>
       <div id="pubMore" class="hidden"><div class="tools"><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div>
@@ -2212,6 +2212,26 @@ async function saveText(name, text, type) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
 const fileSafe = () => ($('#tname').value.trim() || 'tournament').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'tournament';
+
+// ----- printable court sheets: one page per court with blank score boxes (a paper backup if the internet or phones fail) -----
+function sheetsDoc() {
+  const name = $('#tname').value.trim() || 'Tournament', dl = evDateLabel(), fk = fullKo(), rs = resolveKnockout(fk.k, committed(koResults)), by = {};
+  rs.matches.forEach(m => { by[m.id] = m; });
+  const rows = sched.matches.map(m => ({ slot: m.slot, court: m.courtName, time: m.start, what: m.bracket, t1: m.team1.name, t2: m.team2.name }));
+  fk.ks.matches.forEach(x => { const m = by[x.id], real = fk.real.has(x.level); rows.push({ slot: x.slot, court: x.courtName, time: x.start, what: x.level + ' ' + x.roundName, t1: real && m && m.team1 ? m.team1.name : '', t2: real && m && m.team2 ? m.team2.name : '' }); });
+  const courts = [...new Set(rows.map(r => r.court))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+  const pages = courts.map((c, i) => '<section' + (i ? ' class="pg"' : '') + '><h1>' + esc(c) + '</h1><p class="sub">' + esc(name) + (dl ? ' &middot; ' + esc(dl) : '') + '</p><table><tr><th>Time</th><th>Game</th><th>Team 1</th><th class="sc">Score</th><th>Team 2</th><th class="sc">Score</th><th class="ini">Umpire</th></tr>' +
+    rows.filter(r => r.court === c).sort((a, b) => a.slot - b.slot).map(r => '<tr><td class="t">' + esc(r.time) + '</td><td class="w">' + esc(r.what) + '</td><td>' + (r.t1 ? esc(r.t1) : '<span class="tbd">&nbsp;</span>') + '</td><td class="box"></td><td>' + (r.t2 ? esc(r.t2) : '<span class="tbd">&nbsp;</span>') + '</td><td class="box"></td><td class="box"></td></tr>').join('') + '</table></section>').join('');
+  const css = 'body{font:13px/1.35 system-ui,-apple-system,Segoe UI,sans-serif;color:#111;margin:18px}h1{margin:0;font-size:30px}.sub{margin:2px 0 10px;color:#555}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:8px 6px;vertical-align:middle}th{background:#eee;font-size:11px;text-transform:uppercase;text-align:left}td.t{white-space:nowrap;font-weight:700}td.w{font-size:11px;color:#444}td.box{width:64px;height:34px}th.sc{width:64px}th.ini{width:64px}.tbd{display:block;min-width:120px}.pg{break-before:page}tr{break-inside:avoid}@media print{body{margin:8mm}}';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>' + esc(name) + ' - Court sheets</title><style>' + css + '</style></head><body>' + pages + '</body></html>';
+}
+$('#sheets').onclick = () => {
+  if (!sched) return;
+  const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(f);
+  const d = f.contentWindow.document; d.open(); d.write(sheetsDoc()); d.close();
+  setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {} setTimeout(() => f.remove(), 3000); }, 300);
+  say('#gMsg', 'Court sheets opened for printing: one page per court, with blank score boxes. Choose Save as PDF to keep a copy.');
+};
 $('#resExport').onclick = () => { $('#resPick').classList.toggle('hidden'); $('#resExport').classList.toggle('on', !$('#resPick').classList.contains('hidden')); };
 $('#resPick').addEventListener('click', e => { if (e.target.closest('button')) { $('#resPick').classList.add('hidden'); $('#resExport').classList.remove('on'); } });
 $('#resDl').onclick = async () => { if (!sched) return; await saveText(fileSafe() + '-results.html', resultsDoc(), 'text/html'); say('#kMsg', 'Results page downloaded. You can post it or send it as a file.'); };
