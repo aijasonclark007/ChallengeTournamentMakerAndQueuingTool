@@ -164,12 +164,27 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
   let slch = null;
   async function changed(msg) { toast(msg); try { slch && slch.ping(); } catch (e) {} await load(); }
   async function doMove(mid, court) { const mm = mById(mid), from = mm && mm.court; try { await P.moveMatch(slug, key, mid, court); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not move.')); return; } logIt(court ? 'Moved ' + mName(mm) + ' from ' + from + ' to ' + court : 'Put ' + mName(mm) + ' back on its original court'); changed(court ? 'Moved to ' + court + '.' : 'Put back on its original court.'); }
+  // does an extra match put a player in two places at once? Looks at games being played now and, when the slot is known, games in the same time slot.
+  const ppl = t => String(t || '').split(/\s*(?:\/|&|,|\band\b)\s*/i).map(x => x.trim().toLowerCase()).filter(Boolean);
+  function clashWarn(t1, t2, slot, selfMid) {
+    const mine = new Set(ppl(t1).concat(ppl(t2))), hits = [];
+    ((data && data.matches) || []).forEach(m => {
+      if (m.mid === selfMid || state(m) === 'done' || !ready(m)) return;
+      const when = state(m) === 'live' ? 'playing right now' : (slot && slot < 900 && m.slot === slot ? 'scheduled at the same time' : '');
+      if (!when) return;
+      const names = String(m.t1 + ' / ' + m.t2).split(/\s*(?:\/|&|,|\band\b)\s*/i).map(x => x.trim()).filter(n => n && mine.has(n.toLowerCase()));
+      if (names.length) hits.push([...new Set(names)].join(', ') + ' is ' + when + ' on ' + m.court + ' (' + String(m.time).split(' - ')[0] + ', ' + m.t1 + ' vs ' + m.t2 + ')');
+    });
+    if (!hits.length) return true;
+    return confirm('Heads up, a player would be in two places:\n' + hits.slice(0, 4).join('\n') + (hits.length > 4 ? '\n...and ' + (hits.length - 4) + ' more' : '') + '\n\nContinue anyway?');
+  }
   async function doAdd(court, t1, t2, sport) {
     if (!t1.trim() || !t2.trim()) { toast('Type both teams.'); return; }
+    if (!clashWarn(t1, t2, 0, null)) return;
     try { await P.addExtraMatch(slug, key, court, t1.trim(), t2.trim(), sport, new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not add.')); return; }
     logIt('Added extra match on ' + court + ': ' + t1.trim() + ' vs ' + t2.trim()); changed('Added to ' + court + '.');
   }
-  async function doSlot(mid, slot, msg, time) { try { await P.setExtraSlot(slug, key, mid, slot, time); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step12.sql first.' : (e.message || 'Could not change the order.')); return; } logIt('Extra match order: ' + mName(mById(mid)) + ' - ' + msg); changed(msg); }
+  async function doSlot(mid, slot, msg, time) { const em = mById(mid); if (em && slot < 900 && !clashWarn(em.t1, em.t2, slot, mid)) return; try { await P.setExtraSlot(slug, key, mid, slot, time); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step12.sql first.' : (e.message || 'Could not change the order.')); return; } logIt('Extra match order: ' + mName(mById(mid)) + ' - ' + msg); changed(msg); }
   // rest slots = gaps in the schedule's slot numbers; their times are worked out from the games either side
   const toMin = t => { const m = /(\d+):(\d+)\s*(AM|PM)?/i.exec(String(t || '')); if (!m) return null; let h = +m[1] % 12; if (/pm/i.test(m[3] || '')) h += 12; return h * 60 + +m[2]; };
   const fmtMin = n => { n = Math.round(n); const h = Math.floor(n / 60) % 24, mi = n % 60; return ((h % 12) || 12) + ':' + String(mi).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM'); };
