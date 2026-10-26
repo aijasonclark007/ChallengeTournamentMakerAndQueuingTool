@@ -136,7 +136,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 @media (orientation:landscape) and (max-height:560px){.side .pt{font-size:clamp(44px,calc(100cqh - 74px),150px)}.side .nm{font-size:15px}}
 .qclr{display:block;margin:18px auto 0;background:none;color:var(--mute);font-weight:700;padding:10px}
 </style>
-<style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
+<style>.annu{position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:60;background:#FF9500;color:#1b1200;border-radius:14px;padding:11px 14px;font-weight:800;font-size:15px;box-shadow:0 8px 24px rgba(0,0,0,.28);display:none}.annu.on{display:block}.annu small{display:block;font-weight:600;opacity:.7;margin-top:2px}
+a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
 <body>
 <div class="top"><h1 id="ttl">Umpire scoring<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
 <style>#score .sbar{padding-top:calc(var(--sat,env(safe-area-inset-top)) + 8px)}</style>
@@ -155,6 +156,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 <div id="ov"><div class="sheet"><h3 id="ovT"></h3><p id="ovP"></p><div class="row"><button id="ovNo">Keep scoring</button><button class="go" id="ovYes">Finish</button></div></div></div>
 <div id="sv"><div class="sheet"><h3 id="svT"></h3><p id="svP"></p><div class="opts" id="svO"></div></div></div>
 <div id="ck"><div class="sheet" id="ckS"></div></div>
+<div class="annu" id="annu"></div>
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -216,10 +218,16 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     return flushing;
   }
 
+  function showAnn(a) {
+    const b = $('#annu'); if (!b) return; let seen = ''; try { seen = localStorage.getItem('ann.' + slug) || ''; } catch (e) {}
+    if (!a || seen === a.updated_at) { b.classList.remove('on'); return; }
+    b.innerHTML = esc(a.body) + '<small>Tap to dismiss</small>'; b.dataset.at = a.updated_at; b.classList.add('on'); if (b.dataset.buzzed !== a.updated_at) { b.dataset.buzzed = a.updated_at; buzz([80, 60, 80]); }
+  }
   async function load() {
     try {
       const d = await P.umpireGet(slug, key); data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; });
       try { localStorage.setItem(CACHE, JSON.stringify(d)); } catch (e) {}
+      if (!quick) { try { showAnn(await P.getAnnouncement(slug)); } catch (e) {} }
       netErr = false; applyOutbox(); if (!cur) renderList();
     } catch (e) {
       netErr = true;
@@ -584,7 +592,8 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   if (!quick && (!P || !P.configured)) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
   if (!quick) { try { ctl = P.liveChannel('ctl-' + slug + '-' + key, ckCommand); } catch (e) {} }
   flush(); load();
-  if (!quick) { try { P.liveChannel('slive-' + slug, () => { if (!cur) load(); }); } catch (e) {} }      // court changes from Match Control show up right away
+  $('#annu').onclick = () => { const b = $('#annu'); try { localStorage.setItem('ann.' + slug, b.dataset.at || ''); } catch (e) {} b.classList.remove('on'); };
+  if (!quick) { try { P.liveChannel('slive-' + slug, () => { if (!cur) load(); else P.getAnnouncement(slug).then(showAnn).catch(() => {}); }); } catch (e) {} }      // court changes from Match Control show up right away
   timer = setInterval(() => { if (document.hidden) return; if (pendingN()) flush(); if (!cur && !quick) load(); }, 12000);
   setInterval(() => { if (!document.hidden && pendingN()) flush(); }, 4000);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});   // lets this page open again with no signal
