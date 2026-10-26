@@ -117,6 +117,10 @@ summary b{font-weight:800}
 :root[data-theme="dark"] summary{border-color:var(--lime);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){summary,summary::before{transition:none}}
 .gate{max-width:440px;margin:32px auto;padding:22px}
+.fair{margin:6px 0 10px}.fair summary .fl{font-weight:600;color:var(--mute,#6E6E73);margin-left:6px}.fair summary .fl.warn{color:#B25E00}.fair summary .fl.bad{color:#B3261E}
+.fair .fs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.fair .fs span{background:rgba(118,118,128,.12);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:700}
+.fair table{min-width:560px}.fair td,.fair th{font-size:13px;padding:6px 8px;text-align:left;vertical-align:top}
+.fair .tg{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px}.tg.bad{background:rgba(255,59,48,.14);color:#B3261E}.tg.warn{background:rgba(255,149,0,.18);color:#8A5200}
 .mvb{margin-left:8px;padding:5px 10px;font-size:12px;border-radius:9px}
 #lateBox{margin:6px 0 10px}#lateBox .lrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}#lateBox .lrow>div{flex:1 1 150px}#lateBox select,#lateBox input{width:100%}
 .shiftl{display:flex;gap:8px;align-items:center;justify-content:space-between;background:rgba(255,149,0,.12);border-radius:10px;padding:7px 10px;margin:6px 0;font-weight:600;font-size:14px}
@@ -334,6 +338,9 @@ summary:hover{background:#fff}
       <div id="lateList"></div><p id="lateMsg" class="hint"></p>
     </details>
     <div id="summary"></div>
+    <details id="fairBox" class="fair noprint"><summary><b>Fairness check</b><span class="fl" id="fairHead"></span></summary>
+      <p class="hint">How the games are spread across teams: how many each team plays, the break between games, and which courts they get. It updates after every move or shift.</p>
+      <div id="fairBody"></div></details>
     <p id="gMsg" class="hint"></p>
     <div class="wrap"><table id="table"></table></div>
   </section>
@@ -1328,6 +1335,38 @@ $('#mvGo').onclick = () => {
 };
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.mvb'); if (b) mvOpen(+b.dataset.mv); });
 
+function renderFair() {
+  if (!sched) return;
+  const T = {}, L = slotLen();
+  sched.matches.forEach(m => [m.team1, m.team2].forEach(t => { if (!t) return; const e = T[t.name] = T[t.name] || { name: t.name, bracket: m.bracket, games: [] }; e.games.push({ slot: m.slot, court: m.court, cn: m.courtName }); }));
+  const rows = Object.keys(T).map(k => {
+    const e = T[k], g = e.games.sort((a, b) => a.slot - b.slot), gaps = [];
+    for (let i = 1; i < g.length; i++) gaps.push(slotStartMin(g[i].slot) - (slotStartMin(g[i - 1].slot) + L));
+    const cts = {}; g.forEach(x => { cts[x.cn] = (cts[x.cn] || 0) + 1; });
+    const flags = [];
+    if (gaps.length && Math.min.apply(null, gaps) <= 0) flags.push(['bad', 'Back-to-back']);
+    if (gaps.length && Math.max.apply(null, gaps) > 90) flags.push(['warn', 'Long wait']);
+    if (g.length >= 3 && Object.keys(cts).length === 1) flags.push(['warn', 'Same court']);
+    return { e, g, gaps, cts, flags, first: slotStartMin(g[0].slot), last: slotStartMin(g[g.length - 1].slot) + L };
+  });
+  if (!rows.length) { $('#fairBody').innerHTML = ''; $('#fairHead').textContent = ''; return; }
+  const counts = rows.map(r => r.g.length), allGaps = [].concat.apply([], rows.map(r => r.gaps));
+  const byB = {}; rows.forEach(r => { (byB[r.e.bracket] = byB[r.e.bracket] || []).push(r.g.length); });
+  const uneven = Object.keys(byB).filter(b => Math.min.apply(null, byB[b]) !== Math.max.apply(null, byB[b]));
+  const bad = rows.filter(r => r.flags.some(f => f[0] === 'bad')).length, warn = rows.filter(r => r.flags.length && !r.flags.some(f => f[0] === 'bad')).length;
+  const head = $('#fairHead'); head.className = 'fl' + (bad ? ' bad' : warn || uneven.length ? ' warn' : '');
+  head.textContent = bad ? ' · ' + bad + ' team' + (bad > 1 ? 's' : '') + ' with back-to-back games' : warn || uneven.length ? ' · ' + (warn + uneven.length) + ' thing' + (warn + uneven.length > 1 ? 's' : '') + ' to look at' : ' · looks balanced';
+  const mm = a => a.length ? (Math.min.apply(null, a) === Math.max.apply(null, a) ? Math.min.apply(null, a) : Math.min.apply(null, a) + ' to ' + Math.max.apply(null, a)) : '-';
+  const dur = n => n <= 0 ? 'none' : n + ' min';
+  let h = '<div class="fs"><span>Games per team: ' + mm(counts) + '</span><span>Shortest break: ' + (allGaps.length ? dur(Math.min.apply(null, allGaps)) : '-') + '</span><span>Longest wait: ' + (allGaps.length ? dur(Math.max.apply(null, allGaps)) : '-') + '</span></div>';
+  if (uneven.length) h += '<p class="warn">Teams in ' + uneven.map(esc).join(', ') + ' play different numbers of games (normal when a bracket has an odd number of teams).</p>';
+  rows.sort((a, b) => (b.flags.some(f => f[0] === 'bad') - a.flags.some(f => f[0] === 'bad')) || (b.flags.length - a.flags.length) || String(a.e.bracket).localeCompare(String(b.e.bracket)) || a.first - b.first);
+  h += '<div class="wrap"><table><tr><th>Team</th><th>Games</th><th>Plays between</th><th>Shortest break</th><th>Longest wait</th><th>Courts</th></tr>' + rows.map(r =>
+    '<tr><td><b>' + esc(r.e.name) + '</b>' + r.flags.map(f => '<span class="tg ' + f[0] + '">' + f[1] + '</span>').join('') + '<div class="hint" style="margin:0">' + esc(r.e.bracket) + '</div></td><td>' + r.g.length + '</td><td>' + fmt(r.first) + ' - ' + fmt(r.last) + '</td><td>' + (r.gaps.length ? dur(Math.min.apply(null, r.gaps)) : '-') + '</td><td>' + (r.gaps.length ? dur(Math.max.apply(null, r.gaps)) : '-') + '</td><td>' +
+    Object.keys(r.cts).map(c => c.replace('Court ', '') + (r.cts[c] > 1 ? ' x' + r.cts[c] : '')).join(', ') + '</td></tr>').join('') + '</table></div>';
+  $('#fairBody').innerHTML = h;
+}
+
 function renderSchedule() {
   retime();
   const s = sched.summary, n = gopt.courts;
@@ -1344,7 +1383,7 @@ function renderSchedule() {
         '</td><td>' + matchCell(m.id, 'g', m.team1, m.team2, results[m.id], false, null) + (editMode && !scored('g', m.id) ? '<button class="ghost mvb" data-mv="' + m.id + '" type="button">Move</button>' : '') + '</td></tr>';
     });
   }
-  $('#table').innerHTML = html; renderLate();
+  $('#table').innerHTML = html; renderLate(); renderFair();
   $('#schedSec').classList.remove('hidden'); $('#standSec').classList.remove('hidden');
   renderStandings();
   if (ko) { $('#koSec').classList.remove('hidden'); renderKo(); } else $('#koSec').classList.add('hidden');
