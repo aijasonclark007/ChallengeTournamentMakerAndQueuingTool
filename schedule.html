@@ -23,7 +23,7 @@ section{margin-top:28px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
 textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg);color:var(--ink);font:15px/1.5 ui-monospace,Menlo,monospace}
 label{font-size:14px;color:var(--mute)}
-input[type=number],input[type=time]{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);font:inherit;width:100%}
+input[type=number],input[type=time],input[type=date]{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);font:inherit;width:100%}
 .row{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-top:12px}
 .row>div{min-width:110px}
 button{font:inherit;font-weight:700;border:0;border-radius:999px;padding:11px 20px;cursor:pointer;background:var(--navy);color:#fff}
@@ -105,6 +105,7 @@ tr.first td{border-top:2px solid var(--line)}
 .lockbtn{background:var(--lime)!important;color:#0B1B33!important;border:0!important}
 .lockbtn.ed{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important}
 .lockbtn:disabled,.sv:disabled{opacity:.4}
+input[type=date]{min-height:44px;cursor:pointer;color-scheme:light dark}input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.7}
 input[type=text]{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);font:inherit}
 details{margin-top:10px}
 summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:var(--chip);border:2px solid var(--navy);color:var(--navy);font-weight:700;user-select:none;transition:background .2s,transform .12s,box-shadow .2s}
@@ -155,7 +156,7 @@ button.cxl{background:rgba(255,59,48,.12)!important;color:#C4001A!important}
 .sv,.mv{border-radius:10px;min-height:36px;padding:5px 14px}.sv{background:var(--green,#34C759);color:#fff}.sv.ed{background:var(--chip);color:var(--blue);border:0}.mv{background:var(--chip);color:var(--blue)}
 th{background:#F2F2F7;color:var(--mute);font-size:13px;font-weight:700;letter-spacing:.02em}
 th,td{font-size:15px;padding:10px 12px}
-input[type=number],input[type=time],input[type=text],textarea,select{border-radius:12px;font-size:16px;border-color:var(--line)}
+input[type=number],input[type=time],input[type=date],input[type=text],textarea,select{border-radius:12px;font-size:16px;border-color:var(--line)}
 .sc{font-size:16px}
 summary{background:var(--chip);border:2px solid var(--blue);color:var(--blue)}
 summary::before{background-color:var(--blue);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
@@ -222,7 +223,7 @@ summary:hover{background:#fff}
   .bar .tools>button{flex:1 1 calc(50% - 4px);min-width:0;justify-content:center;text-align:center}
   #secAdd .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr);gap:10px;align-items:end}
   #secAdd .row>div{min-width:0}#secAdd .row label{display:block;font-size:13px;line-height:1.2;min-height:32px}
-  #secAdd .row input{padding:10px 8px;min-height:44px}#secAdd .row input[type=time]{padding:10px 6px}
+  #secAdd .row input{padding:10px 8px;min-height:44px}#secAdd .row input[type=time],#secAdd .row input[type=date]{padding:10px 6px}
   #secAdd .row>button{grid-column:1/-1;width:100%}
   #tpanel .row{gap:10px}#tpanel .row>div{flex:1 1 100%;min-width:0}#tpanel .row>button{flex:1 1 calc(50% - 5px)}
   #tpanel .wrap{overflow:visible;border:0;background:transparent;box-shadow:none}
@@ -2211,6 +2212,7 @@ async function pullLive() {
 setInterval(pullLive, 15000);
 let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pubSlug) { liveSubFor = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, () => pullLive()); } catch (e) {} } };
 // keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
+$('#eventDate').addEventListener('click', e => { try { e.target.showPicker(); } catch (x) {} });      // a tap anywhere on the box opens the calendar
 $('#eventDate').addEventListener('change', () => { queueSave(); try { autoPublish(); } catch (e) {} });
 let pubSig = null, pubBusy = false, pubLast = 0;
 const pubSigNow = () => sched ? JSON.stringify([$('#eventDate').value, committed(results), committed(koResults), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)]) : null;
