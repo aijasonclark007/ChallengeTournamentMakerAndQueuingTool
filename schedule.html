@@ -1567,10 +1567,10 @@ function renderStandings() {
   $('#standings').innerHTML = byLevel(sched.brackets, b => {
     const x = st[b.id];
     return '<div class="card"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + x.scored + '/' + x.total + ' games scored</span></div>' +
-      '<div class="wrap" style="margin:0"><table style="min-width:0"><tr><th>#</th><th>Team</th><th class="nw">W-L</th><th class="nw">Pts</th></tr>' +
+      '<div class="wrap" style="margin:0"><table style="min-width:0"><tr><th>#</th><th>Team</th><th class="nw">W-L</th><th class="nw">Pts</th><th class="nw" title="Points scored minus points against">+/-</th></tr>' +
       x.rows.map(r => '<tr class="' + (x.scored && r.rank <= adv ? 'adv' : '') + '"><td>' + r.rank + '</td><td>' + esc(r.team.name) +
         (x.scored && r.rank <= adv ? ' <span class="tag ON_TIME" style="font-size:11px;padding:0 8px">Advanced</span>' : '') +
-        '</td><td class="nw">' + r.won + '-' + r.lost + '</td><td class="nw">' + r.pf + '</td></tr>').join('') + '</table></div>' +
+        '</td><td class="nw">' + r.won + '-' + r.lost + '</td><td class="nw">' + r.pf + '</td><td class="nw">' + (r.pd > 0 ? '+' : '') + r.pd + '</td></tr>').join('') + '</table></div>' +
       (x.scored && x.rows[adv - 1] && x.rows[adv - 1].tied ? '<p class="warn">Tied for place ' + adv + ': same wins, points, head-to-head and point difference. <button class="mv coin" data-b="' + b.id + '">Coin toss</button></p>' : '') +
       (x.rows[adv] && coin[x.rows[adv - 1].team.name] !== undefined && coin[x.rows[adv].team.name] !== undefined ? '<p class="hint">Place ' + adv + ' was decided by coin toss.</p>' : '') + '</div>';
   });
