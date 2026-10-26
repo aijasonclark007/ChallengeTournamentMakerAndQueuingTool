@@ -48,6 +48,9 @@ button:disabled{opacity:.4;cursor:default}
 .foot{margin-top:auto;padding-top:10px}
 .prog{height:6px;border-radius:99px;background:var(--chip);overflow:hidden;margin:4px 0 6px}.prog i{display:block;height:100%;background:var(--green);border-radius:99px}
 .tools{margin-top:8px;background:var(--chip);border-radius:12px;padding:2px 12px}.tools summary{font-weight:800;font-size:14px;padding:10px 0;cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}.tools summary::-webkit-details-marker{display:none}.tools summary::before{content:'';width:8px;height:8px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(-45deg);transition:transform .25s ease;margin:0 4px 0 2px}.tools[open] summary::before{transform:rotate(45deg)}.tools{transition:background .2s}.tools.pop>:not(summary){animation:slidedown .3s ease both}@keyframes slidedown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.tools.pop>:not(summary){animation:none}.tools summary::before{transition:none}}.tools .row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.tools select,.tools input{flex:1 1 130px;min-width:0;padding:10px;border-radius:10px;border:1px solid #D1D1D6;font:inherit;font-size:15px;background:#fff}.tools .stop{background:#FFE5E3;color:#B3261E}.tools h4{margin:6px 0;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}.tools .btns{margin-top:0}.tag2{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;background:#FFE5E3;color:#B3261E;margin-left:6px}
+.pill.late{background:#FFF1D6;color:#8A5200}.sum .lt{background:#FFF1D6;color:#8A5200}
+.recent{margin-top:18px;background:var(--card);box-shadow:var(--shadow);border-radius:20px;padding:14px 16px}.recent h3{margin:0 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.rrow{display:grid;grid-template-columns:70px 70px 1fr;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.rrow:first-of-type{border-top:0}.rrow span.t{color:var(--mute);font-size:12px;font-weight:700}.rrow b{font-variant-numeric:tabular-nums}.rrow .w{font-weight:800}
 .msg{padding:50px 20px;text-align:center;color:var(--mute)}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:.3s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -130,6 +133,19 @@ button:disabled{opacity:.4;cursor:default}
     }
     return out;
   }
+  // how far a court is behind its schedule (only for clock-time slots; extra matches have no scheduled time)
+  function lateInfo(m, live) {
+    if (!m || m.extra) return null;
+    const t = String(m.time).split(/\s+-\s+/), st = toMin(t[0]), en = toMin(t[1]), d = new Date(), now = d.getHours() * 60 + d.getMinutes();
+    if (st == null) return null;
+    if (live) return en != null && now - en >= 3 && now - en <= 240 ? { txt: 'Over by ' + (now - en) + ' min', min: now - en } : null;
+    return now - st >= 5 && now - st <= 240 ? { txt: 'Late ' + (now - st) + ' min', min: now - st } : null;
+  }
+  function recentHtml(all) {
+    const done = all.filter(m => state(m) === 'done' && score(m)).sort((a, b) => (b.slot - a.slot) || String(a.court).localeCompare(String(b.court), undefined, { numeric: true })).slice(0, 6);
+    if (!done.length) return '';
+    return '<div class="recent"><h3>Recently finished</h3>' + done.map(m => { const s = score(m), w1 = s.s1 > s.s2; return '<div class="rrow"><span class="t">' + esc(String(m.time).split(/\s+-\s+/)[0]) + '</span><span class="t">' + esc(m.court) + '</span><div><span class="' + (w1 ? 'w' : '') + '">' + esc(m.t1) + '</span> <b>' + s.s1 + '</b> – <b>' + s.s2 + '</b> <span class="' + (w1 ? '' : 'w') + '">' + esc(m.t2) + '</span></div></div>'; }).join('') + '</div>';
+  }
   async function doRemove(mid) { if (!confirm('Remove this extra match?')) return; try { await P.removeExtraMatch(slug, key, mid); } catch (e) { toast(e.message || 'Could not remove.'); return; } changed('Extra match removed.'); }
   async function copy(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg); } catch (e) { prompt('Copy this link', t); } }
   function courtsOf() {
@@ -152,7 +168,7 @@ button:disabled{opacity:.4;cursor:default}
     $('#ttl').innerHTML = 'Match Control<small>' + esc(data.name) + '</small>';
     const courts = courtsOf(), all = data.matches || [];
     const nLive = all.filter(m => state(m) === 'live').length, nDone = all.filter(m => state(m) === 'done').length;
-    const alerts = [];
+    const alerts = [], lateCourts = [];
     const cards = courts.map(ct => {
       const live = ct.list.find(m => state(m) === 'live');
       const upcoming = ct.list.filter(m => state(m) === 'up' && ready(m));
@@ -160,6 +176,7 @@ button:disabled{opacity:.4;cursor:default}
       const doneN = ct.list.filter(m => state(m) === 'done').length;
       let cls = '', pill = cur ? (live ? '<span class="pill live">LIVE</span>' : '<span class="pill">Up next</span>') : '<span class="pill">' + (doneN === ct.list.length ? 'All done' : 'Waiting') + '</span>';
       let h = '', clk = cur ? clocks[cur.mid] : null, on = fresh(clk);
+      const late = cur ? lateInfo(cur, !!live) : null; if (late) lateCourts.push(ct.name + ' ' + late.min + ' min');
       if (cur) {
         const s = score(cur);
         h += '<div class="lbl">' + (live ? 'Playing now' : 'Up next') + ' · ' + esc(cur.time) + '</div><div class="meta" style="margin-bottom:2px">' + esc(cur.bracket) + '</div><div class="tms"><div class="tm"><b>' + esc(cur.t1) + '</b>' + (s ? '<em>' + s.s1 + '</em>' : '') + '</div><div class="tm"><b>' + esc(cur.t2) + '</b>' + (s ? '<em>' + s.s2 + '</em>' : '') + '</div></div>';
@@ -196,16 +213,16 @@ button:disabled{opacity:.4;cursor:default}
       const ex = ct.list.filter(m => m.extra && state(m) === 'up'), floor = Math.min.apply(null, ct.list.filter(m => !m.extra && state(m) !== 'done').map(m => m.slot).concat([1e9])), rests = restSlots().filter(r => r.slot > floor);
       if (ex.length) h += '<h4 style="margin-top:12px">Extra matches waiting</h4>' + ex.map(m => { const pos = ct.list.filter(x => state(x) !== 'done').findIndex(x => x.mid === m.mid); return '<div style="margin-bottom:10px"><div style="font-weight:700">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div><div class="meta">' + (pos === 0 ? 'Playing next' : pos > 0 ? pos + ' match' + (pos > 1 ? 'es' : '') + ' before it' : '') + '</div><div class="btns" style="margin-top:6px"><button class="go" data-xnext="' + esc(m.mid) + '" data-xc="' + esc(ct.name) + '">Play next</button><button data-xlast="' + esc(m.mid) + '">Play last</button><button class="stop" data-rmx="' + esc(m.mid) + '">Remove</button></div>' + (rests.length ? '<div class="row" style="margin-top:8px"><select data-xr="' + esc(m.mid) + '">' + rests.map(r => '<option value="' + r.slot + '">Rest slot ' + esc(r.label) + '</option>').join('') + '</select><button style="flex:0 0 auto;padding:10px 14px;border-radius:10px;background:var(--card);font-weight:800" data-xrest="' + esc(m.mid) + '">Put here</button></div>' : '') + '</div>'; }).join('');
       h += '<h4 style="margin-top:12px">Umpire missing?</h4><div class="btns"><button data-ulink="' + esc(ct.name) + '">Copy umpire link for ' + esc(ct.name) + '</button></div><div class="meta" style="margin:6px 0 10px">Send it to anyone. Opening it on their phone puts them on this court.</div></details></div>';
-      return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + pill + '</div>' + h + '</div>';
+      return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + (late ? '<span class="pill late">' + late.txt + '</span>' : '') + pill + '</div>' + h + '</div>';
     });
     // sound once per new alert
     alerts.forEach(a => { if (!alarmed[a]) { alarmed[a] = 1; beep(); try { navigator.vibrate && navigator.vibrate([300, 100, 300]); } catch (e) {} } });
     Object.keys(alarmed).forEach(a => { if (!alerts.includes(a)) delete alarmed[a]; });
     const focus = document.activeElement && document.activeElement.tagName === 'BUTTON' ? 1 : 0;
     const keep = {}; app.querySelectorAll('input,select').forEach(e => { const k = e.getAttribute('data-x1') ? 'x1:' + e.getAttribute('data-x1') : e.getAttribute('data-x2') ? 'x2:' + e.getAttribute('data-x2') : e.getAttribute('data-xs') ? 'xs:' + e.getAttribute('data-xs') : e.getAttribute('data-mv') ? 'mv:' + e.getAttribute('data-mv') : e.getAttribute('data-to') ? 'to:' + e.getAttribute('data-to') : e.getAttribute('data-xr') ? 'xr:' + e.getAttribute('data-xr') : null; if (k) keep[k] = e.value; });
-    app.innerHTML = '<div class="sum"><span>Live <b>' + nLive + '</b></span><span>Finished <b>' + nDone + '</b> of <b>' + all.length + '</b></span><span>Courts <b>' + courts.length + '</b></span></div>' +
+    app.innerHTML = '<div class="sum"><span>Live <b>' + nLive + '</b></span><span>Finished <b>' + nDone + '</b> of <b>' + all.length + '</b></span><span>Courts <b>' + courts.length + '</b></span>' + (lateCourts.length ? '<span class="lt">Behind: <b>' + esc(lateCourts.join(', ')) + '</b></span>' : '') + '</div>' +
       (alerts.length ? '<div class="alerts">' + alerts.map(a => '<div class="alert">' + esc(a) + '</div>').join('') + '</div>' : '') +
-      '<div class="grid">' + cards.join('') + '</div>' + (err ? '<p class="meta" style="text-align:center">Connection problem: ' + esc(err) + '. Showing the last data.</p>' : '');
+      '<div class="grid">' + cards.join('') + '</div>' + recentHtml(all) + (err ? '<p class="meta" style="text-align:center">Connection problem: ' + esc(err) + '. Showing the last data.</p>' : '');
     app.querySelectorAll('[data-x1],[data-x2],[data-xs],[data-mv],[data-to],[data-xr]').forEach(e => { const g = n => e.getAttribute(n), k = g('data-xr') ? 'xr:' + g('data-xr') : g('data-x1') ? 'x1:' + g('data-x1') : g('data-x2') ? 'x2:' + g('data-x2') : g('data-xs') ? 'xs:' + g('data-xs') : g('data-mv') ? 'mv:' + g('data-mv') : 'to:' + g('data-to'); if (keep[k] != null) e.value = keep[k]; });
     app.querySelectorAll('details.tools').forEach(d => { d.addEventListener('toggle', () => { openMore['t:' + d.dataset.tc] = d.open; }); d.querySelector('summary').addEventListener('click', () => { d.classList.add('pop'); setTimeout(() => d.classList.remove('pop'), 400); }); });
     const val = (sel, c) => { const e = app.querySelector('[' + sel + '="' + c.replace(/"/g, '\\"') + '"]'); return e ? e.value : ''; };
