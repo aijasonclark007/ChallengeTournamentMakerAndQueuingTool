@@ -225,6 +225,22 @@
     needSb(); const r = await sb.rpc('umpire_score', { p_slug: slug, p_key: key, p_match: match, p_s1: s1, p_s2: s2, p_status: status });
     if (r.error) fail(r.error);
   }
+  async function moveMatch(slug, key, mid, court) {
+    needSb(); const r = await sb.rpc('move_match', { p_slug: slug, p_key: key, p_mid: mid, p_court: court || '' });
+    if (r.error) fail(r.error);
+  }
+  async function addExtraMatch(slug, key, court, t1, t2, sport, time) {
+    needSb(); const r = await sb.rpc('add_extra_match', { p_slug: slug, p_key: key, p_court: court, p_t1: t1, p_t2: t2, p_sport: sport || 'badminton', p_time: time || '' });
+    if (r.error) fail(r.error); return r.data;
+  }
+  async function removeExtraMatch(slug, key, mid) {
+    needSb(); const r = await sb.rpc('remove_extra_match', { p_slug: slug, p_key: key, p_mid: mid });
+    if (r.error) fail(r.error);
+  }
+  async function getCourtMoves(slug) {
+    needSb(); const r = await sb.rpc('get_court_moves', { p_slug: String(slug || '') });
+    if (r.error) fail(r.error); return r.data || [];
+  }
   async function makeTvCode(slug, key, court, layout) {
     needSb(); const r = await sb.rpc('make_tv_code', { p_slug: slug, p_key: key, p_court: court, p_layout: layout || 'panels' });
     if (r.error) fail(r.error); return r.data;
@@ -268,7 +284,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, makeTvCode, getTvCode, unpublishSchedule, getPublicSchedule,
+    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, getCourtMoves, unpublishSchedule, getPublicSchedule,
     liveChannel, whenReady: () => readyP,
     get user() { return user; }
   };
