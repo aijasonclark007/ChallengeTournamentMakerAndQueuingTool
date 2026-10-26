@@ -105,6 +105,27 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 .sportnote{font-weight:800;margin:2px 0 10px}.sportnote span{color:var(--mute);font-weight:600;font-size:13px}.qform .sp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qform .sp button{padding:14px 8px;border-radius:14px;background:#EEF1F7;font-weight:800;font-size:16px;border:2px solid transparent;transition:transform .35s cubic-bezier(.22,1,.36,1),background .2s,border-color .2s}
 .qform .sp button.on{background:#fff;border-color:var(--blue,#007AFF);box-shadow:0 0 0 4px rgba(0,122,255,.12)}.qform .sp button:active{transform:scale(.96)}
 .qform .go{width:100%;margin-top:12px;padding:15px;border-radius:14px;background:var(--lime);color:#0B1B33;font-weight:900;font-size:17px}
+/* court clock: attendance, 5-minute default timer, 5-minute medical timeout */
+.clk{display:flex;gap:8px;margin:8px 12px 0}.clk:empty{display:none}
+.clk button{flex:1;padding:9px 10px;border-radius:12px;background:#fff;border:1.5px solid var(--line);font-weight:800;font-size:13.5px;line-height:1.2}
+.clk button.run{border-color:#FF9500;background:#FFF4D6;color:#6b4a00;font-variant-numeric:tabular-nums}
+.clk button.med{border-color:#007AFF;background:#E8F2FF;color:#0A4FA8;font-variant-numeric:tabular-nums}
+.clk button.over{border-color:#FF3B30;background:#FFE5E3;color:#B3261E;animation:pulse 1s infinite}
+#ck{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:36;visibility:hidden;opacity:0;transition:opacity .2s,visibility .2s}
+#ck.on{visibility:visible;opacity:1}
+#ck .sheet{background:#fff;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + var(--sab,env(safe-area-inset-bottom)));max-width:520px;width:100%;max-height:92vh;overflow:auto;transform:translateY(30px);transition:transform .35s cubic-bezier(.22,1,.36,1)}#ck.on .sheet{transform:none}
+#ck h3{margin:0 0 4px;font-size:20px}#ck h4{margin:18px 0 8px;font-size:13px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+#ck .who{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:13px 14px;margin:0 0 8px;border-radius:14px;background:#EEF1F7;border:2px solid transparent;font-weight:700;font-size:16px;text-align:left}
+#ck .who span{font-size:13px;font-weight:800;color:var(--mute)}#ck .who.here{background:#EAF7D6;border-color:#8DC63F}#ck .who.here span{color:#2E7D32}
+#ck .big{font-size:54px;font-weight:900;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;margin:6px 0}
+#ck .big.over{color:#B3261E}#ck .note{text-align:center;color:var(--mute);font-size:14px;margin:0 0 10px}
+#ck .res{padding:12px 14px;border-radius:14px;background:#FFE5E3;color:#B3261E;font-weight:800;margin:8px 0}
+#ck .res.ok{background:#EAF7D6;color:#2E7D32}
+#ck .b2{display:flex;gap:8px;margin-top:8px}#ck .b2 button{flex:1;padding:14px 10px;border-radius:14px;font-weight:800;background:#EEF1F7;font-size:15px}
+#ck .b2 .go{background:#FF9500;color:#fff}#ck .b2 .med{background:#007AFF;color:#fff}#ck .b2 .stop{background:#FFE5E3;color:#B3261E}
+#ck select{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;font:inherit;font-size:16px}
+#ck .log{font-size:13px;color:var(--mute);margin-top:8px}
+@media (orientation:landscape) and (max-height:560px){.clk{margin:4px max(12px,var(--sar,env(safe-area-inset-right))) 0 max(12px,var(--sal,env(safe-area-inset-left)))}.clk button{padding:5px 8px;font-size:12.5px}}
 .qclr{display:block;margin:18px auto 0;background:none;color:var(--mute);font-weight:700;padding:10px}
 </style>
 <style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
@@ -117,6 +138,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 <div id="score" aria-live="polite">
   <div class="sbar"><button id="back">Back</button><div class="mid" id="smid"></div><button id="swap">Swap sides</button></div>
   <div id="netbar2" class="netbar" role="status"></div>
+  <div class="clk" id="clk"></div>
   <div class="srvbar" id="srvbar"></div>
   <div class="sides" id="sides"></div>
   <div class="banner" id="ban"></div>
@@ -124,6 +146,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 </div>
 <div id="ov"><div class="sheet"><h3 id="ovT"></h3><p id="ovP"></p><div class="row"><button id="ovNo">Keep scoring</button><button class="go" id="ovYes">Finish</button></div></div></div>
 <div id="sv"><div class="sheet"><h3 id="svT"></h3><p id="svP"></p><div class="opts" id="svO"></div></div></div>
+<div id="ck"><div class="sheet" id="ckS"></div></div>
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -366,6 +389,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     $('#rst').textContent = quick ? 'Cancel match' : 'Cancel live';
     $('#rst').disabled = done || !(scores[m.mid] && scores[m.mid].status === 'live');
     if (!done) $('#sides').querySelectorAll('.side').forEach(el => el.onclick = () => add(+el.dataset.i));
+    ckPaint();
   }
   function add(i) {
     if (won()) return buzz(30);
@@ -381,13 +405,101 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       const el = $('#sides').querySelector('.side.serving'); if (el) el.classList.add('flash');
     }
   }
+  // ----- court clock: who is here, the 5-minute default timer and the 5-minute medical timeout (kept on this phone) -----
+  const CK_SECS = 300;
+  let ck = null, ckTick = null;
+  const ckKey = () => 'ump.' + slug + '.' + (cur ? cur.mid : '') + '.ck';
+  function ckLoad() { try { ck = JSON.parse(localStorage.getItem(ckKey()) || 'null'); } catch (e) { ck = null; } ck = ck || {}; ck.att = ck.att || {}; ck.log = ck.log || []; }
+  function ckSave() { try { localStorage.setItem(ckKey(), JSON.stringify(ck)); } catch (e) {} }
+  const ckSplit = n => String(n || '').split(/\s*(?:\/|&|\band\b)\s*/i).map(x => x.trim()).filter(Boolean);
+  function ckPeople() { const o = []; [cur.t1, cur.t2].forEach((n, side) => { const p = ckSplit(n); (p.length ? p : [n]).forEach(x => o.push({ name: x, side, team: n })); }); return o; }
+  const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+  const ckAllHere = () => ckPeople().every(p => ck.att[p.name]);
+  function ckDefaulted() {                      // a team defaults when any of its players is missing
+    const out = [];
+    [cur.t1, cur.t2].forEach((n, side) => { const miss = ckPeople().filter(p => p.side === side && !ck.att[p.name]).map(p => p.name); if (miss.length) out.push({ team: n, miss }); });
+    return out;
+  }
+  function beep() { try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; const c = new A(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .25; o.start(); setTimeout(() => { try { o.stop(); c.close(); } catch (e) {} }, 1100); } catch (e) {} }
+  function ckAlarm(msg) { buzz([300, 120, 300, 120, 500]); beep(); toast(msg); }
+  function ckStarted() { return s1 + s2 > 0; }
+  function ckPaint() {
+    const bar = $('#clk'); if (!bar) return;
+    if (!cur || !ck || (scores[cur.mid] && scores[cur.mid].status === 'done')) { bar.innerHTML = ''; return; }
+    const now = Date.now(); let h = '';
+    if (ck.mEnd) { const left = ck.mEnd - now; h += '<button type="button" data-ck class="' + (left <= 0 ? 'over' : 'med') + '">' + (left <= 0 ? 'Medical time is up' : 'Medical ' + mmss(left)) + '</button>'; }
+    if (ck.dEnd) { const left = ck.dEnd - now; h += '<button type="button" data-ck class="' + (left <= 0 ? 'over' : 'run') + '">' + (left <= 0 ? 'Default time is up' : 'Default ' + mmss(left)) + '</button>'; }
+    if (!ck.mEnd && !ck.dEnd) {
+      if (!ckStarted() && !ckAllHere()) h += '<button type="button" data-ck>Check-in &amp; default timer</button>';
+      h += '<button type="button" data-ck>Medical timeout</button>';
+    }
+    bar.innerHTML = h; bar.querySelectorAll('[data-ck]').forEach(b => b.onclick = ckOpen);
+  }
+  function ckSheet() {
+    const now = Date.now(), ppl = ckPeople(), dLeft = ck.dEnd ? ck.dEnd - now : 0, mLeft = ck.mEnd ? ck.mEnd - now : 0;
+    let h = '<h3>Court clock</h3><p style="margin:0 0 4px;color:var(--mute)">' + esc(cur.t1) + ' vs ' + esc(cur.t2) + '</p>';
+    h += '<h4>Who is on court</h4>' + ppl.map((p, i) => '<button type="button" class="who' + (ck.att[p.name] ? ' here' : '') + '" data-who="' + i + '">' + esc(p.name) + '<span>' + (ck.att[p.name] ? 'Here \u2713' : 'Not here') + '</span></button>').join('');
+    h += '<div class="b2"><button type="button" data-ca="all">Everyone is here</button></div>';
+    h += '<h4>Default timer (5 minutes)</h4>';
+    if (ck.dEnd) {
+      const over = dLeft <= 0;
+      h += '<div class="big' + (over ? ' over' : '') + '" id="ckDt">' + (over ? '0:00' : mmss(dLeft)) + '</div>';
+      if (over) { const d = ckDefaulted(); h += '<div class="res">Time is up. ' + (d.length ? d.map(x => esc(x.team) + ' defaults (' + esc(x.miss.join(', ')) + ' not here)').join('. ') + '.' : 'Everyone is here.') + '</div><p class="note">Use Cancel match or Finish match to close it out as the organizer decides.</p>'; }
+      else { const d = ckDefaulted(); h += '<p class="note">Still missing: ' + (d.length ? esc(d.flatMap(x => x.miss).join(', ')) : 'nobody') + '. Tick each player as they arrive.</p>'; }
+      h += '<div class="b2"><button type="button" class="stop" data-ca="dstop">Stop timer</button></div>';
+    } else if (ck.dOk || ckAllHere()) h += '<div class="res ok">Everyone is here. No default timer needed.</div>';
+    else h += '<p class="note">Start when the match is called. Players missing at 0:00 default.</p><div class="b2"><button type="button" class="go" data-ca="dstart">Start 5:00 default timer</button></div>';
+    h += '<h4>Medical timeout (5 minutes)</h4>';
+    if (ck.mEnd) {
+      const over = mLeft <= 0;
+      h += '<div class="big' + (over ? ' over' : '') + '" id="ckMt">' + (over ? '0:00' : mmss(mLeft)) + '</div><p class="note">' + esc(ck.mWho) + (over ? ': time is up. They must resume or retire.' : ' is receiving treatment.') + '</p>';
+      h += '<div class="b2"><button type="button" class="stop" data-ca="mstop">Play resumes</button></div>';
+    } else {
+      h += '<select id="ckWho" aria-label="Who needs the timeout">' + ppl.map(p => '<option>' + esc(p.name) + '</option>').join('') + '</select><div class="b2"><button type="button" class="med" data-ca="mstart">Start 5:00 medical timeout</button></div>';
+    }
+    if (ck.log.length) h += '<div class="log">' + ck.log.map(x => esc(x)).join('<br>') + '</div>';
+    h += '<div class="b2" style="margin-top:16px"><button type="button" data-ca="close">Close</button></div>';
+    $('#ckS').innerHTML = h;
+  }
+  function ckOpen() { if (!cur || !ck) return; ckSheet(); $('#ck').classList.add('on'); }
+  $('#ck').addEventListener('click', e => {
+    if (e.target.id === 'ck') { $('#ck').classList.remove('on'); return; }
+    if (!cur || !ck) return;
+    const w = e.target.closest('[data-who]'), a = e.target.closest('[data-ca]');
+    if (w) {
+      const p = ckPeople()[+w.dataset.who]; ck.att[p.name] = !ck.att[p.name]; buzz(10);
+      if (ck.dEnd && ckAllHere()) { ck.dEnd = null; ck.dOver = false; ck.dOk = true; toast('Everyone is here. Default timer stopped.'); }
+    } else if (a) {
+      const k = a.dataset.ca; buzz(10);
+      if (k === 'close') { $('#ck').classList.remove('on'); return; }
+      if (k === 'all') { ckPeople().forEach(p => { ck.att[p.name] = true; }); if (ck.dEnd) { ck.dEnd = null; ck.dOver = false; } ck.dOk = true; }
+      else if (k === 'dstart') { ck.dEnd = Date.now() + CK_SECS * 1000; ck.dOver = false; ck.dOk = false; }
+      else if (k === 'dstop') { ck.dEnd = null; ck.dOver = false; }
+      else if (k === 'mstart') { ck.mWho = ($('#ckWho') || {}).value || ''; ck.mEnd = Date.now() + CK_SECS * 1000; ck.mOver = false; ck.mAt = Date.now(); }
+      else if (k === 'mstop') { const used = Math.min(CK_SECS, Math.round((Date.now() - ck.mAt) / 1000)); ck.log.push('Medical timeout: ' + ck.mWho + ', ' + Math.floor(used / 60) + ':' + String(used % 60).padStart(2, '0') + ' used'); ck.mEnd = null; ck.mOver = false; }
+    } else return;
+    ckSave(); ckSheet(); ckPaint();
+  });
+  function ckStart() {
+    ckLoad(); clearInterval(ckTick);
+    ckTick = setInterval(() => {
+      if (!cur || !ck) return; const now = Date.now(); let ch = false;
+      if (ck.dEnd && now >= ck.dEnd && !ck.dOver) { ck.dOver = true; ch = true; const d = ckDefaulted(); ckAlarm('Default time is up. ' + (d.length ? d.map(x => x.team).join(' and ') + ' default.' : '')); }
+      if (ck.mEnd && now >= ck.mEnd && !ck.mOver) { ck.mOver = true; ch = true; ckAlarm('Medical timeout is over: ' + ck.mWho); }
+      if (ch) { ckSave(); if ($('#ck').classList.contains('on')) ckSheet(); }
+      else if ($('#ck').classList.contains('on')) { const d = $('#ckDt'), m = $('#ckMt'); if (d && ck.dEnd) d.textContent = mmss(ck.dEnd - now); if (m && ck.mEnd) m.textContent = mmss(ck.mEnd - now); }
+      ckPaint();
+    }, 1000);
+    ckPaint();
+  }
+  function ckStop() { clearInterval(ckTick); ckTick = null; ck = null; $('#ck').classList.remove('on'); const b = $('#clk'); if (b) b.innerHTML = ''; }
   async function openMatch(mid) {
     cur = (data.matches || []).find(m => m.mid === mid); if (!cur) return;
     const sv0 = scores[mid] || (cur.res ? { s1: cur.res.a, s2: cur.res.b, status: 'done' } : null);
     s1 = sv0 ? sv0.s1 : 0; s2 = sv0 ? sv0.s2 : 0; hist = []; flipped = false; sv = null; swapAsked = Math.max(s1, s2) >= MID;
     try { const l = JSON.parse(localStorage.getItem('ump.' + slug + '.' + mid) || 'null'); if (l && ((sv0 && l.s1 === s1 && l.s2 === s2) || (!sv0 && !l.s1 && !l.s2))) { hist = l.hist || []; sv = l.sv === undefined ? null : l.sv; } } catch (e) {}
     $('#smid').textContent = cur.court + ' · ' + cur.time + ' · ' + cur.bracket;
-    $('#score').classList.add('on'); paint(); fullScreen(true);
+    $('#score').classList.add('on'); paint(); ckStart(); fullScreen(true);
     if ((!sv0 || sv0.status !== 'done') && sv === null && s1 + s2 === 0) setTimeout(() => setServe(), 350);   // new match: ask who serves first
     if (!sv0 || sv0.status !== 'done') { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
   }
@@ -401,7 +513,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   async function closeMatch() {
     // leaving a match nobody has scored in: take it off LIVE so it is not shown as playing
     if (cur && s1 === 0 && s2 === 0 && scores[cur.mid] && scores[cur.mid].status === 'live') resetLive(true);
-    $('#score').classList.remove('on'); fullScreen(false); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
+    $('#score').classList.remove('on'); ckStop(); fullScreen(false); cur = null; try { if (wake) wake.release(); } catch (e) {} wake = null; load().then(() => { if (data) renderList(); }); }
   $('#back').onclick = () => closeMatch();
   $('#rst').onclick = async () => {
     if (!cur) return; const st = scores[cur.mid];
