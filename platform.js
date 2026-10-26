@@ -241,6 +241,23 @@
     needSb(); const r = await sb.rpc('set_extra_slot', { p_slug: slug, p_key: key, p_mid: mid, p_slot: slot, p_time: time || '' });
     if (r.error) fail(r.error);
   }
+  async function editScore(slug, key, mid, s1, s2) {
+    needSb(); const r = await sb.rpc('edit_score', { p_slug: slug, p_key: key, p_match: mid, p_s1: s1, p_s2: s2 });
+    if (r.error) fail(r.error);
+  }
+  async function setAnnouncement(slug, key, text) {
+    needSb(); const r = await sb.rpc('set_announcement', { p_slug: slug, p_key: key, p_text: text || '' });
+    if (r.error) fail(r.error);
+  }
+  async function getAnnouncement(slug) {
+    needSb(); const r = await sb.rpc('get_announcement', { p_slug: String(slug || '') });
+    if (r.error) fail(r.error); return (r.data && r.data[0]) || null;
+  }
+  async function addLog(slug, key, text) { try { needSb(); await sb.rpc('add_log', { p_slug: slug, p_key: key, p_text: text }); } catch (e) {} }
+  async function getLog(slug, key) {
+    needSb(); const r = await sb.rpc('get_log', { p_slug: slug, p_key: key });
+    if (r.error) fail(r.error); return r.data || [];
+  }
   async function getCourtMoves(slug) {
     needSb(); const r = await sb.rpc('get_court_moves', { p_slug: String(slug || '') });
     if (r.error) fail(r.error); return r.data || [];
@@ -288,7 +305,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, setExtraSlot, getCourtMoves, unpublishSchedule, getPublicSchedule,
+    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, clearLiveScores, umpireGet, umpireScore, umpireReset, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, setExtraSlot, editScore, setAnnouncement, getAnnouncement, addLog, getLog, getCourtMoves, unpublishSchedule, getPublicSchedule,
     liveChannel, whenReady: () => readyP,
     get user() { return user; }
   };

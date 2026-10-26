@@ -51,6 +51,18 @@ button:disabled{opacity:.4;cursor:default}
 .pill.late{background:#FFF1D6;color:#8A5200}.sum .lt{background:#FFF1D6;color:#8A5200}
 .recent{margin-top:18px;background:var(--card);box-shadow:var(--shadow);border-radius:20px;padding:14px 16px}.recent h3{margin:0 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
 .rrow{display:grid;grid-template-columns:70px 70px 1fr;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.rrow:first-of-type{border-top:0}.rrow span.t{color:var(--mute);font-size:12px;font-weight:700}.rrow b{font-variant-numeric:tabular-nums}.rrow .w{font-weight:800}
+.tbw{padding-bottom:0!important;display:none}.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tb input{flex:1 1 220px;min-width:0;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px}
+.tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
+#panel{margin-top:10px}.pn{background:var(--card);box-shadow:var(--shadow);border-radius:18px;padding:14px 16px;animation:slidedown .28s ease both}
+.pn h3{margin:0 0 8px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.pn textarea{width:100%;min-height:74px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);font:inherit;font-size:16px;background:var(--bg);color:var(--ink);resize:vertical}
+.pr{display:grid;grid-template-columns:78px 72px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.pr:first-of-type{border-top:0}.pr .t{color:var(--mute);font-size:12px;font-weight:700}
+.chipx{font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px;background:var(--chip);color:var(--mute);white-space:nowrap}.chipx.live{background:var(--green);color:#fff}.chipx.done{background:#E6F6EC;color:#16793A}
+.lg{padding:7px 0;border-top:1px solid var(--line);font-size:14px;display:grid;grid-template-columns:78px 1fr;gap:10px}.lg:first-of-type{border-top:0}.lg span{color:var(--mute);font-size:12px;font-weight:700}
+.sh{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}.sh.on{display:flex}.sh>div{background:var(--card);width:100%;max-width:460px;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));animation:slidedown .25s ease both}
+.sh .sc{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;margin:10px 0}.sh .sc input{padding:12px;border-radius:12px;border:1px solid var(--line);font:inherit;font-size:22px;font-weight:800;text-align:center;background:var(--bg);color:var(--ink)}
+.rrow .ed{margin-left:8px;font-size:12px;font-weight:800;color:var(--blue);background:none;padding:2px 6px}
 .msg{padding:50px 20px;text-align:center;color:var(--mute)}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:.3s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -59,7 +71,9 @@ button:disabled{opacity:.4;cursor:default}
 </head>
 <body>
 <div class="top"><h1 id="ttl">Match Control<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
+<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
 <div class="wrap" id="app"><div class="msg">Loading...</div></div>
+<div class="sh" id="es"><div><h2 style="margin:0 0 2px;font-size:19px">Fix the score</h2><p class="meta" id="esMsg" style="margin:0"></p><div class="sc"><b id="esT1"></b><input id="esA" type="number" inputmode="numeric" min="0" max="99"><b id="esT2"></b><input id="esB" type="number" inputmode="numeric" min="0" max="99"></div><div class="btns"><button class="go" id="esSave">Save score</button><button id="esCancel">Cancel</button></div></div></div>
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
@@ -73,7 +87,7 @@ button:disabled{opacity:.4;cursor:default}
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const P = window.Platform;
   const openMore = {};
-  let data = null, scores = {}, clocks = {}, ctl = null, alarmed = {}, err = null;
+  let data = null, scores = {}, clocks = {}, ctl = null, alarmed = {}, err = null, ann = null, panelKind = '', logRows = null;
 
   function beep() { try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; const c = new A(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .25; o.start(); setTimeout(() => { try { o.stop(); c.close(); } catch (e) {} }, 900); } catch (e) {} }
   const state = m => { const s = scores[m.mid]; if (s) return s.status; if (m.res) return 'done'; return 'up'; };
@@ -83,6 +97,7 @@ button:disabled{opacity:.4;cursor:default}
   async function load() {
     try {
       const d = await P.umpireGet(slug, key);
+      try { ann = await P.getAnnouncement(slug); } catch (e) { ann = null; }
       data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; }); err = null; $('#dot').className = 'dot';
     } catch (e) { err = e.message || 'Could not load'; $('#dot').className = 'dot err'; }
     paint();
@@ -99,26 +114,29 @@ button:disabled{opacity:.4;cursor:default}
 
   function send(msg) { try { ctl.ping(msg); } catch (e) {} }
   function cmd(mid, c, who) { send({ t: 'cmd', mid, cmd: c, who }); toast('Sent to the umpire.'); }
-  function call(m) { send({ t: 'call', mid: m.mid, label: m.t1 + ' vs ' + m.t2 }); toast('Called: ' + m.t1 + ' vs ' + m.t2); }
+  const mById = mid => ((data && data.matches) || []).find(m => m.mid === mid);
+  const mName = m => m ? (m.t1 || 'TBD') + ' vs ' + (m.t2 || 'TBD') : 'a match';
+  function logIt(text) { P.addLog(slug, key, text); if (panelKind === 'log') setTimeout(() => openPanel('log', true), 500); }
+  function call(m) { logIt('Called to court: ' + mName(m) + ' (' + m.court + ')'); send({ t: 'call', mid: m.mid, label: m.t1 + ' vs ' + m.t2 }); toast('Called: ' + m.t1 + ' vs ' + m.t2); }
 
   const target = m => m.sport === 'pickleball' ? 11 : 31;      // a default counts as a full game to nothing: 31-0 (pickleball 11-0)
   async function recordDefault(m, side) {
     const T = target(m), loser = side === 0 ? m.t1 : m.t2, winner = side === 0 ? m.t2 : m.t1, s1 = side === 0 ? 0 : T, s2 = side === 0 ? T : 0;
     if (!confirm(loser + ' defaults.\n' + winner + ' wins ' + T + ' - 0.\nThis is final and goes to the scoreboard. Record it?')) return;
     try { await P.umpireScore(slug, key, m.mid, s1, s2, 'done'); } catch (e) { toast(e.message || 'Could not save.'); return; }
-    send({ t: 'defrec', mid: m.mid, s1, s2 }); delete clocks[m.mid]; toast('Recorded: ' + winner + ' wins ' + T + ' - 0.'); load();
+    logIt('Default recorded on ' + m.court + ': ' + loser + ' defaulted, ' + winner + ' wins ' + T + '-0'); send({ t: 'defrec', mid: m.mid, s1, s2 }); delete clocks[m.mid]; toast('Recorded: ' + winner + ' wins ' + T + ' - 0.'); load();
   }
   const base = () => location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
   const umpUrl = court => base() + 'u.html?s=' + encodeURIComponent(slug) + '&k=' + encodeURIComponent(key) + (court ? '&c=' + encodeURIComponent(court) : '');
   let slch = null;
   async function changed(msg) { toast(msg); try { slch && slch.ping(); } catch (e) {} await load(); }
-  async function doMove(mid, court) { try { await P.moveMatch(slug, key, mid, court); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not move.')); return; } changed(court ? 'Moved to ' + court + '.' : 'Put back on its original court.'); }
+  async function doMove(mid, court) { const mm = mById(mid), from = mm && mm.court; try { await P.moveMatch(slug, key, mid, court); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not move.')); return; } logIt(court ? 'Moved ' + mName(mm) + ' from ' + from + ' to ' + court : 'Put ' + mName(mm) + ' back on its original court'); changed(court ? 'Moved to ' + court + '.' : 'Put back on its original court.'); }
   async function doAdd(court, t1, t2, sport) {
     if (!t1.trim() || !t2.trim()) { toast('Type both teams.'); return; }
     try { await P.addExtraMatch(slug, key, court, t1.trim(), t2.trim(), sport, new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not add.')); return; }
-    changed('Added to ' + court + '.');
+    logIt('Added extra match on ' + court + ': ' + t1.trim() + ' vs ' + t2.trim()); changed('Added to ' + court + '.');
   }
-  async function doSlot(mid, slot, msg, time) { try { await P.setExtraSlot(slug, key, mid, slot, time); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step12.sql first.' : (e.message || 'Could not change the order.')); return; } changed(msg); }
+  async function doSlot(mid, slot, msg, time) { try { await P.setExtraSlot(slug, key, mid, slot, time); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step12.sql first.' : (e.message || 'Could not change the order.')); return; } logIt('Extra match order: ' + mName(mById(mid)) + ' - ' + msg); changed(msg); }
   // rest slots = gaps in the schedule's slot numbers; their times are worked out from the games either side
   const toMin = t => { const m = /(\d+):(\d+)\s*(AM|PM)?/i.exec(String(t || '')); if (!m) return null; let h = +m[1] % 12; if (/pm/i.test(m[3] || '')) h += 12; return h * 60 + +m[2]; };
   const fmtMin = n => { n = Math.round(n); const h = Math.floor(n / 60) % 24, mi = n % 60; return ((h % 12) || 12) + ':' + String(mi).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM'); };
@@ -144,9 +162,71 @@ button:disabled{opacity:.4;cursor:default}
   function recentHtml(all) {
     const done = all.filter(m => state(m) === 'done' && score(m)).sort((a, b) => (b.slot - a.slot) || String(a.court).localeCompare(String(b.court), undefined, { numeric: true })).slice(0, 6);
     if (!done.length) return '';
-    return '<div class="recent"><h3>Recently finished</h3>' + done.map(m => { const s = score(m), w1 = s.s1 > s.s2; return '<div class="rrow"><span class="t">' + esc(String(m.time).split(/\s+-\s+/)[0]) + '</span><span class="t">' + esc(m.court) + '</span><div><span class="' + (w1 ? 'w' : '') + '">' + esc(m.t1) + '</span> <b>' + s.s1 + '</b> – <b>' + s.s2 + '</b> <span class="' + (w1 ? '' : 'w') + '">' + esc(m.t2) + '</span></div></div>'; }).join('') + '</div>';
+    return '<div class="recent"><h3>Recently finished</h3>' + done.map(m => { const s = score(m), w1 = s.s1 > s.s2; return '<div class="rrow"><span class="t">' + esc(String(m.time).split(/\s+-\s+/)[0]) + '</span><span class="t">' + esc(m.court) + '</span><div><span class="' + (w1 ? 'w' : '') + '">' + esc(m.t1) + '</span> <b>' + s.s1 + '</b> – <b>' + s.s2 + '</b> <span class="' + (w1 ? '' : 'w') + '">' + esc(m.t2) + '</span><button class="ed" data-edit="' + esc(m.mid) + '">Fix score</button></div></div>'; }).join('') + '</div>';
   }
-  async function doRemove(mid) { if (!confirm('Remove this extra match?')) return; try { await P.removeExtraMatch(slug, key, mid); } catch (e) { toast(e.message || 'Could not remove.'); return; } changed('Extra match removed.'); }
+  // ----- toolbar: find a player, announcements, full schedule, activity log, fix a score, close a court -----
+  const sTag = m => { const s = score(m), st = state(m); return st === 'done' && s ? '<span class="chipx done">Final ' + s.s1 + ' - ' + s.s2 + '</span>' : st === 'live' ? '<span class="chipx live">LIVE' + (s ? ' ' + s.s1 + ' - ' + s.s2 : '') + '</span>' : '<span class="chipx">' + (ready(m) ? 'Upcoming' : 'Waiting') + '</span>'; };
+  const t0 = m => esc(String(m.time).split(/\s+-\s+/)[0]);
+  const bySlot = (a, b) => (a.slot - b.slot) || String(a.court).localeCompare(String(b.court), undefined, { numeric: true });
+  function panelHtml(kind) {
+    const all = (data && data.matches) || [];
+    if (kind === 'find') {
+      const q = ($('#find').value || '').trim().toLowerCase(); if (!q) return '';
+      const hit = all.filter(m => ((m.t1 || '') + ' ' + (m.t2 || '')).toLowerCase().includes(q)).sort(bySlot);
+      return '<div class="pn"><h3>' + (hit.length ? hit.length + ' match' + (hit.length > 1 ? 'es' : '') + ' for "' + esc(q) + '"' : 'No match found for "' + esc(q) + '"') + '</h3>' + hit.map(m => '<div class="pr"><span class="t">' + t0(m) + '</span><span class="t">' + esc(m.court) + '</span><div>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '<div class="meta">' + esc(m.bracket) + '</div></div>' + sTag(m) + '</div>').join('') + '</div>';
+    }
+    if (kind === 'sched') {
+      const left = all.filter(m => state(m) !== 'done').sort(bySlot); if (!left.length) return '<div class="pn"><h3>Full schedule</h3><div class="meta">Every match is finished.</div></div>';
+      let h = '<div class="pn"><h3>Still to play (' + left.length + ')</h3>', last = null;
+      left.forEach(m => { const tk = String(m.time); if (tk !== last) { last = tk; h += '<div style="margin:10px 0 2px;font-weight:800">' + esc(tk) + '</div>'; } h += '<div class="pr"><span class="t">' + esc(m.court) + '</span><span class="t">' + esc(m.bracket) + '</span><div>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '</div>' + sTag(m) + '</div>'; });
+      return h + '</div>';
+    }
+    if (kind === 'log') {
+      if (logRows == null) return '<div class="pn"><h3>Activity log</h3><div class="meta">Loading...</div></div>';
+      return '<div class="pn"><h3>Activity log</h3>' + (logRows.length ? logRows.map(r => '<div class="lg"><span>' + esc(new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '</span><div>' + esc(r.body) + '</div></div>').join('') : '<div class="meta">Nothing yet. Moves, defaults, score fixes and announcements are listed here.</div>') + '</div>';
+    }
+    if (kind === 'ann') return '<div class="pn"><h3>Announcement on every court TV, umpire phone and the schedule page</h3><textarea id="annText" maxlength="200" placeholder="e.g. Lunch break until 1:00 PM">' + esc(ann ? ann.body : '') + '</textarea><div class="btns"><button class="go" id="annSet">Show on all screens</button><button class="stop" id="annClr">Clear</button></div>' + (ann ? '<div class="meta" style="margin-top:8px">Live now since ' + esc(new Date(ann.updated_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '.</div>' : '') + '</div>';
+    return '';
+  }
+  async function openPanel(kind, keep) {
+    if (!keep && panelKind === kind) { panelKind = ''; } else panelKind = kind;
+    document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === panelKind));
+    if (panelKind === 'log') { renderPanel(); try { logRows = await P.getLog(slug, key); } catch (e) { logRows = []; } }
+    renderPanel();
+  }
+  function renderPanel() {
+    const box = $('#panel'); if (!panelKind) { box.innerHTML = ''; return; }
+    if (panelKind === 'ann' && $('#annText')) return;                // never redraw the box someone is typing in
+    box.innerHTML = panelHtml(panelKind);
+    const set = $('#annSet'), clr = $('#annClr');
+    if (set) set.onclick = async () => { const t = ($('#annText').value || '').trim(); if (!t) { toast('Type a message first.'); return; } try { await P.setAnnouncement(slug, key, t); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step13.sql first.' : (e.message || 'Could not send.')); return; } logIt('Announcement: ' + t); changed('Announcement is live.'); };
+    if (clr) clr.onclick = async () => { try { await P.setAnnouncement(slug, key, ''); } catch (e) { toast(e.message || 'Could not clear.'); return; } logIt('Announcement cleared'); ann = null; $('#panel').innerHTML = ''; panelKind = ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); changed('Announcement cleared.'); };
+  }
+  function initToolbar() {
+    $('#tbw').style.display = 'block';
+    document.querySelectorAll('.tb [data-p]').forEach(b => b.onclick = () => { if (panelKind === 'find') $('#find').value = ''; openPanel(b.dataset.p); });
+    $('#find').addEventListener('input', () => { panelKind = $('#find').value.trim() ? 'find' : ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); renderPanel(); });
+  }
+  let editMid = null;
+  function openEdit(mid) {
+    const m = mById(mid), s = m && score(m); if (!m) return; editMid = mid;
+    $('#esT1').textContent = m.t1; $('#esT2').textContent = m.t2; $('#esA').value = s ? s.s1 : ''; $('#esB').value = s ? s.s2 : ''; $('#esMsg').textContent = m.court + ' · ' + m.time + '. The corrected score replaces the old one everywhere.'; $('#es').classList.add('on');
+  }
+  async function saveEdit() {
+    const m = mById(editMid); if (!m) return; const a = parseInt($('#esA').value, 10), b = parseInt($('#esB').value, 10), old = score(m);
+    if (!(a >= 0 && b >= 0)) { toast('Type both scores.'); return; } if (a === b) { toast('A game cannot end in a tie.'); return; }
+    if (!confirm('Change the score to ' + a + ' - ' + b + '?')) return;
+    try { await P.editScore(slug, key, m.mid, a, b); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step13.sql first.' : (e.message || 'Could not save.')); return; }
+    logIt('Score fixed on ' + m.court + ': ' + mName(m) + ' ' + (old ? old.s1 + '-' + old.s2 : '?') + ' changed to ' + a + '-' + b); $('#es').classList.remove('on'); changed('Score updated.');
+  }
+  async function closeCourt(from, to) {
+    const ct = courtsOf().find(x => x.name === from); if (!ct || !to) return;
+    const mv = ct.list.filter(m => state(m) === 'up'); if (!mv.length) { toast('Nothing left to move on ' + from + '.'); return; }
+    if (!confirm('Move ' + mv.length + ' remaining match' + (mv.length > 1 ? 'es' : '') + ' from ' + from + ' to ' + to + '?\nA match being played right now stays where it is.')) return;
+    try { for (const m of mv) await P.moveMatch(slug, key, m.mid, to); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not move.')); load(); return; }
+    logIt('Closed ' + from + ': moved ' + mv.length + ' match' + (mv.length > 1 ? 'es' : '') + ' to ' + to); changed('Moved ' + mv.length + ' match' + (mv.length > 1 ? 'es' : '') + ' to ' + to + '.');
+  }
+  async function doRemove(mid) { if (!confirm('Remove this extra match?')) return; const nm = mName(mById(mid)); try { await P.removeExtraMatch(slug, key, mid); } catch (e) { toast(e.message || 'Could not remove.'); return; } logIt('Removed extra match: ' + nm); changed('Extra match removed.'); }
   async function copy(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg); } catch (e) { prompt('Copy this link', t); } }
   function courtsOf() {
     const by = {};
@@ -212,6 +292,7 @@ button:disabled{opacity:.4;cursor:default}
       h += '<h4 style="margin-top:12px">Add an extra match here</h4><div class="row"><input data-x1="' + esc(ct.name) + '" placeholder="Team 1 (e.g. Ann / Ben)"><input data-x2="' + esc(ct.name) + '" placeholder="Team 2"></div><div class="row"><select data-xs="' + esc(ct.name) + '"><option value="badminton"' + (sp === 'pickleball' ? '' : ' selected') + '>Badminton</option><option value="pickleball"' + (sp === 'pickleball' ? ' selected' : '') + '>Pickleball</option></select></div><div class="btns"><button class="go" data-doadd="' + esc(ct.name) + '">Add match</button></div>';
       const ex = ct.list.filter(m => m.extra && state(m) === 'up'), floor = Math.min.apply(null, ct.list.filter(m => !m.extra && state(m) !== 'done').map(m => m.slot).concat([1e9])), rests = restSlots().filter(r => r.slot > floor);
       if (ex.length) h += '<h4 style="margin-top:12px">Extra matches waiting</h4>' + ex.map(m => { const pos = ct.list.filter(x => state(x) !== 'done').findIndex(x => x.mid === m.mid); return '<div style="margin-bottom:10px"><div style="font-weight:700">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div><div class="meta">' + (pos === 0 ? 'Playing next' : pos > 0 ? pos + ' match' + (pos > 1 ? 'es' : '') + ' before it' : '') + '</div><div class="btns" style="margin-top:6px"><button class="go" data-xnext="' + esc(m.mid) + '" data-xc="' + esc(ct.name) + '">Play next</button><button data-xlast="' + esc(m.mid) + '">Play last</button><button class="stop" data-rmx="' + esc(m.mid) + '">Remove</button></div>' + (rests.length ? '<div class="row" style="margin-top:8px"><select data-xr="' + esc(m.mid) + '">' + rests.map(r => '<option value="' + r.slot + '">Rest slot ' + esc(r.label) + '</option>').join('') + '</select><button style="flex:0 0 auto;padding:10px 14px;border-radius:10px;background:var(--card);font-weight:800" data-xrest="' + esc(m.mid) + '">Put here</button></div>' : '') + '</div>'; }).join('');
+      if (others.length && ct.list.some(m => state(m) === 'up')) h += '<h4 style="margin-top:12px">Court not usable?</h4><div class="row"><select data-cc="' + esc(ct.name) + '">' + others.map(x => '<option>' + esc(x.name) + '</option>').join('') + '</select></div><div class="btns"><button class="stop" data-closec="' + esc(ct.name) + '">Move all remaining matches</button></div>';
       h += '<h4 style="margin-top:12px">Umpire missing?</h4><div class="btns"><button data-ulink="' + esc(ct.name) + '">Copy umpire link for ' + esc(ct.name) + '</button></div><div class="meta" style="margin:6px 0 10px">Send it to anyone. Opening it on their phone puts them on this court.</div></details></div>';
       return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + (late ? '<span class="pill late">' + late.txt + '</span>' : '') + pill + '</div>' + h + '</div>';
     });
@@ -229,6 +310,10 @@ button:disabled{opacity:.4;cursor:default}
     app.querySelectorAll('[data-domove]').forEach(b => b.onclick = () => doMove(val('data-mv', b.dataset.domove), val('data-to', b.dataset.domove)));
     app.querySelectorAll('[data-back]').forEach(b => b.onclick = () => doMove(val('data-mv', b.dataset.back), ''));
     app.querySelectorAll('[data-doadd]').forEach(b => b.onclick = () => doAdd(b.dataset.doadd, val('data-x1', b.dataset.doadd), val('data-x2', b.dataset.doadd), val('data-xs', b.dataset.doadd)));
+    app.querySelectorAll('[data-closec]').forEach(b => b.onclick = () => closeCourt(b.dataset.closec, (app.querySelector('[data-cc="' + b.dataset.closec + '"]') || {}).value));
+    app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEdit(b.dataset.edit));
+    const aB = $('#bAnn'); if (aB) { const dot = aB.querySelector('i'); if (ann && !dot) aB.insertAdjacentHTML('beforeend', '<i></i>'); if (!ann && dot) dot.remove(); }
+    if (panelKind && panelKind !== 'log') renderPanel();
     app.querySelectorAll('[data-xnext]').forEach(b => b.onclick = () => {
       const ct = courts.find(x => x.name === b.dataset.xc), left = ct.list.filter(m => state(m) !== 'done' && m.mid !== b.dataset.xnext), live = left.find(m => state(m) === 'live'), first = left.find(m => state(m) === 'up');
       const slot = live ? live.slot + 0.5 : first ? first.slot - 0.5 : 900;
@@ -249,6 +334,8 @@ button:disabled{opacity:.4;cursor:default}
 
   if (!slug || !key) { $('#app').innerHTML = '<div class="msg">This link is incomplete. Open Match Control from the "Live scoring for umpires" box in Draw &amp; Schedule.</div>'; return; }
   if (!P || !P.configured) { $('#app').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
+  initToolbar();
+  $('#esSave').onclick = saveEdit; $('#esCancel').onclick = () => $('#es').classList.remove('on');
   try { ctl = P.liveChannel('ctl-' + slug + '-' + key, onCk); } catch (e) {}
   try { slch = P.liveChannel('slive-' + slug, () => load()); } catch (e) {}
   load();

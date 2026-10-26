@@ -7,9 +7,11 @@
 <style>html{-webkit-text-size-adjust:100%;text-size-adjust:100%}   /* stop iPhone Safari from enlarging text after a rotation */
 html,body{margin:0;height:100%;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
 iframe{border:0;width:100%;height:100%;display:block}
-.msg{padding:40px 20px;text-align:center;color:#555}</style>
+.msg{padding:40px 20px;text-align:center;color:#555}
+#ann{position:fixed;left:10px;right:10px;top:10px;z-index:9;background:#FF9500;color:#1b1200;border-radius:14px;padding:11px 14px;font-weight:800;font-size:15px;box-shadow:0 8px 24px rgba(0,0,0,.22);display:none}</style>
 </head>
 <body>
+<div id="ann" onclick="this.style.display='none'"></div>
 <div id="m" class="msg">Loading the schedule...</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
@@ -26,7 +28,7 @@ iframe{border:0;width:100%;height:100%;display:block}
     f.setAttribute('sandbox', 'allow-scripts allow-popups');   // runs the name search, nothing else
     f.srcdoc = row.html;
     m.remove(); document.body.appendChild(f);
-    const push = async () => { try { const sc = await Platform.getLiveScores(slug); let mv = []; try { mv = await Platform.getCourtMoves(slug); } catch (e) {} if (f.contentWindow) f.contentWindow.postMessage({ t: 'live', scores: sc, moves: mv }, '*'); } catch (e) {} };
+    const push = async () => { try { const a = await Platform.getAnnouncement(slug).catch(() => null), b = document.getElementById('ann'); if (a) { b.textContent = a.body; if (b.dataset.at !== a.updated_at) { b.dataset.at = a.updated_at; b.style.display = 'block'; } } else { b.style.display = 'none'; b.dataset.at = ''; } } catch (e) {} try { const sc = await Platform.getLiveScores(slug); let mv = []; try { mv = await Platform.getCourtMoves(slug); } catch (e) {} if (f.contentWindow) f.contentWindow.postMessage({ t: 'live', scores: sc, moves: mv }, '*'); } catch (e) {} };
     f.addEventListener('load', push); setInterval(() => { if (!document.hidden) push(); }, 20000); try { Platform.liveChannel('slive-' + slug, () => push()); } catch (e) {}
   } catch (e) { m.textContent = 'Could not load the schedule: ' + e.message; }
 })();
