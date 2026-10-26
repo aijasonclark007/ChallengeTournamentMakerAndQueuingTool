@@ -998,19 +998,24 @@ function resolveKnockout(ko, koResults) {
 }
 
 /** Puts the knockout games on courts and time slots, starting after the group stage (with a rest slot). */
-function scheduleKnockout(ko, groupLastSlot, options) {
+function scheduleKnockout(ko, groupLastSlot, options, poolMatches) {
   const opt = withDefaults(options), start = toMinutes(opt.startTime), slotOf = {}, out = [];
   const pref = (opt.koCourtPriority || []).filter(o => o < opt.courts);
   for (let o = 0; o < opt.courts; o++) if (!pref.includes(o)) pref.push(o);
-  let todo = ko.matches.slice(), slot = groupLastSlot + 1 + opt.restSlots;
+  // each level's knockout can start once that level's own group games are done (and its players rested), using courts the other levels are not using
+  const lvLast = {}, busy = {};
+  (poolMatches || []).forEach(p => { lvLast[p.level] = Math.max(lvLast[p.level] || 0, p.slot); (busy[p.slot] = busy[p.slot] || new Set()).add(p.court - 1); });
+  const firstFor = lv => (poolMatches && lvLast[lv] ? lvLast[lv] : groupLastSlot) + 1 + opt.restSlots;
+  let todo = ko.matches.slice(), slot = Math.min.apply(null, ko.matches.map(m => firstFor(m.level)).concat([groupLastSlot + 1 + opt.restSlots]));
   while (todo.length && slot < 1000) {
+    const taken = busy[slot] || new Set(), freeCourts = pref.filter(o => !taken.has(o));
     const ready = todo
-      .filter(m => m.after.every(id => slotOf[id] !== undefined && slot - slotOf[id] > opt.restSlots))
+      .filter(m => slot >= firstFor(m.level) && m.after.every(id => slotOf[id] !== undefined && slot - slotOf[id] > opt.restSlots))
       .sort((a, b) => a.round - b.round || opt.scheduleOrder.indexOf(a.level) - opt.scheduleOrder.indexOf(b.level))
-      .slice(0, opt.courts);
+      .slice(0, freeCourts.length);
     ready.forEach((m, i) => {
       slotOf[m.id] = slot;
-      const off = pref[i];
+      const off = freeCourts[i];
       out.push(Object.assign({}, m, { slot, court: off + 1, courtName: 'Court ' + (opt.firstCourt + off), start: fmt(start + (slot - 1) * opt.slotMinutes), end: fmt(start + slot * opt.slotMinutes) }));
     });
     todo = todo.filter(m => !ready.includes(m));
@@ -1576,7 +1581,7 @@ function renderStandings() {
 function makeKnockout() {
   const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin });
   ko = buildKnockout(sched.brackets, st, Object.assign({ coin }, gopt));
-  koSched = scheduleKnockout(ko, sched.summary.slotsUsed, gopt);
+  koSched = scheduleKnockout(ko, sched.summary.slotsUsed, gopt, sched.matches);
 }
 document.addEventListener('click', e => {
   const c = e.target.closest && e.target.closest('.coin'), k = e.target.closest && e.target.closest('.coinko');
@@ -1988,7 +1993,7 @@ function pubBody(web) {
   let k = ko, ks = koSched;
   if (!real) {
     k = buildKnockout(sched.brackets, computeStandings(sched.brackets, sched.matches, {}, { coin }), Object.assign({ coin }, gopt));
-    ks = scheduleKnockout(k, sched.summary.slotsUsed, gopt);
+    ks = scheduleKnockout(k, sched.summary.slotsUsed, gopt, sched.matches);
   }
   if (k.matches.length) {
     const kd = real ? committed(koResults) : {}, rs = resolveKnockout(k, kd), by = {}, slots = {};
