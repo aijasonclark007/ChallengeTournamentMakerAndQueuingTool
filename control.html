@@ -63,6 +63,17 @@ button:disabled{opacity:.4;cursor:default}
 .sh{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}.sh.on{display:flex}.sh>div{background:var(--card);width:100%;max-width:460px;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));animation:slidedown .25s ease both}
 .sh .sc{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;margin:10px 0}.sh .sc input{padding:12px;border-radius:12px;border:1px solid var(--line);font:inherit;font-size:22px;font-weight:800;text-align:center;background:var(--bg);color:var(--ink)}
 .rrow .ed{margin-left:8px;font-size:12px;font-weight:800;color:var(--blue);background:none;padding:2px 6px}
+.court{transition:transform .22s ease,box-shadow .22s ease}@media (hover:hover){.court:hover{transform:translateY(-2px)}}
+.court.enter{animation:cardin .5s cubic-bezier(.2,.8,.2,1) backwards}@keyframes cardin{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+.court.flash{animation:cflash 1.1s ease-out}@keyframes cflash{0%{box-shadow:0 0 0 0 rgba(0,122,255,.5)}100%{box-shadow:0 0 0 16px rgba(0,122,255,0)}}
+.tm em.bump{animation:bump .55s cubic-bezier(.3,1.6,.5,1)}@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.45);color:var(--blue)}100%{transform:scale(1)}}
+.prog i{transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.rrow.newrow{animation:rowin .6s ease backwards}@keyframes rowin{from{opacity:0;transform:translateX(-14px);background:rgba(0,122,255,.12)}to{opacity:1;transform:none;background:transparent}}
+.sum span{animation:cardin .45s cubic-bezier(.2,.8,.2,1) backwards}.sum.still span{animation:none}
+button{transition:transform .12s ease,filter .12s ease,background .2s ease}button:active:not(:disabled){transform:scale(.96);filter:brightness(.96)}
+.sh.on{animation:fadein .22s ease}@keyframes fadein{from{opacity:0}to{opacity:1}}
+.sh>div{animation:slideup .32s cubic-bezier(.2,.8,.2,1) both}@keyframes slideup{from{transform:translateY(48px);opacity:0}to{transform:none;opacity:1}}
+.tb button{transition:background .2s ease,color .2s ease,transform .12s ease}
 .msg{padding:50px 20px;text-align:center;color:var(--mute)}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:.3s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -87,6 +98,7 @@ button:disabled{opacity:.4;cursor:default}
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const P = window.Platform;
   const openMore = {};
+  const seen = { sig: {}, pct: {}, sc: {}, rec: {} }; let seenAny = false;
   let data = null, scores = {}, clocks = {}, ctl = null, alarmed = {}, err = null, ann = null, panelKind = '', logRows = null;
 
   function beep() { try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; const c = new A(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .25; o.start(); setTimeout(() => { try { o.stop(); c.close(); } catch (e) {} }, 900); } catch (e) {} }
@@ -162,7 +174,7 @@ button:disabled{opacity:.4;cursor:default}
   function recentHtml(all) {
     const done = all.filter(m => state(m) === 'done' && score(m)).sort((a, b) => (b.slot - a.slot) || String(a.court).localeCompare(String(b.court), undefined, { numeric: true })).slice(0, 6);
     if (!done.length) return '';
-    return '<div class="recent"><h3>Recently finished</h3>' + done.map(m => { const s = score(m), w1 = s.s1 > s.s2; return '<div class="rrow"><span class="t">' + esc(String(m.time).split(/\s+-\s+/)[0]) + '</span><span class="t">' + esc(m.court) + '</span><div><span class="' + (w1 ? 'w' : '') + '">' + esc(m.t1) + '</span> <b>' + s.s1 + '</b> – <b>' + s.s2 + '</b> <span class="' + (w1 ? '' : 'w') + '">' + esc(m.t2) + '</span><button class="ed" data-edit="' + esc(m.mid) + '">Fix score</button></div></div>'; }).join('') + '</div>';
+    return '<div class="recent"><h3>Recently finished</h3>' + done.map(m => { const s = score(m), w1 = s.s1 > s.s2; return '<div class="rrow" data-rid="' + esc(m.mid) + '"><span class="t">' + esc(String(m.time).split(/\s+-\s+/)[0]) + '</span><span class="t">' + esc(m.court) + '</span><div><span class="' + (w1 ? 'w' : '') + '">' + esc(m.t1) + '</span> <b>' + s.s1 + '</b> – <b>' + s.s2 + '</b> <span class="' + (w1 ? '' : 'w') + '">' + esc(m.t2) + '</span><button class="ed" data-edit="' + esc(m.mid) + '">Fix score</button></div></div>'; }).join('') + '</div>';
   }
   // ----- toolbar: find a player, announcements, full schedule, activity log, fix a score, close a court -----
   const sTag = m => { const s = score(m), st = state(m); return st === 'done' && s ? '<span class="chipx done">Final ' + s.s1 + ' - ' + s.s2 + '</span>' : st === 'live' ? '<span class="chipx live">LIVE' + (s ? ' ' + s.s1 + ' - ' + s.s2 : '') + '</span>' : '<span class="chipx">' + (ready(m) ? 'Upcoming' : 'Waiting') + '</span>'; };
@@ -284,7 +296,7 @@ button:disabled{opacity:.4;cursor:default}
         if (btn.length) h += '<div class="btns">' + btn.join('') + '</div>';
       } else h += '<div class="meta">' + (doneN ? 'All ' + doneN + ' matches on this court are finished.' : 'No matches ready on this court.') + '</div>';
       h += '<div class="next"><div class="lbl" style="margin-top:0">Coming up</div>' + [0, 1, 2].map(n => { const m = rest[n]; return m ? '<div class="q"><span>' + esc(String(m.time).split(' - ')[0]) + '</span><p>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</p></div>' : '<div class="q" style="display:block">' + (n === 0 ? '<span style="font-weight:500">Nothing else ready yet</span>' : '') + '</div>'; }).join('') + '</div>';
-      h += '<div class="foot"><div class="meta">' + doneN + ' of ' + ct.list.length + ' finished</div><div class="prog"><i style="width:' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '%"></i></div>';
+      h += '<div class="foot"><div class="meta">' + doneN + ' of ' + ct.list.length + ' finished</div><div class="prog"><i data-p="' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '" style="width:' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '%"></i></div>';
       const movable = ct.list.filter(m => state(m) !== 'done'), others = courts.filter(x => x.name !== ct.name), sp = (ct.list[0] && ct.list[0].sport) || 'badminton';
       h += '<details class="tools" data-tc="' + esc(ct.name) + '"' + (openMore['t:' + ct.name] ? ' open' : '') + '><summary>More options</summary>';
       if (cur && state(cur) !== 'done') h += '<h4>Record a default</h4><div class="btns" style="margin-bottom:4px"><button class="stop" data-def="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' defaults</button><button class="stop" data-def="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' defaults</button></div><div class="meta" style="margin-bottom:10px">Counts as ' + target(cur) + ' - 0 for the other team.</div>';
@@ -294,12 +306,13 @@ button:disabled{opacity:.4;cursor:default}
       if (ex.length) h += '<h4 style="margin-top:12px">Extra matches waiting</h4>' + ex.map(m => { const pos = ct.list.filter(x => state(x) !== 'done').findIndex(x => x.mid === m.mid); return '<div style="margin-bottom:10px"><div style="font-weight:700">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div><div class="meta">' + (pos === 0 ? 'Playing next' : pos > 0 ? pos + ' match' + (pos > 1 ? 'es' : '') + ' before it' : '') + '</div><div class="btns" style="margin-top:6px"><button class="go" data-xnext="' + esc(m.mid) + '" data-xc="' + esc(ct.name) + '">Play next</button><button data-xlast="' + esc(m.mid) + '">Play last</button><button class="stop" data-rmx="' + esc(m.mid) + '">Remove</button></div>' + (rests.length ? '<div class="row" style="margin-top:8px"><select data-xr="' + esc(m.mid) + '">' + rests.map(r => '<option value="' + r.slot + '">Rest slot ' + esc(r.label) + '</option>').join('') + '</select><button style="flex:0 0 auto;padding:10px 14px;border-radius:10px;background:var(--card);font-weight:800" data-xrest="' + esc(m.mid) + '">Put here</button></div>' : '') + '</div>'; }).join('');
       if (others.length && ct.list.some(m => state(m) === 'up')) h += '<h4 style="margin-top:12px">Court not usable?</h4><div class="row"><select data-cc="' + esc(ct.name) + '">' + others.map(x => '<option>' + esc(x.name) + '</option>').join('') + '</select></div><div class="btns"><button class="stop" data-closec="' + esc(ct.name) + '">Move all remaining matches</button></div>';
       h += '<h4 style="margin-top:12px">Umpire missing?</h4><div class="btns"><button data-ulink="' + esc(ct.name) + '">Copy umpire link for ' + esc(ct.name) + '</button></div><div class="meta" style="margin:6px 0 10px">Send it to anyone. Opening it on their phone puts them on this court.</div></details></div>';
-      return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + (late ? '<span class="pill late">' + late.txt + '</span>' : '') + pill + '</div>' + h + '</div>';
+      return '<div class="court ' + cls + '" data-c="' + esc(ct.name) + '" data-sig="' + esc((cur ? cur.mid : '-') + '|' + (live ? 'L' : '') + '|' + (cur && score(cur) ? score(cur).s1 + '-' + score(cur).s2 : '')) + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + (late ? '<span class="pill late">' + late.txt + '</span>' : '') + pill + '</div>' + h + '</div>';
     });
     // sound once per new alert
     alerts.forEach(a => { if (!alarmed[a]) { alarmed[a] = 1; beep(); try { navigator.vibrate && navigator.vibrate([300, 100, 300]); } catch (e) {} } });
     Object.keys(alarmed).forEach(a => { if (!alerts.includes(a)) delete alarmed[a]; });
     const focus = document.activeElement && document.activeElement.tagName === 'BUTTON' ? 1 : 0;
+    const wasFirst = !seenAny;
     const keep = {}; app.querySelectorAll('input,select').forEach(e => { const k = e.getAttribute('data-x1') ? 'x1:' + e.getAttribute('data-x1') : e.getAttribute('data-x2') ? 'x2:' + e.getAttribute('data-x2') : e.getAttribute('data-xs') ? 'xs:' + e.getAttribute('data-xs') : e.getAttribute('data-mv') ? 'mv:' + e.getAttribute('data-mv') : e.getAttribute('data-to') ? 'to:' + e.getAttribute('data-to') : e.getAttribute('data-xr') ? 'xr:' + e.getAttribute('data-xr') : null; if (k) keep[k] = e.value; });
     app.innerHTML = '<div class="sum"><span>Live <b>' + nLive + '</b></span><span>Finished <b>' + nDone + '</b> of <b>' + all.length + '</b></span><span>Courts <b>' + courts.length + '</b></span>' + (lateCourts.length ? '<span class="lt">Behind: <b>' + esc(lateCourts.join(', ')) + '</b></span>' : '') + '</div>' +
       (alerts.length ? '<div class="alerts">' + alerts.map(a => '<div class="alert">' + esc(a) + '</div>').join('') + '</div>' : '') +
@@ -310,6 +323,16 @@ button:disabled{opacity:.4;cursor:default}
     app.querySelectorAll('[data-domove]').forEach(b => b.onclick = () => doMove(val('data-mv', b.dataset.domove), val('data-to', b.dataset.domove)));
     app.querySelectorAll('[data-back]').forEach(b => b.onclick = () => doMove(val('data-mv', b.dataset.back), ''));
     app.querySelectorAll('[data-doadd]').forEach(b => b.onclick = () => doAdd(b.dataset.doadd, val('data-x1', b.dataset.doadd), val('data-x2', b.dataset.doadd), val('data-xs', b.dataset.doadd)));
+    app.querySelectorAll('.court').forEach((el, i) => {                // animate only what changed, never the whole page on every refresh
+      const n = el.dataset.c, sig = el.dataset.sig, prev = seen.sig[n];
+      if (wasFirst) { el.style.animationDelay = (i * 70) + 'ms'; el.classList.add('enter'); } else if (prev !== undefined && prev !== sig) el.classList.add('flash');
+      seen.sig[n] = sig;
+      const bar = el.querySelector('.prog i'); if (bar) { const to = bar.dataset.p, from = seen.pct[n] == null ? 0 : seen.pct[n]; if (from !== +to) { bar.style.width = from + '%'; void bar.offsetWidth; bar.style.width = to + '%'; } seen.pct[n] = +to; }
+      el.querySelectorAll('.tm em').forEach((em, k) => { const key = n + ':' + k, v = em.textContent; if (!wasFirst && seen.sc[key] != null && seen.sc[key] !== v) em.classList.add('bump'); seen.sc[key] = v; });
+    });
+    app.querySelectorAll('.rrow').forEach(r => { const id = r.dataset.rid; if (!wasFirst && !seen.rec[id]) r.classList.add('newrow'); seen.rec[id] = 1; });
+    const sm = app.querySelector('.sum'); if (sm && !wasFirst) sm.classList.add('still');
+    seenAny = true;
     app.querySelectorAll('[data-closec]').forEach(b => b.onclick = () => closeCourt(b.dataset.closec, (app.querySelector('[data-cc="' + b.dataset.closec + '"]') || {}).value));
     app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEdit(b.dataset.edit));
     const aB = $('#bAnn'); if (aB) { const dot = aB.querySelector('i'); if (ann && !dot) aB.insertAdjacentHTML('beforeend', '<i></i>'); if (!ann && dot) dot.remove(); }
