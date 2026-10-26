@@ -375,7 +375,7 @@ summary:hover{background:#fff}
 
   <section id="koSec" class="hidden">
     <div class="bar noprint"><h2>6. Knockout round</h2>
-      <div class="tools"><button id="randKo" class="ghost test" type="button">Fill random knockout scores (test)</button></div></div>
+      <div class="tools"><button id="resPrint" class="ghost" type="button">Print / PDF results</button><button id="resDl" class="ghost" type="button">Download results</button><button id="resCsv" class="ghost" type="button">Download CSV</button><button id="randKo" class="ghost test" type="button">Fill random knockout scores (test)</button></div></div>
     <p class="hint">Single elimination: a team that loses is out. Semifinal losers share 3rd place.</p>
     <div id="koSummary"></div>
     <p id="kMsg" class="hint"></p>
@@ -2141,6 +2141,58 @@ function pubDocument() {
 function refreshPub() { if (sched && $('#pubDet').open) { $('#pubPreview').innerHTML = pubBody(false); $('#pubCode').value = pubDocument(); } }
 $('#pubDet').addEventListener('toggle', refreshPub);
 
+
+// ----- results summary: champions, knockout results and standings to print, download (page or CSV) and post afterwards -----
+function evDateLabel() { const v = $('#eventDate').value, p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return p ? new Date(+p[1], +p[2] - 1, +p[3]).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''; }
+function resultsData() {
+  const done = committed(results), kd = committed(koResults), st = computeStandings(sched.brackets, sched.matches, done, { coin }), rs = ko ? resolveKnockout(ko, kd) : null;
+  const lv = LEVELS.filter(l => sched.brackets.some(b => b.level === l));
+  const per = lv.map(l => {
+    const km = rs ? rs.matches.filter(m => m.level === l) : [], ch = rs ? rs.champions.filter(c => c.level === l)[0] : null;
+    const third = km.filter(m => m.roundName === 'Semifinals' && m.winner).map(m => m.winner === m.team1 ? m.team2 : m.team1).filter(Boolean);
+    return { level: l, champ: ch && ch.team ? ch.team.name : '', third: third.map(t => t.name), km, brackets: sched.brackets.filter(b => b.level === l) };
+  });
+  return { done, kd, st, rs, per };
+}
+function resultsDoc() {
+  const R = resultsData(), name = $('#tname').value.trim() || 'Tournament', dl = evDateLabel(), nm = t => t ? esc(t.name) : 'To be decided';
+  const games = sched.matches.length, scoredN = Object.keys(R.done).length, final = R.per.length && R.per.every(p => p.champ);
+  let h = '<h1>' + esc(name) + '</h1>' + (dl ? '<p class="sub">' + esc(dl) + '</p>' : '') + '<p class="sub">' + (final ? 'Final results' : 'Results so far') + ' &middot; ' + scoredN + ' of ' + games + ' group games played</p>';
+  h += '<h2>Champions</h2><table class="c">' + R.per.map(p => '<tr><th>' + esc(p.level) + '</th><td><b>' + (p.champ ? esc(p.champ) : 'To be decided') + '</b>' + (p.third.length ? '<div class="m">3rd place: ' + p.third.map(esc).join(' and ') + '</div>' : '') + '</td></tr>').join('') + '</table>';
+  R.per.forEach(p => {
+    h += '<h2>' + esc(p.level) + '</h2>';
+    if (p.km.length) h += '<h3>Knockout</h3><table><tr><th>Round</th><th>Match</th><th>Score</th></tr>' + p.km.map(m => { const r = R.kd[m.id]; return '<tr><td>' + esc(m.roundName) + '</td><td>' + (m.winner === m.team1 && m.team1 ? '<b>' + nm(m.team1) + '</b>' : nm(m.team1)) + ' vs ' + (m.winner === m.team2 && m.team2 ? '<b>' + nm(m.team2) + '</b>' : nm(m.team2)) + '</td><td>' + (r ? r.a + ' - ' + r.b : '-') + '</td></tr>'; }).join('') + '</table>';
+    p.brackets.forEach(b => { const x = R.st[b.id]; h += '<h3>' + esc(b.name) + '</h3><table><tr><th>#</th><th>Team</th><th>W-L</th><th>Pts</th><th>Against</th><th>+/-</th></tr>' + x.rows.map(r => '<tr><td>' + r.rank + '</td><td>' + esc(r.team.name) + '</td><td>' + r.won + '-' + r.lost + '</td><td>' + r.pf + '</td><td>' + r.pa + '</td><td>' + (r.pd > 0 ? '+' : '') + r.pd + '</td></tr>').join('') + '</table>'; });
+  });
+  h += '<h2>All group games</h2><table><tr><th>Time</th><th>Court</th><th>Bracket</th><th>Match</th><th>Score</th></tr>' + sched.matches.slice().sort((a, b) => a.slot - b.slot || a.court - b.court).map(m => { const r = R.done[m.id]; return '<tr><td>' + esc(m.start) + '</td><td>' + esc(m.courtName) + '</td><td>' + esc(m.bracket) + '</td><td>' + esc(m.team1.name) + ' vs ' + esc(m.team2.name) + '</td><td>' + (r ? r.a + ' - ' + r.b : '-') + '</td></tr>'; }).join('') + '</table>';
+  const css = 'body{font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;color:#111;max-width:820px;margin:24px auto;padding:0 16px}h1{margin:0 0 2px;font-size:28px}h2{margin:26px 0 6px;font-size:20px;border-bottom:2px solid #007AFF;padding-bottom:3px;break-after:avoid}h3{margin:14px 0 4px;font-size:15px;break-after:avoid}.sub{margin:0;color:#555}table{border-collapse:collapse;width:100%;margin:4px 0}th,td{border-bottom:1px solid #ddd;padding:5px 8px;text-align:left;vertical-align:top}th{background:#F2F2F7;font-size:12px;text-transform:uppercase;letter-spacing:.03em}.c th{width:90px;font-size:14px;text-transform:none;background:none}.c td{font-size:17px}.m{font-size:12px;color:#555}tr{break-inside:avoid}@media print{body{margin:0;max-width:none}}';
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + esc(name) + ' - Results</title><style>' + css + '</style></head><body>' + h + '</body></html>';
+}
+function resultsCsv() {
+  const R = resultsData(), q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', row = a => a.map(q).join(','), out = [];
+  out.push(row(['CHAMPIONS'])); out.push(row(['Level', 'Champion', '3rd place']));
+  R.per.forEach(p => out.push(row([p.level, p.champ, p.third.join(' and ')])));
+  out.push(''); out.push(row(['STANDINGS'])); out.push(row(['Level', 'Bracket', 'Rank', 'Team', 'Won', 'Lost', 'Points for', 'Points against', 'Difference']));
+  R.per.forEach(p => p.brackets.forEach(b => R.st[b.id].rows.forEach(r => out.push(row([p.level, b.name, r.rank, r.team.name, r.won, r.lost, r.pf, r.pa, r.pd])))));
+  out.push(''); out.push(row(['KNOCKOUT'])); out.push(row(['Level', 'Round', 'Team 1', 'Team 2', 'Score 1', 'Score 2', 'Winner']));
+  R.per.forEach(p => p.km.forEach(m => { const r = R.kd[m.id]; out.push(row([p.level, m.roundName, m.team1 ? m.team1.name : '', m.team2 ? m.team2.name : '', r ? r.a : '', r ? r.b : '', m.winner ? m.winner.name : ''])); }));
+  out.push(''); out.push(row(['GROUP GAMES'])); out.push(row(['Time', 'Court', 'Bracket', 'Team 1', 'Team 2', 'Score 1', 'Score 2']));
+  sched.matches.slice().sort((a, b) => a.slot - b.slot || a.court - b.court).forEach(m => { const r = R.done[m.id]; out.push(row([m.start, m.courtName, m.bracket, m.team1.name, m.team2.name, r ? r.a : '', r ? r.b : ''])); });
+  return '﻿' + out.join('\r\n');
+}
+async function saveText(name, text, type) {
+  try { const d = window.claude && claude.use ? await claude.use('downloads') : null; if (d) { await d.save({ filename: name, data: text }); return; } } catch (e) { if (e && e.code === 'declined') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+const fileSafe = () => ($('#tname').value.trim() || 'tournament').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'tournament';
+$('#resDl').onclick = async () => { if (!sched) return; await saveText(fileSafe() + '-results.html', resultsDoc(), 'text/html'); say('#kMsg', 'Results page downloaded. You can post it or send it as a file.'); };
+$('#resCsv').onclick = async () => { if (!sched) return; await saveText(fileSafe() + '-results.csv', resultsCsv(), 'text/csv'); say('#kMsg', 'CSV downloaded. It opens in Excel or Google Sheets.'); };
+$('#resPrint').onclick = () => {
+  if (!sched) return;
+  const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.appendChild(f);
+  const d = f.contentWindow.document; d.open(); d.write(resultsDoc()); d.close();
+  setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {} setTimeout(() => f.remove(), 3000); }, 300);
+};
 $('#pubDl').onclick = async () => {
   if (!sched) return;
   const name = 'game-schedule.html', text = pubDocument();
