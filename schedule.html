@@ -375,7 +375,8 @@ summary:hover{background:#fff}
 
   <section id="koSec" class="hidden">
     <div class="bar noprint"><h2>6. Knockout round</h2>
-      <div class="tools"><button id="resPrint" class="ghost" type="button">Print / PDF results</button><button id="resDl" class="ghost" type="button">Download results</button><button id="resCsv" class="ghost" type="button">Download CSV</button><button id="randKo" class="ghost test" type="button">Fill random knockout scores (test)</button></div></div>
+      <div class="tools"><button id="resExport" class="ghost" type="button">Export</button><button id="randKo" class="ghost test" type="button">Fill random knockout scores (test)</button></div></div>
+    <div id="resPick" class="tools noprint hidden" style="margin:0 0 8px"><button id="resPrint" class="ghost" type="button">Print / PDF</button><button id="resDl" class="ghost" type="button">Results page</button><button id="resCsv" class="ghost" type="button">CSV (Excel / Sheets)</button></div>
     <p class="hint">Single elimination: a team that loses is out. Semifinal losers share 3rd place.</p>
     <div id="koSummary"></div>
     <p id="kMsg" class="hint"></p>
@@ -2191,6 +2192,8 @@ async function saveText(name, text, type) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
 const fileSafe = () => ($('#tname').value.trim() || 'tournament').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'tournament';
+$('#resExport').onclick = () => { $('#resPick').classList.toggle('hidden'); $('#resExport').classList.toggle('on', !$('#resPick').classList.contains('hidden')); };
+$('#resPick').addEventListener('click', e => { if (e.target.closest('button')) { $('#resPick').classList.add('hidden'); $('#resExport').classList.remove('on'); } });
 $('#resDl').onclick = async () => { if (!sched) return; await saveText(fileSafe() + '-results.html', resultsDoc(), 'text/html'); say('#kMsg', 'Results page downloaded. You can post it or send it as a file.'); };
 $('#resCsv').onclick = async () => { if (!sched) return; await saveText(fileSafe() + '-results.csv', resultsCsv(), 'text/csv'); say('#kMsg', 'CSV downloaded. It opens in Excel or Google Sheets.'); };
 $('#resPrint').onclick = () => {
