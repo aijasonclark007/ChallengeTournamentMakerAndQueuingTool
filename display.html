@@ -28,6 +28,15 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .banner{width:100%;padding:1.6vh 2vw;border-radius:2vh;font-size:4vh;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
 .banner.amber{background:var(--amber);color:#2b1800}.banner.blue{background:var(--blue);color:#fff}.banner.red{background:var(--red);color:#fff;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.55}}
+/* rows layout: one team per row, names left, giant score right (like a wall scoreboard) */
+.rows{flex:1;min-height:0;display:flex;flex-direction:column;gap:2.4vh}
+.row2{flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:2vw;background:var(--panel);border-radius:3vh;border-left:2vh solid transparent;padding:0 3vw 0 2vw;transition:border-color .3s}
+.row2.srv{border-left-color:var(--lime);box-shadow:0 0 6vh rgba(141,198,63,.22)}
+.row2.win{background:#143B1E;border-left-color:var(--lime)}
+.rn{min-width:0;flex:1}
+.rn .l{font-size:8vh;font-weight:800;line-height:1.12;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rn .tg{margin-top:1vh;font-size:3.6vh;font-weight:800;color:var(--lime);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rn .tg.r{color:var(--mute);font-weight:700}
+.rs{flex:none;font-size:34vh;font-weight:900;line-height:.85;font-variant-numeric:tabular-nums;letter-spacing:-.03em;min-width:26vh;text-align:right}
 /* attendance check */
 .att{flex:1;min-height:0;display:flex;flex-direction:column}
 .atitle{text-align:center;font-size:5vh;font-weight:900;letter-spacing:.08em;text-transform:uppercase;padding:.6vh 0 1.4vh}
@@ -54,7 +63,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 </head>
 <body>
 <div class="stage" id="stage"><div class="idle"><div class="big">Loading...</div></div></div>
-<div class="hint" id="hint">Press OK or click once for full screen</div>
+<div class="hint" id="hint">Press OK for full screen &middot; left/right arrows change the layout</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
@@ -65,6 +74,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const P = window.Platform;
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+  let layout = q.get('layout') || (function () { try { return localStorage.getItem('tvlayout'); } catch (e) { return null; } })() || 'panels';
   let data = null, scores = {}, bc = null, netErr = null, lastOk = 0, finalShow = null, prevLive = {};
 
   const mine = () => ((data && data.matches) || []).filter(m => m.court === court).sort((a, b) => (a.slot - b.slot) || String(a.time).localeCompare(String(b.time)));
@@ -103,6 +113,14 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 
   function board(m, s1, s2, flip, srv, won) {
     const order = flip ? [1, 0] : [0, 1], names = [m.t1, m.t2], pts = [s1, s2];
+    if (layout === 'rows') {
+      const row = i => {
+        const lines = split(names[i]), serving = srv && srv.k === i, receiving = srv && srv.k !== i, lead = won && pts[i] > pts[1 - i];
+        return '<div class="row2' + (serving ? ' srv' : '') + (lead ? ' win' : '') + '"><div class="rn">' + lines.map(l => '<div class="l">' + esc(l) + '</div>').join('') +
+          '<div class="tg' + (receiving ? ' r' : '') + '">' + (lead ? 'WINNER' : serving ? '&#127992; SERVING: ' + esc(srv.server).toUpperCase() : receiving ? 'RECEIVING: ' + esc(srv.recv).toUpperCase() : '&nbsp;') + '</div></div><div class="rs">' + pts[i] + '</div></div>';
+      };
+      return '<div class="rows">' + row(order[0]) + row(order[1]) + '</div>';
+    }
     const panel = i => {
       const lines = split(names[i]), serving = srv && srv.k === i, receiving = srv && srv.k !== i, lead = won && pts[i] > pts[1 - i];
       return '<div class="team' + (serving ? ' srv' : '') + (lead ? ' win' : '') + '"><div class="names">' + lines.map(l => '<div>' + esc(l) + '</div>').join('') + '</div><div class="pts">' + pts[i] + '</div>' +
@@ -171,6 +189,10 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   let wake = null; const keep = async () => { try { if (navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request('screen'); } catch (e) {} };
   keep(); document.addEventListener('visibilitychange', keep);
   const fs = () => { try { const e = document.documentElement; (e.requestFullscreen || e.webkitRequestFullscreen || function () {}).call(e); } catch (x) {} $('#hint').classList.add('off'); keep(); };
+  document.addEventListener('keydown', e => {                              // TV remote: left / right arrows (or the L key) switch between the two layouts
+    if (['ArrowLeft', 'ArrowRight', 'l', 'L'].indexOf(e.key) < 0) return;
+    layout = layout === 'rows' ? 'panels' : 'rows'; try { localStorage.setItem('tvlayout', layout); } catch (x) {} draw();
+  });
   document.addEventListener('click', fs, { once: true }); document.addEventListener('keydown', fs, { once: true });
   setTimeout(() => $('#hint').classList.add('off'), 15000);
 })();
