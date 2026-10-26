@@ -29,6 +29,8 @@ iframe{border:0;width:100%;height:100%;display:block}
     f.srcdoc = row.html;
     m.remove(); document.body.appendChild(f);
     const push = async () => { try { const a = await Platform.getAnnouncement(slug).catch(() => null), b = document.getElementById('ann'); if (a) { b.textContent = a.body; if (b.dataset.at !== a.updated_at) { b.dataset.at = a.updated_at; b.style.display = 'block'; } } else { b.style.display = 'none'; b.dataset.at = ''; } } catch (e) {} try { const sc = await Platform.getLiveScores(slug); let mv = []; try { mv = await Platform.getCourtMoves(slug); } catch (e) {} if (f.contentWindow) f.contentWindow.postMessage({ t: 'live', scores: sc, moves: mv }, '*'); } catch (e) {} };
+    let lastHtml = row.html;
+    setInterval(async () => { if (document.hidden) return; try { const r = await Platform.getPublicSchedule(slug); if (r && r.html && r.html !== lastHtml) { lastHtml = r.html; f.srcdoc = r.html; } } catch (e) {} }, 45000);      // new times (running late, moved games) reach people who already have the page open
     f.addEventListener('load', push); setInterval(() => { if (!document.hidden) push(); }, 20000); try { Platform.liveChannel('slive-' + slug, () => push()); } catch (e) {}
   } catch (e) { m.textContent = 'Could not load the schedule: ' + e.message; }
 })();

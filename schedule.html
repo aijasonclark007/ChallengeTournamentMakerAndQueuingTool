@@ -117,6 +117,12 @@ summary b{font-weight:800}
 :root[data-theme="dark"] summary{border-color:var(--lime);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){summary,summary::before{transition:none}}
 .gate{max-width:440px;margin:32px auto;padding:22px}
+.mvb{margin-left:8px;padding:5px 10px;font-size:12px;border-radius:9px}
+#lateBox{margin:6px 0 10px}#lateBox .lrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}#lateBox .lrow>div{flex:1 1 150px}#lateBox select,#lateBox input{width:100%}
+.shiftl{display:flex;gap:8px;align-items:center;justify-content:space-between;background:rgba(255,149,0,.12);border-radius:10px;padding:7px 10px;margin:6px 0;font-weight:600;font-size:14px}
+#mvOv{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}#mvOv.on{display:flex}
+#mvOv .box{background:var(--card,#fff);color:var(--ink,#1C1C1E);width:100%;max-width:440px;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#mvOv h3{margin:0 0 4px}#mvOv .mvn{margin:8px 0;padding:9px 12px;border-radius:10px;font-size:14px}.mvn.ok{background:rgba(52,199,89,.14)}.mvn.sw{background:rgba(0,122,255,.12)}.mvn.bad{background:rgba(255,59,48,.12);color:#B3261E}
 .hidden,#previewBar.hidden,#stepbar.hidden,#sharePanel.hidden{display:none!important}
 @media print{.noprint{display:none!important}body{background:#fff;color:#000}th{background:#ddd;color:#000}}
 #printView{display:none}.pubwrap{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#F4F6FB;color:#0B1B33}
@@ -313,7 +319,7 @@ summary:hover{background:#fff}
   <section id="schedSec" class="hidden">
     <div class="bar noprint">
       <h2>4. Game schedule</h2>
-      <div class="tools"><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button></div>
+      <div class="tools"><button id="editSched" class="ghost" type="button">Edit schedule</button><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button></div>
     </div>
     <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:6px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input id="pubAuto" type="checkbox" checked> Keep this link updated automatically (when scores, the knockout round or the name change)</label></div>
@@ -322,6 +328,11 @@ summary:hover{background:#fff}
     <p id="pubMsg" class="hint noprint">The shareable page has no score boxes or buttons. It is easy to read on a phone, and players can search their name.</p>
     <details id="pubDet" class="noprint"><summary>Preview what people will see</summary><div id="pubPreview" class="pubwrap"></div>
       <p class="hint">If the download does not work, copy this code into a file named game-schedule.html:</p><textarea id="pubCode" style="min-height:70px" readonly></textarea></details>
+    <details id="lateBox" class="noprint"><summary><b>Running late?</b> Shift the game times</summary>
+      <p class="hint">Pick the first game that should move and by how many minutes. Every game from then on (including the knockout round) moves with it. The shareable page and the court TVs follow.</p>
+      <div class="lrow"><div><label for="lateFrom">From this game time</label><select id="lateFrom"></select></div><div><label for="lateMin">Minutes later (use a minus to move earlier)</label><input id="lateMin" type="number" value="15" min="-60" max="180" step="5"></div><button id="lateGo" class="go" type="button">Shift times</button></div>
+      <div id="lateList"></div><p id="lateMsg" class="hint"></p>
+    </details>
     <div id="summary"></div>
     <p id="gMsg" class="hint"></p>
     <div class="wrap"><table id="table"></table></div>
@@ -347,6 +358,9 @@ summary:hover{background:#fff}
     <div class="wrap"><table id="koTable"></table></div>
   </section>
 </div>
+<div id="mvOv" class="noprint"><div class="box" role="dialog" aria-modal="true" aria-label="Move game"><h3>Move game</h3><p class="hint" id="mvWho" style="margin:0"></p>
+  <div class="row"><div><label for="mvSlot">Time</label><select id="mvSlot"></select></div><div><label for="mvCourt">Court</label><select id="mvCourt"></select></div></div>
+  <div id="mvNote"></div><div class="row"><button id="mvGo" class="go" type="button">Move game</button><button id="mvNo" class="ghost" type="button">Cancel</button></div></div></div>
 </main>
 <div id="printView"></div>
 
@@ -1228,22 +1242,109 @@ $('#genBtn').onclick = () => {
   window.goStepNow && goStepNow('schedule');
 };
 
+// ----- running late (shift times) and moving games -----
+const slotLen = () => gopt.slotMinutes || 20;
+const baseStart = s => toMinutes(gopt.startTime || '14:00') + (s - 1) * slotLen();
+const delayAt = s => (gopt.delays || []).reduce((t, d) => t + (s >= d.from ? d.min : 0), 0);
+const slotStartMin = s => baseStart(s) + delayAt(s);
+const slotLabel = s => fmt(slotStartMin(s)) + ' - ' + fmt(slotStartMin(s) + slotLen());
+function retime() {                         // every game's clock time follows its slot, so shifts and moved games stay consistent everywhere
+  if (!sched || !gopt.startTime) return;
+  const lim = withDefaults(gopt), stat = end => end <= toMinutes(lim.normalEndTime) ? 'ON_TIME' : end <= toMinutes(lim.hardEndTime) ? 'NEEDS_EXTENSION' : 'EXCEEDS_LIMIT';
+  [sched, koSched].forEach(sc => { if (sc) sc.matches.forEach(m => { m.start = fmt(slotStartMin(m.slot)); m.end = fmt(slotStartMin(m.slot) + slotLen()); }); });
+  if (sched.matches.length) {
+    const last = Math.max.apply(null, sched.matches.map(m => m.slot)), sm = sched.summary, end = slotStartMin(last) + slotLen();
+    sm.slotsUsed = last; sm.finishesAt = fmt(end); sm.status = stat(end);
+    const ls = {}; Object.keys(sm.levelStarts || {}).forEach(l => { const f = sched.matches.filter(m => m.level === l).sort((a, b) => a.slot - b.slot)[0]; if (f) ls[l] = f.start; }); sm.levelStarts = ls;
+    sched.warnings = (sched.warnings || []).filter(w => !/^Games (finish at|would finish at)/.test(w));
+    if (sm.status === 'NEEDS_EXTENSION') sched.warnings.push('Games finish at ' + fmt(end) + ', past ' + lim.normalEndTime + '. The extension is needed.');
+  }
+  if (koSched && koSched.matches.length) { const last = Math.max.apply(null, koSched.matches.map(m => m.slot)), end = slotStartMin(last) + slotLen(); koSched.summary.finishesAt = fmt(end); koSched.summary.status = stat(end); }
+}
+let editMode = false;
+const lastSlot = () => Math.max.apply(null, [0].concat(sched ? sched.matches.map(m => m.slot) : [], koSched ? koSched.matches.map(m => m.slot) : []));
+const scored = (kind, id) => !!(kind === 'g' ? committed(results) : committed(koResults))[id];
+function renderLate() {
+  if (!sched) return;
+  const sel = $('#lateFrom'), cur = sel.value, n = lastSlot();
+  let firstOpen = 1; for (let i = 1; i <= n; i++) { const g = sched.matches.filter(m => m.slot === i), k = koSched ? koSched.matches.filter(m => m.slot === i) : []; if (g.concat(k).some(m => !(g.includes(m) ? scored('g', m.id) : scored('k', m.id)))) { firstOpen = i; break; } }
+  sel.innerHTML = Array.from({ length: n }, (_, i) => i + 1).map(i => '<option value="' + i + '">' + slotLabel(i) + (sched.matches.some(m => m.slot === i) || (koSched && koSched.matches.some(m => m.slot === i)) ? '' : ' (rest slot)') + '</option>').join('');
+  sel.value = cur && +cur <= n ? cur : String(firstOpen);
+  $('#lateList').innerHTML = (gopt.delays || []).map((d, i) => '<div class="shiftl"><span>From ' + fmt(baseStart(d.from)) + ' (original time): ' + (d.min > 0 ? '+' : '') + d.min + ' min</span><button class="ghost" data-undo="' + i + '" type="button">Undo</button></div>').join('');
+}
+function afterTimeChange(msg) {
+  retime(); renderSchedule(); if (ko) renderKo(); queueSave(); try { autoPublish(); } catch (e) {}
+  if (msg) say('#lateMsg', msg);
+}
+$('#lateGo').onclick = () => {
+  const from = +$('#lateFrom').value, min = Math.round(+$('#lateMin').value || 0);
+  if (!min) { say('#lateMsg', 'Type how many minutes to shift.'); return; }
+  const was = slotLabel(from).split(' - ')[0];
+  gopt.delays = (gopt.delays || []).concat([{ from, min }]);
+  afterTimeChange('Done: games from ' + was + ' moved ' + (min > 0 ? min + ' minutes later' : -min + ' minutes earlier') + '. The shareable page updates automatically if "Keep this link updated" is on.');
+};
+$('#lateList').onclick = e => { const b = e.target.closest('[data-undo]'); if (!b) return; gopt.delays.splice(+b.dataset.undo, 1); afterTimeChange('Shift removed.'); };
+$('#editSched').onclick = () => { editMode = !editMode; $('#editSched').textContent = editMode ? 'Done editing' : 'Edit schedule'; $('#editSched').classList.toggle('go', editMode); $('#editSched').classList.toggle('ghost', !editMode); if (sched) renderSchedule(); };
+
+let mvId = null;
+const courtNameOf = c => 'Court ' + ((gopt.firstCourt || 1) + c - 1);
+function mvPlan() {
+  const m = sched.matches.find(x => x.id === mvId), T = +$('#mvSlot').value, C = +$('#mvCourt').value;
+  const occ = sched.matches.find(x => x.id !== m.id && x.slot === T && x.court === C);
+  const next = sched.matches.map(x => x === m ? Object.assign({}, x, { slot: T, court: C }) : (x === occ ? Object.assign({}, x, { slot: m.slot, court: m.court }) : x));
+  const opt = withDefaults(gopt), before = validateSchedule({ matches: sched.matches, brackets: sched.brackets }, opt), after = validateSchedule({ matches: next, brackets: sched.brackets }, opt);
+  return { m, T, C, occ, next, fresh: after.filter(p => !before.includes(p)) };
+}
+function mvPaint() {
+  const p = mvPlan(), same = p.T === p.m.slot && p.C === p.m.court;
+  let note = '', can = true;
+  if (same) { note = '<div class="mvn">That is where this game already is.</div>'; can = false; }
+  else if (p.occ && scored('g', p.occ.id)) { note = '<div class="mvn bad">The game there already has a score, so it cannot be swapped.</div>'; can = false; }
+  else if (p.occ) note = '<div class="mvn sw">These two games will swap places: <b>' + esc(p.occ.team1.name) + ' vs ' + esc(p.occ.team2.name) + '</b> moves to ' + esc(p.m.courtName) + ', ' + slotLabel(p.m.slot).split(' - ')[0] + '.</div>';
+  else note = '<div class="mvn ok">That spot is free.</div>';
+  if (can && p.fresh.length) note += '<div class="mvn bad"><b>Heads up:</b><br>' + p.fresh.map(esc).join('<br>') + '</div>';
+  $('#mvNote').innerHTML = note; $('#mvGo').disabled = !can; $('#mvGo').textContent = p.occ ? 'Swap games' : (can && p.fresh.length ? 'Move anyway' : 'Move game');
+}
+function mvOpen(id) {
+  const m = sched.matches.find(x => x.id === id); if (!m) return;
+  if (scored('g', id)) { say('#gMsg', 'That game already has a score. Clear the score first to move it.'); return; }
+  mvId = id; $('#mvWho').textContent = m.team1.name + ' vs ' + m.team2.name + ' · ' + m.bracket + ' · now ' + m.courtName + ', ' + slotLabel(m.slot).split(' - ')[0];
+  const lastG = Math.max.apply(null, sched.matches.map(x => x.slot)), top = ko ? lastG : lastG + 1;
+  $('#mvSlot').innerHTML = Array.from({ length: top }, (_, i) => i + 1).map(i => '<option value="' + i + '">' + slotLabel(i) + (sched.matches.some(x => x.slot === i) ? '' : ' (rest slot)') + '</option>').join('');
+  $('#mvCourt').innerHTML = Array.from({ length: gopt.courts || 4 }, (_, i) => i + 1).map(i => '<option value="' + i + '">' + courtNameOf(i) + '</option>').join('');
+  $('#mvSlot').value = m.slot; $('#mvCourt').value = m.court; mvPaint(); $('#mvOv').classList.add('on');
+}
+$('#mvSlot').onchange = $('#mvCourt').onchange = mvPaint;
+$('#mvNo').onclick = () => $('#mvOv').classList.remove('on');
+$('#mvOv').addEventListener('click', e => { if (e.target.id === 'mvOv') $('#mvOv').classList.remove('on'); });
+$('#mvGo').onclick = () => {
+  const p = mvPlan(); if (p.occ && scored('g', p.occ.id)) return;
+  const oldSlot = p.m.slot, oldCourt = p.m.court;
+  p.m.slot = p.T; p.m.court = p.C; p.m.courtName = courtNameOf(p.C);
+  if (p.occ) { p.occ.slot = oldSlot; p.occ.court = oldCourt; p.occ.courtName = courtNameOf(oldCourt); }
+  sched.matches.sort((a, b) => a.slot - b.slot || a.court - b.court);
+  $('#mvOv').classList.remove('on');
+  afterTimeChange(''); say('#gMsg', p.occ ? 'Swapped the two games.' : 'Game moved to ' + courtNameOf(p.C) + ' at ' + slotLabel(p.T).split(' - ')[0] + '.');
+};
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.mvb'); if (b) mvOpen(+b.dataset.mv); });
+
 function renderSchedule() {
+  retime();
   const s = sched.summary, n = gopt.courts;
   $('#summary').innerHTML = '<p>' + tag(s.status) + ' &nbsp;' + s.matches + ' games, ' + s.teams + ' teams, last group game ends ' + (s.finishesAt || '-') + '</p>' +
     '<p class="hint">Level start times: ' + Object.keys(s.levelStarts).map(l => l + ' ' + s.levelStarts[l]).join(', ') + '</p>' +
     sched.warnings.map(w => '<p class="warn">' + esc(w) + '</p>').join('');
   let html = '<tr><th>Time</th><th>Court</th><th>Bracket</th><th>Match</th></tr>';
   for (let i = 1; i <= s.slotsUsed; i++) {
-    const t0 = toMinutes(gopt.startTime) + (i - 1) * 20, when = fmt(t0) + ' - ' + fmt(t0 + 20);
+    const when = slotLabel(i);
     const ms = sched.matches.filter(m => m.slot === i);
     if (!ms.length) { html += '<tr class="rest first"><td class="t">' + when + '</td><td colspan="3">Rest slot, no games</td></tr>'; continue; }
     ms.forEach((m, j) => {
       html += '<tr class="' + (j === 0 ? 'first' : '') + '"><td class="t">' + (j === 0 ? when : '') + '</td><td>' + m.courtName + '</td><td>' + esc(m.bracket) +
-        '</td><td>' + matchCell(m.id, 'g', m.team1, m.team2, results[m.id], false, null) + '</td></tr>';
+        '</td><td>' + matchCell(m.id, 'g', m.team1, m.team2, results[m.id], false, null) + (editMode && !scored('g', m.id) ? '<button class="ghost mvb" data-mv="' + m.id + '" type="button">Move</button>' : '') + '</td></tr>';
     });
   }
-  $('#table').innerHTML = html;
+  $('#table').innerHTML = html; renderLate();
   $('#schedSec').classList.remove('hidden'); $('#standSec').classList.remove('hidden');
   renderStandings();
   if (ko) { $('#koSec').classList.remove('hidden'); renderKo(); } else $('#koSec').classList.add('hidden');
@@ -1410,6 +1511,7 @@ function koChart(level, rs, sch, seedOf, result) {
 }
 
 function renderKo() {
+  retime();
   const done = committed(koResults), rs = resolveKnockout(ko, done), by = {}, sch = {}, seedOf = {};
   rs.matches.forEach(m => { by[m.id] = m; });
   koSched.matches.forEach(x => { sch[x.id] = x; });
@@ -1854,7 +1956,7 @@ setInterval(pullLive, 15000);
 let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pubSlug) { liveSubFor = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, () => pullLive()); } catch (e) {} } };
 // keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
 let pubSig = null, pubBusy = false, pubLast = 0;
-const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim(), tSport]) : null;
+const pubSigNow = () => sched ? JSON.stringify([committed(results), committed(koResults), !!ko, sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)]) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
   const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
