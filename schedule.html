@@ -118,7 +118,7 @@ summary b{font-weight:800}
 @media (prefers-reduced-motion:reduce){summary,summary::before{transition:none}}
 .gate{max-width:440px;margin:32px auto;padding:22px}
 .fair{margin:6px 0 10px}.fair summary .fl{font-weight:600;color:var(--mute,#6E6E73);margin-left:6px}.fair summary .fl.warn{color:#B25E00}.fair summary .fl.bad{color:#B3261E}
-.fair .fs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.fair .fs span{background:rgba(118,118,128,.12);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:700}
+.fair .fixrow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.fair .fs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.fair .fs span{background:rgba(118,118,128,.12);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:700}
 .fair table{min-width:560px}.fair td,.fair th{font-size:13px;padding:6px 8px;text-align:left;vertical-align:top}
 .fair .tg{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px}.tg.bad{background:rgba(255,59,48,.14);color:#B3261E}.tg.warn{background:rgba(255,149,0,.18);color:#8A5200}
 .mvb{margin-left:8px;padding:5px 10px;font-size:12px;border-radius:9px}
@@ -340,6 +340,8 @@ summary:hover{background:#fff}
     <div id="summary"></div>
     <details id="fairBox" class="fair noprint"><summary><b>Fairness check</b><span class="fl" id="fairHead"></span></summary>
       <p class="hint">How the games are spread across teams: how many each team plays, the break between games, and which courts they get. It updates after every move or shift.</p>
+      <div class="fixrow"><button id="fixWait" class="go" type="button">Shorten long waits</button><button id="fixCourt" class="ghost" type="button">Spread courts</button><button id="fixUndo" class="ghost hidden" type="button">Undo last fix</button></div>
+      <p id="fairMsg" class="hint"></p>
       <div id="fairBody"></div></details>
     <p id="gMsg" class="hint"></p>
     <div class="wrap"><table id="table"></table></div>
@@ -1335,8 +1337,7 @@ $('#mvGo').onclick = () => {
 };
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.mvb'); if (b) mvOpen(+b.dataset.mv); });
 
-function renderFair() {
-  if (!sched) return;
+function fairRows() {
   const T = {}, L = slotLen();
   sched.matches.forEach(m => [m.team1, m.team2].forEach(t => { if (!t) return; const e = T[t.name] = T[t.name] || { name: t.name, bracket: m.bracket, games: [] }; e.games.push({ slot: m.slot, court: m.court, cn: m.courtName }); }));
   const rows = Object.keys(T).map(k => {
@@ -1349,6 +1350,94 @@ function renderFair() {
     if (g.length >= 3 && Object.keys(cts).length === 1) flags.push(['warn', 'Same court']);
     return { e, g, gaps, cts, flags, first: slotStartMin(g[0].slot), last: slotStartMin(g[g.length - 1].slot) + L };
   });
+  return rows;
+}
+// ----- one-tap fixes: shorten long waits, spread courts (games that already have a score never move) -----
+let lastFix = null;
+const fixSnap = () => sched.matches.map(m => [m.id, m.slot, m.court]);
+function fixRestore(snap) { const by = {}; sched.matches.forEach(m => { by[m.id] = m; }); snap.forEach(x => { const m = by[x[0]]; if (m) { m.slot = x[1]; m.court = x[2]; m.courtName = courtNameOf(x[2]); } }); sched.matches.sort((a, b) => a.slot - b.slot || a.court - b.court); }
+const rnd = n => Math.floor(Math.random() * n);
+function spreadCourts() {                   // swaps courts only inside the same time slot, so times, breaks and waits never change
+  const ms = sched.matches, N = gopt.courts || 4, mov = ms.filter(m => !scored('g', m.id)); if (!mov.length) return 0;
+  const cc = {}, cell = {}, nm = m => [m.team1.name, m.team2.name];
+  ms.forEach(m => { nm(m).forEach(n => { const c = cc[n] = cc[n] || {}; c[m.court] = (c[m.court] || 0) + 1; }); cell[m.slot + ':' + m.court] = m; });
+  const dm = (n, from, to) => { const c = cc[n]; return 2 * ((c[to] || 0) - (c[from] || 0)) + 2; };
+  const mv = (n, from, to) => { const c = cc[n]; c[from]--; c[to] = (c[to] || 0) + 1; };
+  const cost = () => Object.keys(cc).reduce((t, n) => t + Object.keys(cc[n]).reduce((u, k) => u + cc[n][k] * cc[n][k], 0), 0);
+  const oc = {}; ms.forEach(m => { oc[m.id] = m.court; }); const pen = (m, c) => (c === oc[m.id] ? 0 : 0.6);      // a small price for every game whose court changes, so only worthwhile swaps happen
+  const start = cost(); let cur = start, best = start, snap = fixSnap(); const iters = 40000;
+  for (let it = 0; it < iters; it++) {
+    const T = 0.35 * Math.pow(0.05, it / iters), a = mov[rnd(mov.length)], nc = 1 + rnd(N); if (nc === a.court) continue;
+    const o = cell[a.slot + ':' + nc]; if (o && scored('g', o.id)) continue;
+    let d = pen(a, nc) - pen(a, a.court); nm(a).forEach(n => { d += dm(n, a.court, nc); }); if (o) { d += pen(o, a.court) - pen(o, nc); nm(o).forEach(n => { d += dm(n, nc, a.court); }); }
+    if (d <= 0 || Math.random() < Math.exp(-d / T)) {
+      const ac = a.court; nm(a).forEach(n => mv(n, ac, nc)); if (o) nm(o).forEach(n => mv(n, nc, ac));
+      delete cell[a.slot + ':' + ac]; if (o) { o.court = ac; cell[a.slot + ':' + ac] = o; } a.court = nc; cell[a.slot + ':' + nc] = a;
+      cur += d; if (cur < best) { best = cur; snap = fixSnap(); }
+    }
+  }
+  fixRestore(snap); return start - best;
+}
+function optimizeWaits() {                  // moves unscored games between time slots (and free courts) inside each level's own time window, never breaking the rest rule
+  const R = withDefaults(gopt).restSlots, N = gopt.courts || 4, ms = sched.matches, win = {};
+  ms.forEach(m => { const w = win[m.level] = win[m.level] || [m.slot, m.slot]; w[0] = Math.min(w[0], m.slot); w[1] = Math.max(w[1], m.slot); });
+  const mov = ms.filter(m => !scored('g', m.id)); if (mov.length < 2) return 0;
+  const nm = m => [m.team1.name, m.team2.name], S = {}, occ = new Set(ms.map(m => m.slot + ':' + m.court));
+  ms.forEach(m => nm(m).forEach(n => { (S[n] = S[n] || []).push(m); }));
+  const tc = n => { const v = S[n].map(x => x.slot).sort((a, b) => a - b); let c = 0; for (let i = 1; i < v.length; i++) { const g = v[i] - v[i - 1] - 1; c += g < R ? 1000 + (R - g) * 100 : (g - R) * (g - R); } return c; };
+  const lvls = Object.keys(win), levelPen = () => lvls.reduce((t, l) => t + (ms.some(m => m.level === l && m.slot === win[l][0]) ? 0 : 500), 0);      // every level keeps its first game where it was
+  const total = () => Object.keys(S).reduce((t, n) => t + tc(n), 0) + levelPen();
+  const os = {}, oc = {}; ms.forEach(m => { os[m.id] = m.slot; oc[m.id] = m.court; }); const mp = m => (m.slot === os[m.id] && m.court === oc[m.id] ? 0 : 0.3);      // a small price for every game that moves, so it only changes what helps
+  const start = total(), orig = fixSnap(); let bestAll = start, snapAll = orig;
+  for (let run = 0; run < 3; run++) {
+    fixRestore(orig);
+    occ.clear(); ms.forEach(m => occ.add(m.slot + ':' + m.court));
+    let cur = total(), best = cur, snap = fixSnap(); const iters = 50000;
+    for (let it = 0; it < iters; it++) {
+      const T = 4 * Math.pow(0.012, it / iters), a = mov[rnd(mov.length)]; let b = null, ns = 0, nc = 0;
+      if (Math.random() < 0.7) {
+        b = mov[rnd(mov.length)]; if (b === a || a.slot === b.slot) continue;
+        const wa = win[a.level], wb = win[b.level]; if (b.slot < wa[0] || b.slot > wa[1] || a.slot < wb[0] || a.slot > wb[1]) continue;
+      } else {
+        const w = win[a.level]; ns = w[0] + rnd(w[1] - w[0] + 1); nc = 1 + rnd(N); if (ns === a.slot || occ.has(ns + ':' + nc)) continue;
+      }
+      const aff = new Set(nm(a).concat(b ? nm(b) : [])); let before = levelPen() + mp(a) + (b ? mp(b) : 0); aff.forEach(n => { before += tc(n); });
+      const as = a.slot, ac = a.court;
+      if (b) { const bs = b.slot, bc = b.court; a.slot = bs; a.court = bc; b.slot = as; b.court = ac; } else { a.slot = ns; a.court = nc; }
+      let after = levelPen() + mp(a) + (b ? mp(b) : 0); aff.forEach(n => { after += tc(n); }); const d = after - before;
+      if (d <= 0 || Math.random() < Math.exp(-d / T)) {
+        cur += d; if (!b) { occ.delete(as + ':' + ac); occ.add(a.slot + ':' + a.court); }
+        if (cur < best) { best = cur; snap = fixSnap(); }
+      } else if (b) { const bs = a.slot, bc = a.court; a.slot = as; a.court = ac; b.slot = bs; b.court = bc; } else { a.slot = as; a.court = ac; }
+    }
+    if (best < bestAll) { bestAll = best; snapAll = snap; }
+  }
+  fixRestore(snapAll); return start - bestAll;
+}
+const waitStats = () => { const r = fairRows(), g = [].concat.apply([], r.map(x => x.gaps)); return { longest: g.length ? Math.max.apply(null, g) : 0, teams: r.filter(x => x.flags.some(f => f[1] === 'Long wait')).length, same: r.filter(x => x.flags.some(f => f[1] === 'Same court')).length, back: r.filter(x => x.flags.some(f => f[1] === 'Back-to-back')).length }; };
+function runFix(kind) {
+  if (!sched) return;
+  const before = waitStats(), snap = fixSnap(), opt = withDefaults(gopt), bProb = validateSchedule({ matches: sched.matches, brackets: sched.brackets }, opt);
+  $('#fairMsg').textContent = 'Working on it...';
+  setTimeout(() => {
+    if (kind === 'waits') { optimizeWaits(); spreadCourts(); } else spreadCourts();
+    const aProb = validateSchedule({ matches: sched.matches, brackets: sched.brackets }, opt);
+    if (aProb.some(p => !bProb.includes(p))) { fixRestore(snap); $('#fairMsg').textContent = 'That change would have broken a rule, so nothing was changed.'; return; }
+    const after = waitStats(); sched.matches.sort((a, b) => a.slot - b.slot || a.court - b.court);
+    const moved = sched.matches.filter(m => { const o = snap.find(x => x[0] === m.id); return o && (o[1] !== m.slot || o[2] !== m.court); }).length;
+    if (!moved) { $('#fairMsg').textContent = kind === 'waits' ? 'This is already about as good as it gets. No change.' : 'Courts are already spread as well as possible. No change.'; return; }
+    lastFix = snap; $('#fixUndo').classList.remove('hidden');
+    afterTimeChange(''); renderFair();
+    $('#fairMsg').textContent = (kind === 'waits' ? 'Longest wait ' + before.longest + ' to ' + after.longest + ' min. Teams with a long wait: ' + before.teams + ' to ' + after.teams + '. ' : '') + 'Teams always on one court: ' + before.same + ' to ' + after.same + '. ' + moved + ' game' + (moved > 1 ? 's' : '') + ' changed' + (kind === 'waits' ? ' (levels keep their start times; scored games stay put)' : '') + '.';
+  }, 30);
+}
+$('#fixWait').onclick = () => runFix('waits');
+$('#fixCourt').onclick = () => runFix('courts');
+$('#fixUndo').onclick = () => { if (!lastFix) return; fixRestore(lastFix); lastFix = null; $('#fixUndo').classList.add('hidden'); afterTimeChange(''); renderFair(); $('#fairMsg').textContent = 'Undone. The schedule is back as it was.'; };
+
+function renderFair() {
+  if (!sched) return;
+  const rows = fairRows();
   if (!rows.length) { $('#fairBody').innerHTML = ''; $('#fairHead').textContent = ''; return; }
   const counts = rows.map(r => r.g.length), allGaps = [].concat.apply([], rows.map(r => r.gaps));
   const byB = {}; rows.forEach(r => { (byB[r.e.bracket] = byB[r.e.bracket] || []).push(r.g.length); });
