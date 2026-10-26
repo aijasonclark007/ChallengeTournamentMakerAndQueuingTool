@@ -166,8 +166,12 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
   // how far a court is behind its schedule (only for clock-time slots; extra matches have no scheduled time)
   function lateInfo(m, live) {
     if (!m || m.extra) return null;
-    const t = String(m.time).split(/\s+-\s+/), st = toMin(t[0]), en = toMin(t[1]), d = new Date(), now = d.getHours() * 60 + d.getMinutes();
+    const t = String(m.time).split(/\s+-\s+/), st = toMin(t[0]), en = toMin(t[1]), d = new Date();
     if (st == null) return null;
+    let now = d.getHours() * 60 + d.getMinutes();
+    const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(m.date || '');
+    if (dm) { const day = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(+dm[1], +dm[2] - 1, +dm[3])) / 864e5); now += day * 1440; }      // the event date is known: before that day nothing is late
+
     if (live) return en != null && now - en >= 3 && now - en <= 240 ? { txt: 'Over by ' + (now - en) + ' min', min: now - en } : null;
     return now - st >= 5 && now - st <= 240 ? { txt: 'Late ' + (now - st) + ' min', min: now - st } : null;
   }
