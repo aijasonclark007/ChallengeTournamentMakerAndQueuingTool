@@ -34,7 +34,8 @@ end;
 $$;
 grant execute on function public.umpire_get(text, text) to anon, authenticated;
 
-create or replace function public.set_extra_slot(p_slug text, p_key text, p_mid text, p_slot numeric)
+drop function if exists public.set_extra_slot(text, text, text, numeric);
+create or replace function public.set_extra_slot(p_slug text, p_key text, p_mid text, p_slot numeric, p_time text default null)
 returns void
 language plpgsql
 security definer
@@ -42,7 +43,10 @@ set search_path = ''
 as $$
 begin
   if not exists (select 1 from public.published_schedules where slug = p_slug and umpire_key = p_key) then raise exception 'This link is not valid.'; end if;
-  update public.match_overrides set slot = least(greatest(coalesce(p_slot, 900), -100), 900) where slug = p_slug and mid = p_mid and extra;
+  update public.match_overrides
+     set slot = least(greatest(coalesce(p_slot, 900), -100), 900),
+         time_label = case when p_time is null or trim(p_time) = '' then time_label else left(trim(p_time), 40) end
+   where slug = p_slug and mid = p_mid and extra;
 end;
 $$;
-grant execute on function public.set_extra_slot(text, text, text, numeric) to anon, authenticated;
+grant execute on function public.set_extra_slot(text, text, text, numeric, text) to anon, authenticated;

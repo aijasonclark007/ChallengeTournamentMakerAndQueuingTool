@@ -115,7 +115,21 @@ button:disabled{opacity:.4;cursor:default}
     try { await P.addExtraMatch(slug, key, court, t1.trim(), t2.trim(), sport, new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step11.sql first.' : (e.message || 'Could not add.')); return; }
     changed('Added to ' + court + '.');
   }
-  async function doSlot(mid, slot, msg) { try { await P.setExtraSlot(slug, key, mid, slot); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step12.sql first.' : (e.message || 'Could not change the order.')); return; } changed(msg); }
+  async function doSlot(mid, slot, msg, time) { try { await P.setExtraSlot(slug, key, mid, slot, time); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step12.sql first.' : (e.message || 'Could not change the order.')); return; } changed(msg); }
+  // rest slots = gaps in the schedule's slot numbers; their times are worked out from the games either side
+  const toMin = t => { const m = /(\d+):(\d+)\s*(AM|PM)?/i.exec(String(t || '')); if (!m) return null; let h = +m[1] % 12; if (/pm/i.test(m[3] || '')) h += 12; return h * 60 + +m[2]; };
+  const fmtMin = n => { n = Math.round(n); const h = Math.floor(n / 60) % 24, mi = n % 60; return ((h % 12) || 12) + ':' + String(mi).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM'); };
+  function restSlots() {
+    const by = {}; (data.matches || []).filter(m => !m.extra && m.slot >= 0).forEach(m => { if (!by[m.slot]) by[m.slot] = String(m.time).split(/\s+-\s+/); });
+    const ks = Object.keys(by).map(Number).sort((a, b) => a - b), out = [];
+    for (let i = 1; i < ks.length; i++) {
+      const a = ks[i - 1], b = ks[i], n = b - a - 1; if (n < 1) continue;
+      const e = toMin(by[a][1]), st = toMin(by[b][0]); if (e == null || st == null || st <= e) continue;
+      const len = (st - e) / n;
+      for (let k = 0; k < n; k++) out.push({ slot: a + k + 1, label: fmtMin(e + k * len) + ' - ' + fmtMin(e + (k + 1) * len) });
+    }
+    return out;
+  }
   async function doRemove(mid) { if (!confirm('Remove this extra match?')) return; try { await P.removeExtraMatch(slug, key, mid); } catch (e) { toast(e.message || 'Could not remove.'); return; } changed('Extra match removed.'); }
   async function copy(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg); } catch (e) { prompt('Copy this link', t); } }
   function courtsOf() {
@@ -179,8 +193,8 @@ button:disabled{opacity:.4;cursor:default}
       if (cur && state(cur) !== 'done') h += '<h4>Record a default</h4><div class="btns" style="margin-bottom:4px"><button class="stop" data-def="' + esc(cur.mid) + '" data-side="0">' + esc(cur.t1) + ' defaults</button><button class="stop" data-def="' + esc(cur.mid) + '" data-side="1">' + esc(cur.t2) + ' defaults</button></div><div class="meta" style="margin-bottom:10px">Counts as ' + target(cur) + ' - 0 for the other team.</div>';
       h += '<h4>Move a match to another court</h4>' + (movable.length && others.length ? '<div class="row"><select data-mv="' + esc(ct.name) + '">' + movable.map(m => '<option value="' + esc(m.mid) + '">' + esc(m.time) + ' · ' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + (m.moved ? ' (moved from ' + esc(m.from) + ')' : '') + '</option>').join('') + '</select><select data-to="' + esc(ct.name) + '">' + others.map(x => '<option>' + esc(x.name) + '</option>').join('') + '</select></div><div class="btns"><button class="go" data-domove="' + esc(ct.name) + '">Move match</button><button data-back="' + esc(ct.name) + '">Put back on original court</button></div>' : '<div class="meta" style="margin-bottom:10px">Nothing to move here.</div>');
       h += '<h4 style="margin-top:12px">Add an extra match here</h4><div class="row"><input data-x1="' + esc(ct.name) + '" placeholder="Team 1 (e.g. Ann / Ben)"><input data-x2="' + esc(ct.name) + '" placeholder="Team 2"></div><div class="row"><select data-xs="' + esc(ct.name) + '"><option value="badminton"' + (sp === 'pickleball' ? '' : ' selected') + '>Badminton</option><option value="pickleball"' + (sp === 'pickleball' ? ' selected' : '') + '>Pickleball</option></select></div><div class="btns"><button class="go" data-doadd="' + esc(ct.name) + '">Add match</button></div>';
-      const ex = ct.list.filter(m => m.extra && state(m) === 'up');
-      if (ex.length) h += '<h4 style="margin-top:12px">Extra matches waiting</h4>' + ex.map(m => { const pos = ct.list.filter(x => state(x) !== 'done').findIndex(x => x.mid === m.mid); return '<div style="margin-bottom:10px"><div style="font-weight:700">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div><div class="meta">' + (pos === 0 ? 'Playing next' : pos > 0 ? pos + ' match' + (pos > 1 ? 'es' : '') + ' before it' : '') + '</div><div class="btns" style="margin-top:6px"><button class="go" data-xnext="' + esc(m.mid) + '" data-xc="' + esc(ct.name) + '">Play next</button><button data-xlast="' + esc(m.mid) + '">Play last</button><button class="stop" data-rmx="' + esc(m.mid) + '">Remove</button></div></div>'; }).join('');
+      const ex = ct.list.filter(m => m.extra && state(m) === 'up'), floor = Math.min.apply(null, ct.list.filter(m => !m.extra && state(m) !== 'done').map(m => m.slot).concat([1e9])), rests = restSlots().filter(r => r.slot > floor);
+      if (ex.length) h += '<h4 style="margin-top:12px">Extra matches waiting</h4>' + ex.map(m => { const pos = ct.list.filter(x => state(x) !== 'done').findIndex(x => x.mid === m.mid); return '<div style="margin-bottom:10px"><div style="font-weight:700">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div><div class="meta">' + (pos === 0 ? 'Playing next' : pos > 0 ? pos + ' match' + (pos > 1 ? 'es' : '') + ' before it' : '') + '</div><div class="btns" style="margin-top:6px"><button class="go" data-xnext="' + esc(m.mid) + '" data-xc="' + esc(ct.name) + '">Play next</button><button data-xlast="' + esc(m.mid) + '">Play last</button><button class="stop" data-rmx="' + esc(m.mid) + '">Remove</button></div>' + (rests.length ? '<div class="row" style="margin-top:8px"><select data-xr="' + esc(m.mid) + '">' + rests.map(r => '<option value="' + r.slot + '">Rest slot ' + esc(r.label) + '</option>').join('') + '</select><button style="flex:0 0 auto;padding:10px 14px;border-radius:10px;background:var(--card);font-weight:800" data-xrest="' + esc(m.mid) + '">Put here</button></div>' : '') + '</div>'; }).join('');
       h += '<h4 style="margin-top:12px">Umpire missing?</h4><div class="btns"><button data-ulink="' + esc(ct.name) + '">Copy umpire link for ' + esc(ct.name) + '</button></div><div class="meta" style="margin:6px 0 10px">Send it to anyone. Opening it on their phone puts them on this court.</div></details></div>';
       return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + pill + '</div>' + h + '</div>';
     });
@@ -188,11 +202,11 @@ button:disabled{opacity:.4;cursor:default}
     alerts.forEach(a => { if (!alarmed[a]) { alarmed[a] = 1; beep(); try { navigator.vibrate && navigator.vibrate([300, 100, 300]); } catch (e) {} } });
     Object.keys(alarmed).forEach(a => { if (!alerts.includes(a)) delete alarmed[a]; });
     const focus = document.activeElement && document.activeElement.tagName === 'BUTTON' ? 1 : 0;
-    const keep = {}; app.querySelectorAll('input,select').forEach(e => { const k = e.getAttribute('data-x1') ? 'x1:' + e.getAttribute('data-x1') : e.getAttribute('data-x2') ? 'x2:' + e.getAttribute('data-x2') : e.getAttribute('data-xs') ? 'xs:' + e.getAttribute('data-xs') : e.getAttribute('data-mv') ? 'mv:' + e.getAttribute('data-mv') : e.getAttribute('data-to') ? 'to:' + e.getAttribute('data-to') : null; if (k) keep[k] = e.value; });
+    const keep = {}; app.querySelectorAll('input,select').forEach(e => { const k = e.getAttribute('data-x1') ? 'x1:' + e.getAttribute('data-x1') : e.getAttribute('data-x2') ? 'x2:' + e.getAttribute('data-x2') : e.getAttribute('data-xs') ? 'xs:' + e.getAttribute('data-xs') : e.getAttribute('data-mv') ? 'mv:' + e.getAttribute('data-mv') : e.getAttribute('data-to') ? 'to:' + e.getAttribute('data-to') : e.getAttribute('data-xr') ? 'xr:' + e.getAttribute('data-xr') : null; if (k) keep[k] = e.value; });
     app.innerHTML = '<div class="sum"><span>Live <b>' + nLive + '</b></span><span>Finished <b>' + nDone + '</b> of <b>' + all.length + '</b></span><span>Courts <b>' + courts.length + '</b></span></div>' +
       (alerts.length ? '<div class="alerts">' + alerts.map(a => '<div class="alert">' + esc(a) + '</div>').join('') + '</div>' : '') +
       '<div class="grid">' + cards.join('') + '</div>' + (err ? '<p class="meta" style="text-align:center">Connection problem: ' + esc(err) + '. Showing the last data.</p>' : '');
-    app.querySelectorAll('[data-x1],[data-x2],[data-xs],[data-mv],[data-to]').forEach(e => { const g = n => e.getAttribute(n), k = g('data-x1') ? 'x1:' + g('data-x1') : g('data-x2') ? 'x2:' + g('data-x2') : g('data-xs') ? 'xs:' + g('data-xs') : g('data-mv') ? 'mv:' + g('data-mv') : 'to:' + g('data-to'); if (keep[k] != null) e.value = keep[k]; });
+    app.querySelectorAll('[data-x1],[data-x2],[data-xs],[data-mv],[data-to],[data-xr]').forEach(e => { const g = n => e.getAttribute(n), k = g('data-xr') ? 'xr:' + g('data-xr') : g('data-x1') ? 'x1:' + g('data-x1') : g('data-x2') ? 'x2:' + g('data-x2') : g('data-xs') ? 'xs:' + g('data-xs') : g('data-mv') ? 'mv:' + g('data-mv') : 'to:' + g('data-to'); if (keep[k] != null) e.value = keep[k]; });
     app.querySelectorAll('details.tools').forEach(d => { d.addEventListener('toggle', () => { openMore['t:' + d.dataset.tc] = d.open; }); d.querySelector('summary').addEventListener('click', () => { d.classList.add('pop'); setTimeout(() => d.classList.remove('pop'), 400); }); });
     const val = (sel, c) => { const e = app.querySelector('[' + sel + '="' + c.replace(/"/g, '\\"') + '"]'); return e ? e.value : ''; };
     app.querySelectorAll('[data-domove]').forEach(b => b.onclick = () => doMove(val('data-mv', b.dataset.domove), val('data-to', b.dataset.domove)));
@@ -202,6 +216,10 @@ button:disabled{opacity:.4;cursor:default}
       const ct = courts.find(x => x.name === b.dataset.xc), left = ct.list.filter(m => state(m) !== 'done' && m.mid !== b.dataset.xnext), live = left.find(m => state(m) === 'live'), first = left.find(m => state(m) === 'up');
       const slot = live ? live.slot + 0.5 : first ? first.slot - 0.5 : 900;
       doSlot(b.dataset.xnext, slot, live ? 'Set to play right after the current match.' : 'Set to play next.');
+    });
+    app.querySelectorAll('[data-xrest]').forEach(b => b.onclick = () => {
+      const sel = app.querySelector('[data-xr="' + b.dataset.xrest + '"]'), r = restSlots().find(x => String(x.slot) === (sel && sel.value));
+      if (r) doSlot(b.dataset.xrest, r.slot, 'Set for the ' + r.label + ' rest slot.', r.label);
     });
     app.querySelectorAll('[data-xlast]').forEach(b => b.onclick = () => doSlot(b.dataset.xlast, 900, 'Set to play last.'));
     app.querySelectorAll('[data-rmx]').forEach(b => b.onclick = () => doRemove(b.dataset.rmx));

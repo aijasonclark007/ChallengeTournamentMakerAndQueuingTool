@@ -237,8 +237,8 @@
     needSb(); const r = await sb.rpc('remove_extra_match', { p_slug: slug, p_key: key, p_mid: mid });
     if (r.error) fail(r.error);
   }
-  async function setExtraSlot(slug, key, mid, slot) {
-    needSb(); const r = await sb.rpc('set_extra_slot', { p_slug: slug, p_key: key, p_mid: mid, p_slot: slot });
+  async function setExtraSlot(slug, key, mid, slot, time) {
+    needSb(); const r = await sb.rpc('set_extra_slot', { p_slug: slug, p_key: key, p_mid: mid, p_slot: slot, p_time: time || '' });
     if (r.error) fail(r.error);
   }
   async function getCourtMoves(slug) {
