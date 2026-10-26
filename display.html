@@ -29,6 +29,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .banner.amber{background:var(--amber);color:#2b1800}.banner.blue{background:var(--blue);color:#fff}.banner.red{background:var(--red);color:#fff;animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.55}}
 .names .sv,.rn .sv{color:var(--lime)}
+.names .rv,.rn .rv{color:#5AC8FA}
+.rdot{display:inline-block;width:.5em;height:.5em;border-radius:50%;background:#5AC8FA;vertical-align:.12em}
+
 .ic{display:inline-block;width:1.25em;margin-right:.1em;text-align:center}
 .names .n:not(.sv) .ic:empty,.names .ic:empty{display:none}
 .rn .ic{margin-right:.2em}
@@ -119,22 +122,24 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     const order = flip ? [1, 0] : [0, 1], names = [m.t1, m.t2], pts = [s1, s2];
     const icon = m.sport === 'pickleball' ? '&#127955;' : '&#127992;';
     // the server's name turns green with a racket next to it (no wording needed); if the name cannot be matched, the first name is marked
-    const lineHtml = (lines, serving, cls) => {
-      let hit = serving ? lines.findIndex(l => srv && String(l).trim().toLowerCase() === String(srv.server || '').trim().toLowerCase()) : -1;
+    const lineHtml = (lines, serving, receiving, cls) => {
+      const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+      let hit = serving ? lines.findIndex(l => srv && same(l, srv.server)) : -1;
       if (serving && hit < 0) hit = 0;
-      return lines.map((l, j) => '<div class="' + cls + (j === hit ? ' sv' : '') + '"><span class="ic">' + (j === hit ? icon : '') + '</span>' + esc(l) + '</div>').join('');
+      const rec = receiving && m.sport !== 'pickleball' ? lines.findIndex(l => srv && same(l, srv.recv)) : -1;       // receiver: blue name and dot (badminton)
+      return lines.map((l, j) => '<div class="' + cls + (j === hit ? ' sv' : '') + (j === rec ? ' rv' : '') + '"><span class="ic">' + (j === hit ? icon : j === rec ? '<i class="rdot"></i>' : '') + '</span>' + esc(l) + '</div>').join('');
     };
     if (layout === 'rows') {
       const row = i => {
-        const lines = split(names[i]), serving = srv && srv.k === i, lead = won && pts[i] > pts[1 - i];
-        return '<div class="row2' + (serving ? ' srv' : '') + (lead ? ' win' : '') + '"><div class="rn">' + lineHtml(lines, serving, 'l') +
+        const lines = split(names[i]), serving = srv && srv.k === i, receiving = srv && srv.k !== i, lead = won && pts[i] > pts[1 - i];
+        return '<div class="row2' + (serving ? ' srv' : '') + (lead ? ' win' : '') + '"><div class="rn">' + lineHtml(lines, serving, receiving, 'l') +
           (lead ? '<div class="tg">WINNER</div>' : '') + '</div><div class="rs">' + pts[i] + '</div></div>';
       };
       return '<div class="rows">' + row(order[0]) + row(order[1]) + '</div>';
     }
     const panel = i => {
-      const lines = split(names[i]), serving = srv && srv.k === i, lead = won && pts[i] > pts[1 - i];
-      return '<div class="team' + (serving ? ' srv' : '') + (lead ? ' win' : '') + '"><div class="names">' + lineHtml(lines, serving, 'n') + '</div><div class="pts">' + pts[i] + '</div>' +
+      const lines = split(names[i]), serving = srv && srv.k === i, receiving = srv && srv.k !== i, lead = won && pts[i] > pts[1 - i];
+      return '<div class="team' + (serving ? ' srv' : '') + (lead ? ' win' : '') + '"><div class="names">' + lineHtml(lines, serving, receiving, 'n') + '</div><div class="pts">' + pts[i] + '</div>' +
         '<div class="tag">' + (lead ? 'WINNER' : '') + '</div></div>';
     };
     return '<div class="main">' + panel(order[0]) + panel(order[1]) + '</div>';
