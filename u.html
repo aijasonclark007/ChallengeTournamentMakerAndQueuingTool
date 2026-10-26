@@ -276,6 +276,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     const card = m => {
       const st = state(m), s = scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null), ready = m.t1 && m.t2;
       let next = false; if (!nextFound && st !== 'done' && ready) { next = true; nextFound = true; }
+      const calledB = called[m.mid] && st === 'up' ? '<span class="badge" style="background:#FF9500">CALLED</span>' : '';
       const wait = readOut()[m.mid] ? '<span style="color:#8A5300;font-weight:700">Saved on phone</span>' : '';
       const badge = st === 'live' ? (quick ? '' : '<span class="badge live">LIVE</span>') : st === 'done' ? '<span class="badge done">FINAL</span>' : '<span class="badge up">' + (ready ? (next ? 'UP NEXT' : 'UPCOMING') : 'TO BE DECIDED') + '</span>';
       return '<button class="card' + (next ? ' next' : '') + '" data-m="' + esc(m.mid) + '"' + (ready || st !== 'up' ? '' : ' disabled') + '><div class="t">' + badge + wait + '<span>' + esc(m.time) + '</span>' + (court ? '' : '<span>' + esc(m.court) + '</span>') + '<span>' + esc(m.bracket) + '</span></div>' +
@@ -415,10 +416,10 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
   }
   // ----- court clock: who is here, the 5-minute default timer and the 5-minute medical timeout (kept on this phone) -----
   const CK_SECS = 300;
-  let ck = null, ckTick = null, ckToss = false;
+  let ck = null, ckTick = null, ckToss = false, ckN = 0;
   const ckKey = () => 'ump.' + slug + '.' + (cur ? cur.mid : '') + '.ck';
   function ckLoad() { try { ck = JSON.parse(localStorage.getItem(ckKey()) || 'null'); } catch (e) { ck = null; } ck = ck || {}; ck.att = ck.att || {}; ck.log = ck.log || []; }
-  function ckSave() { try { localStorage.setItem(ckKey(), JSON.stringify(ck)); } catch (e) {} }
+  function ckSave() { try { localStorage.setItem(ckKey(), JSON.stringify(ck)); } catch (e) {} setTimeout(ckBroadcast, 0); }
   const ckSplit = n => String(n || '').split(/\s*(?:\/|&|\band\b)\s*/i).map(x => x.trim()).filter(Boolean);
   function ckPeople() { const o = []; [cur.t1, cur.t2].forEach((n, side) => { const p = ckSplit(n); (p.length ? p : [n]).forEach(x => o.push({ name: x, side, team: n })); }); return o; }
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
@@ -442,6 +443,34 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       h += '<button type="button" data-ck>Medical timeout</button>';
     }
     bar.innerHTML = h; bar.querySelectorAll('[data-ck]').forEach(b => b.onclick = ckOpen);
+  }
+  function ckApply(k, who) {                              // one place for every clock action (buttons here, or commands from the Match Control page)
+    if (k === 'all') { ckPeople().forEach(p => { ck.att[p.name] = true; }); if (ck.dEnd) { ck.dEnd = null; ck.dOver = false; } ck.dOk = true; }
+    else if (k === 'dstart') { ck.dEnd = Date.now() + CK_SECS * 1000; ck.dOver = false; ck.dOk = false; }
+    else if (k === 'dstop') { ck.dEnd = null; ck.dOver = false; }
+    else if (k === 'mstart') { ck.mWho = who || ''; ck.mEnd = Date.now() + CK_SECS * 1000; ck.mOver = false; ck.mAt = Date.now(); }
+    else if (k === 'mstop') { if (ck.mEnd) { const used = Math.min(CK_SECS, Math.round((Date.now() - ck.mAt) / 1000)); ck.log.push('Medical timeout: ' + ck.mWho + ', ' + Math.floor(used / 60) + ':' + String(used % 60).padStart(2, '0') + ' used'); } ck.mEnd = null; ck.mOver = false; }
+  }
+  // ----- talking to the Match Control page (a private channel: only people with the umpire link can join) -----
+  let ctl = { ping() {} };
+  const called = {};
+  function ckBroadcast() {
+    if (quick || !cur) return;
+    if (!ck) { ctl.ping({ t: 'ck', mid: cur.mid, closed: true }); return; }
+    const now = Date.now(), d = ckDefaulted();
+    ctl.ping({ t: 'ck', mid: cur.mid, court: cur.court, t1: cur.t1, t2: cur.t2, s1, s2, here: ckPeople().map(p => [p.name, !!ck.att[p.name]]),
+      dLeft: ck.dEnd ? ck.dEnd - now : null, mLeft: ck.mEnd ? ck.mEnd - now : null, mWho: ck.mWho || '', missing: d.flatMap(x => x.miss), allHere: ckAllHere() });
+  }
+  function ckCommand(p) {
+    if (!p || !p.t) return;
+    if (p.t === 'call') {
+      called[p.mid] = true; buzz([200, 100, 200]); toast('Called to court: ' + (p.label || 'your next match'));
+      if (cur && cur.mid === p.mid && ck && !ck.dEnd && !ckAllHere()) { ckApply('dstart'); ckSave(); ckPaint(); ckBroadcast(); }
+      if (!cur && data) renderList();
+    } else if (p.t === 'cmd' && cur && ck && cur.mid === p.mid) {
+      ckApply(p.cmd, p.who); ckSave(); ckPaint(); if ($('#ck').classList.contains('on')) ckSheet(); ckBroadcast();
+      buzz([60, 40, 60]); toast('Match Control: ' + ({ dstart: 'default timer started', dstop: 'timer stopped', all: 'everyone marked here', mstop: 'medical timeout ended' }[p.cmd] || 'clock updated'));
+    }
   }
   function ckSheet() {
     const now = Date.now(), ppl = ckPeople(), dLeft = ck.dEnd ? ck.dEnd - now : 0, mLeft = ck.mEnd ? ck.mEnd - now : 0;
@@ -484,11 +513,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
     } else if (a) {
       const k = a.dataset.ca; buzz(10);
       if (k === 'close') { ckClose(); return; }
-      if (k === 'all') { ckPeople().forEach(p => { ck.att[p.name] = true; }); if (ck.dEnd) { ck.dEnd = null; ck.dOver = false; } ck.dOk = true; }
-      else if (k === 'dstart') { ck.dEnd = Date.now() + CK_SECS * 1000; ck.dOver = false; ck.dOk = false; }
-      else if (k === 'dstop') { ck.dEnd = null; ck.dOver = false; }
-      else if (k === 'mstart') { ck.mWho = ($('#ckWho') || {}).value || ''; ck.mEnd = Date.now() + CK_SECS * 1000; ck.mOver = false; ck.mAt = Date.now(); }
-      else if (k === 'mstop') { const used = Math.min(CK_SECS, Math.round((Date.now() - ck.mAt) / 1000)); ck.log.push('Medical timeout: ' + ck.mWho + ', ' + Math.floor(used / 60) + ':' + String(used % 60).padStart(2, '0') + ' used'); ck.mEnd = null; ck.mOver = false; }
+      ckApply(k, ($('#ckWho') || {}).value);
     } else return;
     ckSave(); ckSheet(); ckPaint();
     if (ckToss && ckAllHere() && !ck.dEnd) setTimeout(ckClose, 500);
@@ -501,11 +526,11 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
       if (ck.mEnd && now >= ck.mEnd && !ck.mOver) { ck.mOver = true; ch = true; ckAlarm('Medical timeout is over: ' + ck.mWho); }
       if (ch) { ckSave(); if ($('#ck').classList.contains('on')) ckSheet(); }
       else if ($('#ck').classList.contains('on')) { const d = $('#ckDt'), m = $('#ckMt'); if (d && ck.dEnd) d.textContent = mmss(ck.dEnd - now); if (m && ck.mEnd) m.textContent = mmss(ck.mEnd - now); }
-      ckPaint();
+      ckPaint(); if (++ckN % 5 === 0) ckBroadcast();
     }, 1000);
-    ckPaint();
+    ckPaint(); ckBroadcast();
   }
-  function ckStop() { clearInterval(ckTick); ckTick = null; ck = null; ckToss = false; $('#ck').classList.remove('on'); const b = $('#clk'); if (b) b.innerHTML = ''; }
+  function ckStop() { clearInterval(ckTick); ckTick = null; const was = ck; ck = null; ckToss = false; if (was && cur) ctl.ping({ t: 'ck', mid: cur.mid, closed: true }); $('#ck').classList.remove('on'); const b = $('#clk'); if (b) b.innerHTML = ''; }
   async function openMatch(mid) {
     cur = (data.matches || []).find(m => m.mid === mid); if (!cur) return;
     const sv0 = scores[mid] || (cur.res ? { s1: cur.res.a, s2: cur.res.b, status: 'done' } : null);
@@ -553,6 +578,7 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 
   if (!quick && (!slug || !key)) { $('#list').innerHTML = '<div class="msg">This link is incomplete. Ask the organizer for your court link.</div>'; return; }
   if (!quick && (!P || !P.configured)) { $('#list').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
+  if (!quick) { try { ctl = P.liveChannel('ctl-' + slug + '-' + key, ckCommand); } catch (e) {} }
   flush(); load();
   timer = setInterval(() => { if (document.hidden) return; if (pendingN()) flush(); if (!cur && !quick) load(); }, 12000);
   setInterval(() => { if (!document.hidden && pendingN()) flush(); }, 4000);

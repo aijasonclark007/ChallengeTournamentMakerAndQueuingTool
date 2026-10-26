@@ -318,7 +318,7 @@ summary:hover{background:#fff}
     <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:6px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input id="pubAuto" type="checkbox" checked> Keep this link updated automatically (when scores, the knockout round or the name change)</label></div>
     <details id="umpBox" class="noprint hidden" style="margin:6px 0 10px"><summary><b>Live scoring for umpires</b> (one link per court)</summary>
-      <p class="hint">Send each umpire their court's link or let them scan the QR code. They score on their phone, tap Finish match, and the result lands in your scoreboard. Press "Update with latest scores" after you build the knockout round so umpires get those games too.</p><div id="umpList"></div></details>
+      <p class="hint">Send each umpire their court's link or let them scan the QR code. They score on their phone, tap Finish match, and the result lands in your scoreboard. Press "Update with latest scores" after you build the knockout round so umpires get those games too.</p><a id="ctlLink" class="go" href="#" target="_blank" rel="noopener" style="display:inline-block;margin:6px 0 10px;padding:11px 16px;border-radius:12px;text-decoration:none;font-weight:800">Open Match Control (all courts)</a><div class="hint" style="min-height:0">Match Control shows every court live, the umpires' default and medical timers, and lets you call a match to its court. Keep this link private: it works like the umpire links.</div><div id="umpList"></div></details>
     <p id="pubMsg" class="hint noprint">The shareable page has no score boxes or buttons. It is easy to read on a phone, and players can search their name.</p>
     <details id="pubDet" class="noprint"><summary>Preview what people will see</summary><div id="pubPreview" class="pubwrap"></div>
       <p class="hint">If the download does not work, copy this code into a file named game-schedule.html:</p><textarea id="pubCode" style="min-height:70px" readonly></textarea></details>
@@ -1728,6 +1728,7 @@ $('#pubDl').onclick = async () => {
 // ---- shareable link (stored in Supabase) ----
 const pubUrlFor = slug => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 's.html?s=' + slug;
 let pubSlug = null, pubKey = null, ingestPause = 0;
+const ctlUrl = () => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 'control.html?s=' + pubSlug + '&k=' + pubKey;
 const umpUrl = court => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 'u.html?s=' + pubSlug + '&k=' + pubKey + '&c=' + encodeURIComponent(court);
 function matchList() {
   const done = committed(results), out = [], nm = t => (t ? t.name : '');
@@ -1740,6 +1741,7 @@ function matchList() {
 }
 function showUmp() {
   const box = $('#umpBox'); box.classList.toggle('hidden', !(pubSlug && pubKey && sched)); if (!(pubSlug && pubKey && sched)) return;
+  $('#ctlLink').href = ctlUrl();
   const courts = [...new Set(sched.matches.map(m => m.courtName))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
   $('#umpList').innerHTML = courts.map((c, i) => '<div class="umprow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0"><b style="min-width:80px">' + esc(c) + '</b><button class="ghost" data-uc="' + i + '" type="button">Copy link</button><button class="ghost" data-uq="' + i + '" type="button">QR code</button><span data-ub="' + i + '"></span></div>').join('');
   $('#umpList').querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const u = umpUrl(courts[+b.dataset.uc]); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Link for ' + courts[+b.dataset.uc] + ' copied.'); });

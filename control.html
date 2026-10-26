@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A2547">
+<title>Match Control</title>
+<style>html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+:root{--blue:#007AFF;--green:#34C759;--orange:#FF9500;--red:#FF3B30;--ink:#1C1C1E;--mute:#5F5F66;--line:rgba(60,60,67,.18);--bg:#F2F2F7;--card:#fff;--chip:rgba(118,118,128,.12);--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06)}
+@media (prefers-color-scheme:dark){:root{--ink:#F2F2F7;--mute:#A1A1A8;--line:rgba(235,235,245,.18);--bg:#000;--card:#1C1C1E;--chip:rgba(118,118,128,.28);--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulation}
+button:disabled{opacity:.4;cursor:default}
+.top{background:#0A2547;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:10px}
+.top h1{margin:0;font-size:18px;flex:1;line-height:1.2}.top small{display:block;font-weight:500;opacity:.75;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%;background:#7bd88f;flex:none}.dot.err{background:var(--red)}
+.wrap{max-width:1100px;margin:0 auto;padding:14px 14px 40px}
+.sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.sum span{background:var(--card);box-shadow:var(--shadow);border-radius:999px;padding:7px 14px;font-weight:700;font-size:14px}
+.sum b{font-variant-numeric:tabular-nums}
+.alerts{display:grid;gap:8px;margin-bottom:12px}
+.alert{background:#FFE5E3;color:#B3261E;border-radius:14px;padding:12px 14px;font-weight:800;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.6}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px}
+.court{background:var(--card);border-radius:20px;box-shadow:var(--shadow);padding:14px;border:2px solid transparent}
+.court.live{border-color:var(--green)}.court.warn{border-color:var(--orange)}.court.med{border-color:var(--blue)}.court.over{border-color:var(--red)}
+.ch{display:flex;align-items:center;gap:8px;margin-bottom:8px}.ch h2{margin:0;font-size:19px;flex:1}
+.pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--chip);color:var(--mute);white-space:nowrap}
+.pill.live{background:var(--green);color:#fff}.pill.warn{background:var(--orange);color:#fff}.pill.med{background:var(--blue);color:#fff}.pill.over{background:var(--red);color:#fff}
+.lbl{font-size:12px;font-weight:800;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 2px}
+.vs{font-weight:800;font-size:17px;line-height:1.25}.vs i{font-style:normal;color:var(--mute);font-weight:600;margin:0 6px}
+.score{font-size:34px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:2px 0}
+.meta{color:var(--mute);font-size:13px}
+.clock{margin:8px 0;padding:10px 12px;border-radius:14px;background:var(--chip);font-weight:700;font-size:14px}
+.clock.warn{background:#FFF4D6;color:#6b4a00}.clock.med{background:#E8F2FF;color:#0A4FA8}.clock.over{background:#FFE5E3;color:#B3261E}
+.clock b{font-size:22px;font-variant-numeric:tabular-nums;margin-right:6px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btns button{flex:1 1 130px;padding:11px 10px;border-radius:12px;background:var(--chip);font-weight:800;font-size:14px}
+.btns .go{background:var(--orange);color:#fff}.btns .ok{background:var(--green);color:#fff}.btns .stop{background:#FFE5E3;color:#B3261E}
+.next{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.next div{font-size:14px;padding:3px 0}.next span{color:var(--mute);font-size:12px;margin-right:6px}
+.msg{padding:50px 20px;text-align:center;color:var(--mute)}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,30px);background:#10213a;color:#fff;padding:10px 16px;border-radius:999px;opacity:0;transition:.3s;pointer-events:none;z-index:9;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="top"><h1 id="ttl">Match Control<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
+<div class="wrap" id="app"><div class="msg">Loading...</div></div>
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="platform-config.js"></script>
+<script src="platform.js"></script>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k');
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
+  const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+  const P = window.Platform;
+  let data = null, scores = {}, clocks = {}, ctl = null, alarmed = {}, err = null;
+
+  function beep() { try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; const c = new A(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = .25; o.start(); setTimeout(() => { try { o.stop(); c.close(); } catch (e) {} }, 900); } catch (e) {} }
+  const state = m => { const s = scores[m.mid]; if (s) return s.status; if (m.res) return 'done'; return 'up'; };
+  const score = m => scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null);
+  const ready = m => m.t1 && m.t2;
+
+  async function load() {
+    try {
+      const d = await P.umpireGet(slug, key);
+      data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; }); err = null; $('#dot').className = 'dot';
+    } catch (e) { err = e.message || 'Could not load'; $('#dot').className = 'dot err'; }
+    paint();
+  }
+
+  // live clock state pushed by the umpire phones (a clock not heard from for 20 s is treated as offline)
+  function onCk(p) {
+    if (!p || p.t !== 'ck' || !p.mid) return;
+    if (p.closed) { delete clocks[p.mid]; paint(); return; }
+    clocks[p.mid] = Object.assign({}, p, { at: Date.now() }); paint();
+  }
+  const fresh = c => c && Date.now() - c.at < 20000;
+  const left = (c, k) => c[k] == null ? null : c[k] - (Date.now() - c.at);
+
+  function send(msg) { try { ctl.ping(msg); } catch (e) {} }
+  function cmd(mid, c, who) { send({ t: 'cmd', mid, cmd: c, who }); toast('Sent to the umpire.'); }
+  function call(m) { send({ t: 'call', mid: m.mid, label: m.t1 + ' vs ' + m.t2 }); toast('Called: ' + m.t1 + ' vs ' + m.t2); }
+
+  function courtsOf() {
+    const by = {};
+    (data.matches || []).forEach(m => { (by[m.court] = by[m.court] || []).push(m); });
+    Object.values(by).forEach(a => a.sort((x, y) => (x.slot - y.slot) || String(x.time).localeCompare(String(y.time))));
+    return Object.keys(by).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(c => ({ name: c, list: by[c] }));
+  }
+
+  let pressing = false, dirty = false;
+  document.addEventListener('pointerdown', () => { pressing = true; });
+  document.addEventListener('pointerup', () => { pressing = false; if (dirty) paint(); });
+  document.addEventListener('pointercancel', () => { pressing = false; });
+  function paint() {
+    if (pressing) { dirty = true; return; } dirty = false;
+    const app = $('#app');
+    if (err && !data) { app.innerHTML = '<div class="msg">' + esc(err) + '</div>'; return; }
+    if (!data) return;
+    $('#ttl').innerHTML = 'Match Control<small>' + esc(data.name) + '</small>';
+    const courts = courtsOf(), all = data.matches || [];
+    const nLive = all.filter(m => state(m) === 'live').length, nDone = all.filter(m => state(m) === 'done').length;
+    const alerts = [];
+    const cards = courts.map(ct => {
+      const live = ct.list.find(m => state(m) === 'live');
+      const upcoming = ct.list.filter(m => state(m) === 'up' && ready(m));
+      const cur = live || upcoming[0] || null, rest = upcoming.filter(m => m !== cur).slice(0, 3);
+      const doneN = ct.list.filter(m => state(m) === 'done').length;
+      let cls = '', pill = cur ? (live ? '<span class="pill live">LIVE</span>' : '<span class="pill">Up next</span>') : '<span class="pill">' + (doneN === ct.list.length ? 'All done' : 'Waiting') + '</span>';
+      let h = '', clk = cur ? clocks[cur.mid] : null, on = fresh(clk);
+      if (cur) {
+        h += '<div class="lbl">' + (live ? 'Playing now' : 'Up next') + ' · ' + esc(cur.time) + ' · ' + esc(cur.bracket) + '</div><div class="vs">' + esc(cur.t1) + '<i>vs</i>' + esc(cur.t2) + '</div>';
+        const s = score(cur); if (s) h += '<div class="score">' + s.s1 + ' - ' + s.s2 + '</div>';
+        if (live) cls = 'live';
+        if (on) {
+          const dl = left(clk, 'dLeft'), ml = left(clk, 'mLeft');
+          if (ml != null) { const over = ml <= 0; cls = over ? 'over' : 'med'; pill = '<span class="pill ' + (over ? 'over' : 'med') + '">' + (over ? 'MEDICAL OVER' : 'MEDICAL') + '</span>'; h += '<div class="clock ' + (over ? 'over' : 'med') + '"><b data-cd="mLeft" data-mid="' + esc(cur.mid) + '" data-over="' + (over ? 1 : 0) + '">' + mmss(ml) + '</b>Medical timeout: ' + esc(clk.mWho) + (over ? '. Time is up.' : '') + '</div>'; if (over) alerts.push(ct.name + ': medical timeout is over (' + clk.mWho + ')'); }
+          if (dl != null) { const over = dl <= 0; cls = over ? 'over' : (cls === 'med' ? cls : 'warn'); pill = '<span class="pill ' + (over ? 'over' : 'warn') + '">' + (over ? 'DEFAULT TIME UP' : 'DEFAULT TIMER') + '</span>'; h += '<div class="clock ' + (over ? 'over' : 'warn') + '"><b data-cd="dLeft" data-mid="' + esc(cur.mid) + '" data-over="' + (over ? 1 : 0) + '">' + mmss(dl) + '</b>' + (over ? 'Time is up. Not here: ' : 'Waiting for: ') + esc((clk.missing || []).join(', ') || 'nobody') + '</div>'; if (over) alerts.push(ct.name + ': default time is up (' + (clk.missing || []).join(', ') + ')'); }
+          if (ml == null && dl == null) h += '<div class="clock">' + (clk.allHere ? 'Everyone is on court.' : 'Not here yet: ' + esc((clk.missing || []).join(', ') || 'nobody')) + '</div>';
+        } else if (!live) h += '<div class="meta" style="margin-top:6px">Clock available once the umpire opens this match.</div>';
+        const btn = [];
+        if (!live && ready(cur)) btn.push('<button class="go" data-call="' + esc(cur.mid) + '">Call to court</button>');
+        if (on && state(cur) !== 'done') {
+          if (clk.dLeft == null && !clk.allHere && !live) btn.push('<button data-c="dstart" data-m="' + esc(cur.mid) + '">Start 5:00 default timer</button>');
+          if (clk.dLeft != null) btn.push('<button class="stop" data-c="dstop" data-m="' + esc(cur.mid) + '">Stop timer</button>');
+          if (!clk.allHere) btn.push('<button class="ok" data-c="all" data-m="' + esc(cur.mid) + '">Everyone is here</button>');
+          if (clk.mLeft != null) btn.push('<button class="stop" data-c="mstop" data-m="' + esc(cur.mid) + '">End medical timeout</button>');
+        }
+        if (btn.length) h += '<div class="btns">' + btn.join('') + '</div>';
+      } else h += '<div class="meta">' + (doneN ? 'All ' + doneN + ' matches on this court are finished.' : 'No matches ready on this court.') + '</div>';
+      if (rest.length) h += '<div class="next"><div class="lbl">Coming up</div>' + rest.map(m => '<div><span>' + esc(m.time) + '</span>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div>').join('') + '</div>';
+      h += '<div class="meta" style="margin-top:8px">' + doneN + ' of ' + ct.list.length + ' finished</div>';
+      return '<div class="court ' + cls + '"><div class="ch"><h2>' + esc(ct.name) + '</h2>' + pill + '</div>' + h + '</div>';
+    });
+    // sound once per new alert
+    alerts.forEach(a => { if (!alarmed[a]) { alarmed[a] = 1; beep(); try { navigator.vibrate && navigator.vibrate([300, 100, 300]); } catch (e) {} } });
+    Object.keys(alarmed).forEach(a => { if (!alerts.includes(a)) delete alarmed[a]; });
+    const focus = document.activeElement && document.activeElement.tagName === 'BUTTON' ? 1 : 0;
+    app.innerHTML = '<div class="sum"><span>Live <b>' + nLive + '</b></span><span>Finished <b>' + nDone + '</b> of <b>' + all.length + '</b></span><span>Courts <b>' + courts.length + '</b></span></div>' +
+      (alerts.length ? '<div class="alerts">' + alerts.map(a => '<div class="alert">' + esc(a) + '</div>').join('') + '</div>' : '') +
+      '<div class="grid">' + cards.join('') + '</div>' + (err ? '<p class="meta" style="text-align:center">Connection problem: ' + esc(err) + '. Showing the last data.</p>' : '');
+    app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => call(all.find(m => m.mid === b.dataset.call)));
+    app.querySelectorAll('[data-c]').forEach(b => b.onclick = () => cmd(b.dataset.m, b.dataset.c));
+  }
+
+  if (!slug || !key) { $('#app').innerHTML = '<div class="msg">This link is incomplete. Open Match Control from the "Live scoring for umpires" box in Draw &amp; Schedule.</div>'; return; }
+  if (!P || !P.configured) { $('#app').innerHTML = '<div class="msg">The cloud is not connected.</div>'; return; }
+  try { ctl = P.liveChannel('ctl-' + slug + '-' + key, onCk); } catch (e) {}
+  try { P.liveChannel('slive-' + slug, () => load()); } catch (e) {}
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 10000);
+  setInterval(() => {                                           // countdowns tick every second without redrawing the buttons
+    if (document.hidden || !data) return; let cross = false;
+    document.querySelectorAll('[data-cd]').forEach(el => { const c = clocks[el.dataset.mid]; if (!c) return; const l = left(c, el.dataset.cd); if (l == null) return; el.textContent = mmss(l); if (l <= 0 && el.dataset.over === '0') cross = true; });
+    if (cross) paint();
+  }, 1000);
+})();
+</script>
+</body>
+</html>
