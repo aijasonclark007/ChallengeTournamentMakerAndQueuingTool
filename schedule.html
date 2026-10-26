@@ -124,7 +124,13 @@ summary b{font-weight:800}
 .fair .tg{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px}.tg.bad{background:rgba(255,59,48,.14);color:#B3261E}.tg.warn{background:rgba(255,149,0,.18);color:#8A5200}
 .mvb{margin-left:8px;padding:5px 10px;font-size:12px;border-radius:9px}
 #lateBox{margin:6px 0 10px}#lateBox .lrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}#lateBox .lrow>div{flex:1 1 150px}#lateBox select,#lateBox input{width:100%}
-.brkbox{margin:12px 0 4px;padding-top:8px;border-top:1px solid var(--line)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.tabs button{border-radius:999px;padding:9px 16px;font-weight:700}.tabs .fl{margin-left:6px;font-size:12px}.tabs button.go .fl{color:#fff}
+#toolPanels>*{margin:10px 0}#toolPanels>details,#toolPanels>#brkPanel{background:var(--card);border-radius:16px;padding:14px 16px}
+.tpanel>summary{display:none}#pubDet>summary{display:none}#pubDet{margin-top:8px}
+button.on{box-shadow:inset 0 0 0 2px var(--blue)}
+.umph{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.btnlink{display:inline-block;padding:9px 16px;border-radius:999px;background:var(--blue);color:#fff;font-weight:700;text-decoration:none;font-size:14px}
+.umprow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}.umprow>b{min-width:80px}.umprow .lk{flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:4px 0 6px}
 .shiftl{display:flex;gap:8px;align-items:center;justify-content:space-between;background:rgba(255,149,0,.12);border-radius:10px;padding:7px 10px;margin:6px 0;font-weight:600;font-size:14px}
 #mvOv{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}#mvOv.on{display:flex}
 #mvOv .box{background:var(--card,#fff);color:var(--ink,#1C1C1E);width:100%;max-width:440px;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -325,30 +331,34 @@ summary:hover{background:#fff}
   <section id="schedSec" class="hidden">
     <div class="bar noprint">
       <h2>4. Game schedule</h2>
-      <div class="tools"><button id="editSched" class="ghost" type="button">Edit schedule</button><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button></div>
+      <div class="tools"><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button></div>
     </div>
-    <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:6px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div>
-      <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input id="pubAuto" type="checkbox" checked> Keep this link updated automatically (when scores, the knockout round or the name change)</label></div>
-    <details id="umpBox" class="noprint hidden" style="margin:6px 0 10px"><summary><b>Live scoring for umpires</b> (one link per court)</summary>
-      <p class="hint">Send each umpire their court's link or let them scan the QR code. They score on their phone, tap Finish match, and the result lands in your scoreboard. Press "Update with latest scores" after you build the knockout round so umpires get those games too.</p><a id="ctlLink" class="go" href="#" target="_blank" rel="noopener" style="display:inline-block;margin:6px 0 10px;padding:11px 16px;border-radius:12px;text-decoration:none;font-weight:800">Open Match Control (all courts)</a><div class="hint" style="min-height:0">Match Control shows every court live, the umpires' default and medical timers, and lets you call a match to its court. Keep this link private: it works like the umpire links.</div><div id="umpList"></div></details>
+    <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:8px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubDots" class="ghost" type="button" aria-label="More sharing options">More</button></div>
+      <div id="pubMore" class="hidden"><div class="tools"><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input id="pubAuto" type="checkbox" checked> Keep this link updated automatically</label></div></div>
+    <div id="umpBox" class="noprint hidden"><div class="umph"><b>Umpire &amp; TV links</b><a id="ctlLink" class="btnlink" href="#" target="_blank" rel="noopener">Open Match Control</a></div>
+      <p class="hint">One link per court. Umpires score on their phone and the result lands here. Keep these links private. After you build the knockout round, press More, then Update with latest scores.</p><div id="umpList"></div></div>
     <p id="pubMsg" class="hint noprint">The shareable page has no score boxes or buttons. It is easy to read on a phone, and players can search their name.</p>
     <details id="pubDet" class="noprint"><summary>Preview what people will see</summary><div id="pubPreview" class="pubwrap"></div>
       <p class="hint">If the download does not work, copy this code into a file named game-schedule.html:</p><textarea id="pubCode" style="min-height:70px" readonly></textarea></details>
-    <details id="lateBox" class="noprint"><summary><b>Running late?</b> Shift the game times</summary>
+    <div id="summary"></div>
+<div class="tabs noprint" id="tabs"><button class="ghost" type="button" data-tab="sharePanel">Share</button><button class="ghost" type="button" data-tab="lateBox">Running late</button><button class="ghost" type="button" data-tab="fairBox">Fairness<span class="fl" id="fairHead"></span></button><button class="ghost" type="button" data-tab="brkPanel">Breaks</button><button id="editSched" class="ghost" type="button">Edit schedule</button></div>
+    <div id="toolPanels" class="noprint">
+    <details id="lateBox" class="noprint tpanel hidden" open><summary><b>Running late?</b> Shift the game times</summary>
       <p class="hint">Pick the first game that should move and by how many minutes. Every game from then on (including the knockout round) moves with it. The shareable page and the court TVs follow.</p>
       <div class="lrow"><div><label for="lateFrom">From this game time</label><select id="lateFrom"></select></div><div><label for="lateMin">Minutes later (use a minus to move earlier)</label><input id="lateMin" type="number" value="15" min="-60" max="180" step="5"></div><button id="lateGo" class="go" type="button">Shift times</button></div>
       <div id="lateList"></div><p id="lateMsg" class="hint"></p>
     </details>
-    <div id="summary"></div>
-    <details id="fairBox" class="fair noprint"><summary><b>Fairness check</b><span class="fl" id="fairHead"></span></summary>
+    <details id="fairBox" class="fair noprint tpanel hidden" open><summary></summary>
       <p class="hint">How the games are spread across teams: how many each team plays, the break between games, and which courts they get. It updates after every move or shift.</p>
       <div class="fixrow"><button id="fixWait" class="go" type="button">Shorten long waits</button><button id="fixCourt" class="ghost" type="button">Spread courts</button><button id="fixUndo" class="ghost hidden" type="button">Undo last fix</button></div>
       <p id="fairMsg" class="hint"></p>
-      <div class="brkbox"><b>Planned breaks</b> <span class="hint">(dinner, rest)</span>
+      <div id="fairBody"></div></details>
+    <div id="brkPanel" class="noprint tpanel hidden"><b>Planned breaks</b> <span class="hint">(dinner, rest)</span>
         <p class="hint">Time when nobody plays. Teams are not counted as waiting during a break, and every game after it moves later (the shareable page and court TVs follow).</p>
         <div class="lrow"><div><label for="brkFrom">Break starts before this game time</label><select id="brkFrom"></select></div><div><label for="brkMin">Minutes</label><input id="brkMin" type="number" value="30" min="5" max="240" step="5"></div><div><label for="brkName">Name</label><input id="brkName" type="text" value="Dinner break" maxlength="30"></div><button id="brkGo" class="go" type="button">Add break</button></div>
         <div id="brkList"></div><p id="brkMsg" class="hint"></p></div>
-      <div id="fairBody"></div></details>
+      </div>
     <p id="gMsg" class="hint"></p>
     <div class="wrap"><table id="table"></table></div>
   </section>
@@ -1472,7 +1482,7 @@ function renderFair() {
   const uneven = Object.keys(byB).filter(b => Math.min.apply(null, byB[b]) !== Math.max.apply(null, byB[b]));
   const bad = rows.filter(r => r.flags.some(f => f[0] === 'bad')).length, warn = rows.filter(r => r.flags.length && !r.flags.some(f => f[0] === 'bad')).length;
   const head = $('#fairHead'); head.className = 'fl' + (bad ? ' bad' : warn || uneven.length ? ' warn' : '');
-  head.textContent = bad ? ' · ' + bad + ' team' + (bad > 1 ? 's' : '') + ' with back-to-back games' : warn || uneven.length ? ' · ' + (warn + uneven.length) + ' thing' + (warn + uneven.length > 1 ? 's' : '') + ' to look at' : ' · looks balanced';
+  head.textContent = bad ? ' · ' + bad + ' back-to-back' : warn || uneven.length ? ' · ' + (warn + uneven.length) + ' to check' : ' · OK'; head.title = bad ? bad + ' team(s) with back-to-back games' : warn || uneven.length ? (warn + uneven.length) + ' thing(s) to look at' : 'Looks balanced';
   const mm = a => a.length ? (Math.min.apply(null, a) === Math.max.apply(null, a) ? Math.min.apply(null, a) : Math.min.apply(null, a) + ' to ' + Math.max.apply(null, a)) : '-';
   const dur = n => n <= 0 ? 'none' : n + ' min';
   let h = '<div class="fs"><span>Games per team: ' + mm(counts) + '</span><span>Shortest break: ' + (allGaps.length ? dur(Math.min.apply(null, allGaps)) : '-') + '</span><span>Longest wait: ' + (allGaps.length ? dur(Math.max.apply(null, allGaps)) : '-') + '</span></div>';
@@ -2158,7 +2168,8 @@ function showUmp() {
   const box = $('#umpBox'); box.classList.toggle('hidden', !(pubSlug && pubKey && sched)); if (!(pubSlug && pubKey && sched)) return;
   $('#ctlLink').href = ctlUrl();
   const courts = [...new Set(sched.matches.map(m => m.courtName))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
-  $('#umpList').innerHTML = courts.map((c, i) => '<div class="umprow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0"><b style="min-width:80px">' + esc(c) + '</b><button class="ghost" data-uc="' + i + '" type="button">Copy link</button><button class="ghost" data-uq="' + i + '" type="button">QR code</button><button class="ghost" data-ut="' + i + '" type="button">TV link (columns)</button><button class="ghost" data-ur="' + i + '" type="button">TV link (rows)</button><button class="ghost" data-ul="' + i + '" type="button">Long link</button><span data-ub="' + i + '"></span></div>').join('');
+  $('#umpList').innerHTML = courts.map((c, i) => '<div class="umprow"><b>' + esc(c) + '</b><button class="ghost" data-uc="' + i + '" type="button">Copy link</button><button class="ghost" data-lk="' + i + '" type="button">More</button><div class="lk hidden" data-lkb="' + i + '"><button class="ghost" data-uq="' + i + '" type="button">QR code</button><button class="ghost" data-ut="' + i + '" type="button">TV link (columns)</button><button class="ghost" data-ur="' + i + '" type="button">TV link (rows)</button><button class="ghost" data-ul="' + i + '" type="button">Long link</button><span data-ub="' + i + '"></span></div></div>').join('');
+  $('#umpList').querySelectorAll('[data-lk]').forEach(b => b.onclick = () => { const x = $('#umpList').querySelector('[data-lkb="' + b.dataset.lk + '"]'); x.classList.toggle('hidden'); b.classList.toggle('on', !x.classList.contains('hidden')); });
   $('#umpList').querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const u = umpUrl(courts[+b.dataset.uc]); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Link for ' + courts[+b.dataset.uc] + ' copied.'); });
   const copyTv = async (court, rows) => {
     let u, msg;
@@ -2292,9 +2303,22 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   // share & live panel: one place for the link, umpire links, live games and the preview
   const panel = document.createElement('div'); panel.id = 'sharePanel'; panel.className = 'card noprint';
   panel.innerHTML = '<h3>Share &amp; live scores</h3><p class="hint" style="margin:0 0 6px">Get one link for players, one link per court for umpires, and see games being scored right now.</p><div id="shareIntro"><ol class="how"><li><b>Get the shareable link.</b> Players open it on their phones to see the schedule, search their name and watch live scores.</li><li><b>Umpire links appear.</b> You get one link and QR code per court. Umpires score on their phones.</li><li><b>Scores save themselves.</b> When an umpire taps Finish match, the result lands in Standings and the link updates.</li></ol><button id="introGet" class="go" type="button">Get shareable link</button></div><div id="nowPlay"></div>';
-  const anchor = $('#schedSec .bar'); anchor.after(panel);
+  $('#toolPanels').insertBefore(panel, $('#toolPanels').firstChild); panel.classList.add('hidden');
   ['#pubLinkBox', '#umpBox', '#pubMsg', '#pubDet'].forEach(s => panel.appendChild($(s)));
-  $('#umpBox').setAttribute('open', ''); $('#nowPlay').after($('#pubLinkBox'));
+  $('#nowPlay').after($('#pubLinkBox'));
+  const pb = document.createElement('button'); pb.id = 'pubPrevBtn'; pb.type = 'button'; pb.className = 'ghost'; pb.textContent = 'Preview what people will see'; pb.style.marginTop = '10px';
+  $('#pubDet').before(pb); pb.onclick = () => { $('#pubDet').open = !$('#pubDet').open; pb.classList.toggle('on', $('#pubDet').open); };
+  $('#pubDots').onclick = () => { $('#pubMore').classList.toggle('hidden'); $('#pubDots').classList.toggle('on', !$('#pubMore').classList.contains('hidden')); };
+  // one row of tools; only one panel is open at a time
+  let tabOn = null;
+  const showTab = id => {
+    tabOn = id && tabOn !== id ? id : null;
+    ['sharePanel', 'lateBox', 'fairBox', 'brkPanel'].forEach(t => $('#' + t).classList.toggle('hidden', t !== tabOn));
+    document.querySelectorAll('#tabs [data-tab]').forEach(b => { const on = b.dataset.tab === tabOn; b.classList.toggle('go', on); b.classList.toggle('ghost', !on); });
+    if (tabOn === 'fairBox') renderFair();
+  };
+  $('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); };
+  $('#pubLink').addEventListener('click', () => setTimeout(() => { if (tabOn !== 'sharePanel') showTab('sharePanel'); }, 700));
   const np = { sub: null, t: 0 };
   async function nowTick() {
     const box = $('#nowPlay'); if (preview || !pubSlug || !sched) { box.innerHTML = ''; return; }
