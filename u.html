@@ -178,7 +178,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
   const defSport = Sports.current;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const buzz = p => { try { Haptics.buzz(p); } catch (e) {} };
-  let swapAsked = false, data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
+  let swapAsked = false, swapOpen = false, data = null, scores = {}, cur = null, s1 = 0, s2 = 0, hist = [], sv = null, flipped = false, wake = null, timer = null;
   const toast = (t) => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
   const dot = k => { $('#dot').className = 'dot' + (k ? ' ' + k : ''); };
 
@@ -370,14 +370,15 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
       sh.classList.add('on');
     });
   }
-  function askSwap() {                         // first side to reach 16: remind the umpire to change ends
+  function askSwap() {                         // first side to reach 16: remind the umpire to change ends. Scoring stays locked until Swap sides or Not now is chosen
+    if (!cur) { swapOpen = false; return; }
     const sh = $('#sv'), O = $('#svO'), t = s1 >= MID && s2 < MID ? cur.t1 : s2 >= MID && s1 < MID ? cur.t2 : (s1 >= s2 ? cur.t1 : cur.t2);
-    const end = swap => { sh.classList.remove('on'); sh.onclick = null; if (swap) { flipped = !flipped; buzz([10, 30, 10]); paint(); } };
+    const end = swap => { sh.classList.remove('on'); sh.onclick = null; swapOpen = false; if (swap) { flipped = !flipped; buzz([10, 30, 10]); paint(); } };
     $('#svT').textContent = 'Swap sides'; $('#svP').textContent = t + ' reached ' + MID + '. Both teams change ends (court sides) now.';
     O.classList.remove('has-pick');
     O.innerHTML = '<button data-s="1">\u21C5 Swap sides</button><button data-s="0" style="background:#fff;border:1.5px solid var(--line)">Not now</button>';
     O.querySelectorAll('button').forEach(b => b.onclick = () => { if (O.classList.contains('has-pick')) return; b.classList.add('picked'); O.classList.add('has-pick'); buzz(10); setTimeout(() => end(b.dataset.s === '1'), 320); });
-    sh.onclick = e => { if (e.target === sh) end(false); };
+    sh.onclick = e => { e.stopPropagation(); };                       // tapping the dark background does nothing: only the two buttons close this
     const sheet = sh.querySelector('.sheet'); sheet.classList.remove('step'); void sheet.offsetWidth; sheet.classList.add('step');
     sh.classList.add('on'); buzz([20, 40, 20]);
   }
@@ -411,14 +412,14 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
     ckPaint(); if (ck) ckBroadcast();
   }
   function add(i) {
-    if (won()) return buzz(30);
+    if (swapOpen || won()) return buzz(30);                                // locked while the swap-sides question is waiting
     if (isPB() && !sv) { toast('Set who serves first.'); return setServe(); }
     hist.push([s1, s2, JSON.stringify(sv || null)]);
     const scored = !isPB() || i === sv.k;                                 // pickleball: only the serving side can score
     if (scored) { if (i === 0) s1++; else s2++; }
     const prevK = sv ? sv.k : null, prevN = sv ? sv.n : null; if (sv) sv = svStep(sv, i);
     buzz(10); save(false); paint(scored ? i : null);
-    if (!isPB() && !swapAsked && Math.max(s1, s2) >= MID && !won()) { swapAsked = true; setTimeout(askSwap, 450); }
+    if (!isPB() && !swapAsked && Math.max(s1, s2) >= MID && !won()) { swapAsked = true; swapOpen = true; setTimeout(askSwap, 450); }
     if (sv && !won() && (sv.k !== prevK || (isPB() && sv.n !== prevN))) {            // the rally went to the other side: service over (pickleball: side out, or second server)
       const w = svWho(sv, s1, s2); toast((sv.k !== prevK ? (isPB() ? 'Side out. ' : 'Service over. ') : 'Second server. ') + w.server + ' serves from the ' + CT(w.court) + ' court.'); buzz([10, 40, 10]);
       const el = $('#sides').querySelector('.side.serving'); if (el) el.classList.add('flash');
@@ -548,7 +549,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
   async function openMatch(mid) {
     cur = (data.matches || []).find(m => m.mid === mid); if (!cur) return;
     const sv0 = scores[mid] || (cur.res ? { s1: cur.res.a, s2: cur.res.b, status: 'done' } : null);
-    s1 = sv0 ? sv0.s1 : 0; s2 = sv0 ? sv0.s2 : 0; hist = []; flipped = false; sv = null; swapAsked = Math.max(s1, s2) >= MID;
+    s1 = sv0 ? sv0.s1 : 0; s2 = sv0 ? sv0.s2 : 0; hist = []; flipped = false; sv = null; swapAsked = Math.max(s1, s2) >= MID; swapOpen = false;
     try { const l = JSON.parse(localStorage.getItem('ump.' + slug + '.' + mid) || 'null'); if (l && ((sv0 && l.s1 === s1 && l.s2 === s2) || (!sv0 && !l.s1 && !l.s2))) { hist = l.hist || []; sv = l.sv === undefined ? null : l.sv; } } catch (e) {}
     $('#smid').textContent = cur.court + ' · ' + cur.time + ' · ' + cur.bracket;
     $('#score').classList.add('on'); paint(); ckStart(); fullScreen(true);
@@ -557,7 +558,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
   }
   function resetLive(quiet) {
     if (!cur) return; const id = cur.mid;
-    enqueue({ id, op: 'reset' }); delete scores[id]; s1 = 0; s2 = 0; hist = []; sv = null; swapAsked = false;
+    enqueue({ id, op: 'reset' }); delete scores[id]; s1 = 0; s2 = 0; hist = []; sv = null; swapAsked = false; swapOpen = false;
     try { localStorage.removeItem('ump.' + slug + '.' + id); } catch (e) {}
     if (!quiet) toast(quick ? 'Match cancelled.' : 'Match taken off LIVE.');
   }
@@ -576,7 +577,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
     resetLive(false); paint(); closeMatch();
   };
   $('#swap').onclick = () => { flipped = !flipped; buzz(8); paint(); };
-  $('#undo').onclick = () => { if (!hist.length) return; const h = hist.pop(); s1 = h[0]; s2 = h[1]; if (Math.max(s1, s2) < MID) swapAsked = false; if (h.length > 2) { try { sv = JSON.parse(h[2]); } catch (e) { sv = null; } } buzz(8); save(false); paint(); };
+  $('#undo').onclick = () => { if (!hist.length || swapOpen) return; const h = hist.pop(); s1 = h[0]; s2 = h[1]; if (Math.max(s1, s2) < MID) swapAsked = false; if (h.length > 2) { try { sv = JSON.parse(h[2]); } catch (e) { sv = null; } } buzz(8); save(false); paint(); };
   const ask = (t, p, yes) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
   $('#fin').onclick = async () => {
     if (!cur || s1 === s2) return;
