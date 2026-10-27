@@ -10,18 +10,24 @@
     mins: 30, rate: 0.95, voice: '', on: false,
     useOpen: true, open: 'Attention everyone.',
     useSpons: true, spons: [], sponsLead: 'This tournament is sponsored by',
-    useLink: true, link: 'Always check your schedule on the schedule web link.', linkSay: '',
-    useLines: true,
-    lines: [
+    msgs: [                               // one list of things to say: [{on,text}]
       { on: true, text: 'Please check your match time and court on the web link. Be ready 10 minutes before your game.' },
       { on: true, text: 'Teams that are not at their court when called may be given a default after the grace time.' },
       { on: true, text: 'Please follow the umpire\u2019s decisions. Respect to players, officials and volunteers.' }
     ],
-    useCustom: false, custom: '', more: [],
     recs: []                              // [{id,name,on}] the audio itself lives in IndexedDB
   };
   function key() { return 'cmd_voice_' + slug; }
-  function load() { try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(key()) || '{}')); } catch (e) { S = Object.assign({}, DEF); } S.on = false; }
+  function migrate(o) {                   // older versions kept the schedule line, reminders and own messages in separate places
+    if (!o || Array.isArray(o.msgs)) return o;
+    var m = [], add = function (on, t) { t = String(t || '').trim(); if (t) m.push({ on: on, text: t }); };
+    if (o.link !== undefined) add(o.useLink !== false, o.link + (o.linkSay ? ' ' + o.linkSay : ''));
+    (Array.isArray(o.lines) ? o.lines : []).forEach(function (l) { if (l) add(o.useLines !== false && l.on !== false, l.text); });
+    [o.custom].concat(Array.isArray(o.more) ? o.more : []).forEach(function (t) { add(!!o.useCustom, t); });
+    if (m.length) o.msgs = m;
+    return o;
+  }
+  function load() { try { S = Object.assign({}, DEF, migrate(JSON.parse(localStorage.getItem(key()) || '{}'))); } catch (e) { S = Object.assign({}, DEF); } S.on = false; }
   function save() { try { localStorage.setItem(key(), JSON.stringify(S)); } catch (e) {} }
 
   // ----- recordings are kept in IndexedDB (they are too big for localStorage) -----
@@ -68,9 +74,7 @@
     var p = [];
     if (S.useOpen && S.open.trim()) p.push({ t: 'say', text: S.open.trim() });
     if (S.useSpons && S.spons.length) p.push({ t: 'say', text: (S.sponsLead.trim() || 'This tournament is sponsored by') + ' ' + names(S.spons) + '.' });
-    if (S.useLink && S.link.trim()) p.push({ t: 'say', text: S.link.trim() + (S.linkSay.trim() ? ' ' + S.linkSay.trim() : '') });
-    if (S.useLines) S.lines.forEach(function (l) { if (l.on && l.text.trim()) p.push({ t: 'say', text: l.text.trim() }); });
-    if (S.useCustom) [S.custom].concat(S.more).forEach(function (t) { if (String(t || '').trim()) p.push({ t: 'say', text: String(t).trim() }); });
+    S.msgs.forEach(function (m) { if (m.on && m.text.trim()) p.push({ t: 'say', text: m.text.trim() }); });
     S.recs.forEach(function (r) { if (r.on) p.push({ t: 'rec', id: r.id }); });
     return p;
   }
@@ -120,12 +124,9 @@
       return '<div class="vcsp"><input data-n="' + i + '" value="' + esc(x.name) + '" placeholder="Name as written" aria-label="Sponsor name"><input data-s="' + i + '" value="' + esc(x.say || '') + '" placeholder="Say it like (optional)" aria-label="How to say it">' +
         '<button type="button" data-t="' + i + '" title="Hear it">Test</button><button type="button" data-d="' + i + '" class="x" title="Remove">&times;</button></div>';
     }).join('') || '<div class="meta">No sponsors yet. Tap Add sponsor.</div>';
-    var mb = $('#vcMore'); if (mb) mb.innerHTML = S.more.map(function (t, i) {
-      return '<div class="vcsp"><input data-mi="' + i + '" value="' + esc(t) + '" maxlength="240" placeholder="Another message" aria-label="Another message"><button type="button" data-md="' + i + '" class="x" title="Remove">&times;</button></div>';
-    }).join('');
-    var lb = $('#vcLines'); if (lb) lb.innerHTML = S.lines.map(function (l, i) {
-      return '<div class="vcsp vcl"><input type="checkbox" data-lc="' + i + '"' + (l.on ? ' checked' : '') + ' aria-label="Include"><textarea data-lt="' + i + '" rows="2" maxlength="240" aria-label="Reminder text">' + esc(l.text) + '</textarea><button type="button" data-ld="' + i + '" class="x" title="Remove">&times;</button></div>';
-    }).join('') || '<div class="meta">No reminders yet.</div>';
+    var mb = $('#vcMsgs'); if (mb) mb.innerHTML = S.msgs.map(function (m, i) {
+      return '<div class="vcsp"><input type="checkbox" data-mc="' + i + '"' + (m.on ? ' checked' : '') + ' aria-label="Say this"><input data-mt="' + i + '" value="' + esc(m.text) + '" maxlength="240" placeholder="Type a message" aria-label="Message"><button type="button" data-md="' + i + '" class="x" title="Remove">&times;</button></div>';
+    }).join('') || '<div class="meta">No messages yet. Tap Add a message.</div>';
     var rb = $('#vcRecs'); if (rb) rb.innerHTML = S.recs.map(function (r, i) {
       return '<div class="vcsp vcr"><label class="vcck"><input type="checkbox" data-ri="' + i + '"' + (r.on ? ' checked' : '') + '> ' + esc(r.name) + '</label><button type="button" data-rp="' + i + '">Play</button><button type="button" data-rd="' + i + '" class="x" title="Delete">&times;</button></div>';
     }).join('') || '<div class="meta">No recordings yet.</div>';
@@ -151,18 +152,14 @@
       '<label class="vcck"><input type="checkbox" id="vcUseOpen"' + (S.useOpen ? ' checked' : '') + '> Opening line</label><input class="vcin" id="vcOpen" value="' + esc(S.open) + '" maxlength="160">' +
       '<label class="vcck"><input type="checkbox" id="vcUseSpons"' + (S.useSpons ? ' checked' : '') + '> Sponsors</label><input class="vcin" id="vcLead" value="' + esc(S.sponsLead) + '" maxlength="100"><div id="vcSpons"></div><div class="btns"><button type="button" id="vcAdd">Add sponsor</button></div>' +
       '<div class="meta">In the second box, spell the name the way it should sound. For example: Jollibee, say it like "Jolly bee".</div>' +
-      '<label class="vcck"><input type="checkbox" id="vcUseLink"' + (S.useLink ? ' checked' : '') + '> Schedule reminder</label><input class="vcin" id="vcLink" value="' + esc(S.link) + '" maxlength="200">' +
-      '<input class="vcin" id="vcLinkSay" value="' + esc(S.linkSay) + '" maxlength="120" placeholder="Optional, say the address: challenge match day dot vercel dot app">' +
-      '<div class="meta">Your public schedule link: ' + esc(link) + '</div>' +
-      '<label class="vcck"><input type="checkbox" id="vcUseLines"' + (S.useLines ? ' checked' : '') + '> Reminders for players</label><div id="vcLines"></div><div class="btns"><button type="button" id="vcAddLine">Add a reminder</button></div>' +
-      '<label class="vcck"><input type="checkbox" id="vcUseCustom"' + (S.useCustom ? ' checked' : '') + '> Your own messages</label><input class="vcin" id="vcCustom" value="' + esc(S.custom) + '" maxlength="240" placeholder="e.g. Lunch is served at the canteen"><div id="vcMore"></div><div class="btns"><button type="button" id="vcAddMsg">Add another message</button></div>' +
+      '<h4>Messages</h4><div class="meta">Reminders, food, rules, anything you want said. Tick the ones to include.</div><div id="vcMsgs"></div><div class="btns"><button type="button" id="vcAddMsg">Add a message</button></div>' +
       '<h4>Recordings</h4><div id="vcRecs"></div><div class="btns"><button type="button" id="vcUp">Upload audio</button><button type="button" id="vcRec">Record with microphone</button></div>' +
       '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg">Ticked recordings play after the spoken lines, in this order.</div>' +
       '<h4>Save or reuse these settings</h4><div class="meta" style="margin-bottom:6px">Saves the text settings (not the recordings) to a small file. Load it on any computer, or for your next tournament, to get the same sponsors and reminders back.</div>' +
       '<div class="btns"><button type="button" id="vcSave">Save settings to a file</button><button type="button" id="vcLoad">Load settings</button></div><input type="file" id="vcLoadFile" accept=".json,application/json" hidden><div class="meta" id="vcFileMsg"></div></div>';
   }
   var lastLink = '';
-  var KEEP = ['mins', 'rate', 'voice', 'useOpen', 'open', 'useSpons', 'spons', 'sponsLead', 'useLink', 'link', 'linkSay', 'useLines', 'lines', 'useCustom', 'custom', 'more'];
+  var KEEP = ['mins', 'rate', 'voice', 'useOpen', 'open', 'useSpons', 'spons', 'sponsLead', 'msgs'];
   function bind(box, link) {
     lastLink = link;
     var v = $('#vcVoice'), fill = function () {
@@ -172,7 +169,7 @@
     fill(); try { speechSynthesis.onvoiceschanged = fill; } catch (e) {}
     lists(); paint();
     var set = function (id, k, bool) { $(id).onchange = $(id).oninput = function () { S[k] = bool ? this.checked : this.value; save(); }; };
-    set('#vcUseOpen', 'useOpen', 1); set('#vcOpen', 'open'); set('#vcUseSpons', 'useSpons', 1); set('#vcLead', 'sponsLead'); set('#vcUseLink', 'useLink', 1); set('#vcLink', 'link'); set('#vcLinkSay', 'linkSay'); set('#vcUseLines', 'useLines', 1); set('#vcUseCustom', 'useCustom', 1); set('#vcCustom', 'custom');
+    set('#vcUseOpen', 'useOpen', 1); set('#vcOpen', 'open'); set('#vcUseSpons', 'useSpons', 1); set('#vcLead', 'sponsLead');
     $('#vcMins').onchange = function () { S.mins = +this.value; save(); if (S.on) nextAt = Date.now() + S.mins * 60000; paintCount(); };
     v.onchange = function () { S.voice = this.value; save(); };
     $('#vcRate').onchange = function () { S.rate = +this.value; save(); };
@@ -191,20 +188,17 @@
       var rd = new FileReader(); rd.onload = function () {
         var o; try { o = JSON.parse(rd.result); } catch (e) { o = null; }
         if (!o || o.app !== 'matchday-speaker') { $('#vcFileMsg').textContent = 'That is not a speaker settings file.'; return; }
+        migrate(o);
         KEEP.forEach(function (k) { if (o[k] !== undefined && typeof o[k] === typeof DEF[k] && Array.isArray(o[k]) === Array.isArray(DEF[k])) S[k] = o[k]; });
         S.spons = S.spons.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { name: String(x.name || ''), say: String(x.say || '') }; });
-        S.lines = S.lines.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { on: x.on !== false, text: String(x.text || '') }; });
-        S.more = S.more.map(String); save();
+        S.msgs = S.msgs.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { on: x.on !== false, text: String(x.text || '') }; }); save();
         var box = $('#vcBox'); if (box) { box.outerHTML = html(lastLink); bind(null, lastLink); $('#vcFileMsg').textContent = 'Settings loaded.'; }
       }; rd.readAsText(f);
     };
-    $('#vcAddMsg').onclick = function () { S.more.push(''); S.useCustom = true; var c = $('#vcUseCustom'); if (c) c.checked = true; save(); lists(); var i = $('#vcMore input[data-mi="' + (S.more.length - 1) + '"]'); if (i) i.focus(); };
-    $('#vcMore').oninput = function (e) { var t = e.target; if (t.dataset.mi != null) { S.more[+t.dataset.mi] = t.value; save(); } };
-    $('#vcMore').onclick = function (e) { var t = e.target.closest('button'); if (t && t.dataset.md != null) { S.more.splice(+t.dataset.md, 1); save(); lists(); } };
-    $('#vcAddLine').onclick = function () { S.lines.push({ on: true, text: '' }); save(); lists(); var t = $('#vcLines textarea[data-lt="' + (S.lines.length - 1) + '"]'); if (t) t.focus(); };
-    $('#vcLines').oninput = function (e) { var t = e.target; if (t.dataset.lt != null) { S.lines[+t.dataset.lt].text = t.value; save(); } };
-    $('#vcLines').onchange = function (e) { var t = e.target; if (t.dataset.lc != null) { S.lines[+t.dataset.lc].on = t.checked; save(); } };
-    $('#vcLines').onclick = function (e) { var t = e.target.closest('button'); if (t && t.dataset.ld != null) { S.lines.splice(+t.dataset.ld, 1); save(); lists(); } };
+    $('#vcAddMsg').onclick = function () { S.msgs.push({ on: true, text: '' }); save(); lists(); var i = $('#vcMsgs input[data-mt="' + (S.msgs.length - 1) + '"]'); if (i) i.focus(); };
+    $('#vcMsgs').oninput = function (e) { var t = e.target; if (t.dataset.mt != null) { S.msgs[+t.dataset.mt].text = t.value; save(); } };
+    $('#vcMsgs').onchange = function (e) { var t = e.target; if (t.dataset.mc != null) { S.msgs[+t.dataset.mc].on = t.checked; save(); } };
+    $('#vcMsgs').onclick = function (e) { var t = e.target.closest('button'); if (t && t.dataset.md != null) { S.msgs.splice(+t.dataset.md, 1); save(); lists(); } };
     $('#vcSpons').oninput = function (e) { var t = e.target; if (t.dataset.n != null) S.spons[+t.dataset.n].name = t.value; if (t.dataset.s != null) S.spons[+t.dataset.s].say = t.value; save(); };
     $('#vcSpons').onclick = function (e) {
       var t = e.target.closest('button'); if (!t) return;
