@@ -2104,7 +2104,7 @@ const PUB_CSS = `
 const FILTER_JS = `(function(){var q=document.getElementById('q'),bs=[].slice.call(document.querySelectorAll('.pub .tools button')),lv='All',LIVE={},MV={};
 var tb=[].slice.call(document.querySelectorAll('.pub .tabs button')),vs=document.getElementById('viewSch'),vd=document.getElementById('viewStd');
 function run(){var t=(q.value||'').toLowerCase();[].slice.call(document.querySelectorAll('.pub .slot')).forEach(function(s){var n=0;
-[].slice.call(s.querySelectorAll('.game')).forEach(function(g){var ok=(lv==='All'||g.dataset.level===lv)&&(!t||g.dataset.text.indexOf(t)>-1);g.style.display=ok?'':'none';if(ok)n++;});s.style.display=n?'':'none';});
+[].slice.call(s.querySelectorAll('.game')).forEach(function(g){var ok=(lv==='All'||g.dataset.level===lv)&&(!t||(g._t||(g._t=((g.querySelector('.info')||g).textContent||'').toLowerCase())).indexOf(t)>-1);g.style.display=ok?'':'none';if(ok)n++;});s.style.display=n?'':'none';});
 [].slice.call(document.querySelectorAll('.pub .npc,.pub .npd')).forEach(function(g){var ok=(lv==='All'||g.dataset.level===lv)&&(!t||(g.dataset.text||'').indexOf(t)>-1);g.style.display=ok?'':'none';});
 [].slice.call(document.querySelectorAll('.pub .sb')).forEach(function(c){var n=0;[].slice.call(c.querySelectorAll('.srow')).forEach(function(r){var ok=(lv==='All'||c.dataset.level===lv)&&(!t||r.dataset.text.indexOf(t)>-1);r.style.display=ok?'':'none';if(ok)n++;});c.style.display=n?'':'none';});}
 function paintStd(){var nl=window.paintNow?paintNow(LIVE,MV):0;if(nl&&!utab&&!autoed){autoed=true;showV('now');}if(vd&&window.STD&&window.pubStandings){vd.innerHTML=pubStandings(STD,LIVE);}run();}
@@ -2116,7 +2116,8 @@ var vn=document.getElementById('viewNow'),utab=false,autoed=false;function showV
 tb.forEach(function(b){b.addEventListener('click',function(){utab=true;showV(b.dataset.v);});});document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-go]');if(t){utab=true;showV(t.dataset.go);}});
 paintStd();})();`;
 const NOW_JS = `window.paintNow=function(L,MV){
-var el=document.getElementById('viewNow');if(!el||!window.NP)return 0;
+var el=document.getElementById('viewNow');if(!el)return 0;
+if(!window.NP){var np=[],si=0;[].slice.call(document.querySelectorAll('#viewSch .slot')).forEach(function(sl){si++;var h3=sl.querySelector('h3'),a=h3?h3.textContent.split(' - ')[0].trim():'';[].slice.call(sl.querySelectorAll('.game[data-mid]')).forEach(function(g){var ct=g.querySelector('.ct'),sm=g.querySelector('.info small'),tm=g.querySelectorAll('.tm'),rs=g.querySelector('.res'),mm=/^(\\d+) - (\\d+)$/.exec(rs?rs.textContent.trim():''),t1=tm[0]?tm[0].textContent:'',t2=tm[1]?tm[1].textContent:'';np.push({id:g.dataset.mid,c:ct?(ct.dataset.o||ct.textContent):'',s:si,a:a,l:g.dataset.level,b:sm&&sm.lastChild?sm.lastChild.textContent:'',t1:t1==='To be decided'?'':t1,t2:t2==='To be decided'?'':t2,r:mm?[+mm[1],+mm[2]]:null});});});window.NP=np;}
 var E=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
 L=L||{};MV=MV||{};
 var M=NP.map(function(m){var s=L[m.id];return {m:m,c:MV[m.id]||m.c,live:(s&&s.status==='live')?s:null,fin:m.r||((s&&s.status==='done')?[s.s1,s.s2]:null)};}).sort(function(a,b){return a.m.s-b.m.s;});
@@ -2190,17 +2191,6 @@ function pubStandings(data, live) {
   });
   return html || '<p class="upd">Standings will appear once games are played.</p>';
 }
-// every game with its court, time and teams, so the Now Playing tab can match live scores to courts
-function npData() {
-  const done = committed(results), out = sched.matches.map(m => ({ id: 'g:' + m.id, c: m.courtName, s: m.slot, a: m.start, l: m.level, b: m.bracket, t1: m.team1.name, t2: m.team2.name, r: done[m.id] ? [done[m.id].a, done[m.id].b] : null }));
-  const fk = fullKo(), k = fk.k, ks = fk.ks;
-  if (k.matches.length) {
-    const real = fk.real.size > 0, kd = real ? committed(koResults) : {}, rs = resolveKnockout(k, kd), by = {};
-    rs.matches.forEach(m => { by[m.id] = fk.real.has(m.level) ? m : Object.assign({}, m, { team1: null, team2: null }); });
-    ks.matches.forEach(x => { const m = by[x.id]; if (!m) return; out.push({ id: 'k:' + x.id, c: x.courtName, s: 1000 + x.slot, a: x.start, l: m.level, b: m.roundName, t1: m.team1 ? m.team1.name : '', t2: m.team2 ? m.team2.name : '', r: kd[x.id] ? [kd[x.id].a, kd[x.id].b] : null }); });
-  }
-  return out;
-}
 function stdData() {
   const done = committed(results), adv = (gopt && gopt.advance) || 2, ms = sched.matches.slice().sort((a, b) => a.slot - b.slot);
   return sched.brackets.map(b => ({ id: b.id, name: b.name, level: b.level, adv, wd: b.teams.filter(t => WD.has(t.name)).map(t => t.name), teams: b.teams.map(t => ({ n: t.name, p: t.players || [] })),
@@ -2209,7 +2199,7 @@ function stdData() {
 function pubBody(web) {
   const name = $('#tname').value.trim() || 'Tournament', done = committed(results);
   const lvl = l => '<span class="lv lv-' + l + '">' + l + '</span>';
-  const row = (m, court, r, mid) => '<div class="game" data-mid="' + esc(mid || '') + '" data-level="' + m.level + '" data-text="' + esc((m.team1 ? m.team1.name : '') + ' ' + (m.team2 ? m.team2.name : '') + ' ' + m.bracket).toLowerCase() + '">' +
+  const row = (m, court, r, mid) => '<div class="game" data-mid="' + esc(mid || '') + '" data-level="' + m.level + '">' +
     '<span class="ct">' + court + '</span><div class="info"><small>' + lvl(m.level) + esc(m.bracket) + '</small><div class="teams"><span class="tm">' + (m.team1 ? esc(m.team1.name) : 'To be decided') +
     '</span><span class="vs">vs</span><span class="tm">' + (m.team2 ? esc(m.team2.name) : 'To be decided') + '</span></div></div>' + '<span class="res">' + (r ? r.a + ' - ' + r.b : '') + (r && mid && mnotes[mid] ? '<small class="nt">' + esc(NOTE_KIND[mnotes[mid].kind] || '') + '</small>' : '') + '</span></div>';
   const bsp = brkSpans(), brkRow = (from, lo) => (gopt.breaks || []).map((b, i) => (b.from > lo && b.from <= from ? '<div class="brkrow">' + esc(b.name || 'Break') + ' &middot; ' + fmt(bsp[i].start) + ' - ' + fmt(bsp[i].end) + '</div>' : '')).join('');
@@ -2255,7 +2245,7 @@ function pubDocument() {
     '<title>' + esc(name) + ' - Game Schedule</title>' +
     '<meta property="og:title" content="' + esc(name) + ' - Game Schedule"><meta property="og:type" content="website">' +
     '<meta property="og:description" content="' + esc(name) + ': games, courts and times. Search your name to find your game.">' +
-    '<style>body{margin:0;background:#F2F2F7}' + PUB_CSS + '</style></head><body>' + pubBody(true) + '<script>var STD=' + JSON.stringify(stdData()).replace(/</g, '\\u003c') + ';var NP=' + JSON.stringify(npData()).replace(/</g, '\\u003c') + ';' + pubStandings.toString() + '<\/script><script>' + NOW_JS + '<\/script><script>' + FILTER_JS + '<\/script></body></html>';
+    '<style>body{margin:0;background:#F2F2F7}' + PUB_CSS + '</style></head><body>' + pubBody(true) + '<script>var STD=' + JSON.stringify(stdData()).replace(/</g, '\\u003c') + ';' + pubStandings.toString() + '<\/script><script>' + NOW_JS + '<\/script><script>' + FILTER_JS + '<\/script></body></html>';
 }
 function refreshPub() { if (sched && $('#pubDet').open) { $('#pubPreview').innerHTML = pubBody(false); $('#pubCode').value = pubDocument(); } }
 $('#pubDet').addEventListener('toggle', refreshPub);
@@ -2395,9 +2385,23 @@ function showUmp() {
 function showPubLink() { $('#pubLinkBox').classList.toggle('hidden', !pubSlug); if (pubSlug) $('#pubUrl').value = pubUrlFor(pubSlug); showUmp(); }
 async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} pubSig = pubSigNow(); showPubLink(); subLive(); }
 // finished matches from the umpires' phones are saved into the scoreboard automatically
+let lvBook = {}, lvCursor = 0, lvFull = 0, lvSlug = null, lvDelta = true;
+async function liveRows() {                                  // changed scores only (a full copy every 2 minutes); the whole list if step 18 has not been run
+  if (lvSlug !== pubSlug) { lvSlug = pubSlug; lvBook = {}; lvCursor = 0; lvFull = 0; }
+  if (lvDelta) {
+    try {
+      const full = !lvCursor || Date.now() - lvFull > 120000, rows = await Platform.getLiveScoresSince(pubSlug, full ? null : new Date(lvCursor).toISOString());
+      if (full) { lvBook = {}; lvFull = Date.now(); }
+      rows.forEach(r => { lvBook[r.match_id] = r; lvCursor = Math.max(lvCursor, new Date(r.updated_at).getTime() || 0); });
+      if (full && !rows.length) lvCursor = 1;
+      return Object.keys(lvBook).map(k => lvBook[k]);
+    } catch (e) { if (/get_live_scores_since|schema cache|could not find|PGRST202/i.test((e && e.message) || '')) lvDelta = false; else throw e; }
+  }
+  return Platform.getLiveScores(pubSlug);
+}
 async function pullLive() {
   if (preview || !pubSlug || !sched || !Platform.user || Date.now() < ingestPause || document.hidden) return;
-  let rows; try { rows = await Platform.getLiveScores(pubSlug); } catch (e) { return; }
+  let rows; try { rows = await liveRows(); } catch (e) { return; }
   let g = 0, k = 0;
   rows.forEach(r => {
     if (r.status !== 'done') return;

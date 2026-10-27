@@ -310,6 +310,10 @@
     needSb(); const r = await sb.rpc('get_match_notes', { p_slug: slug, p_key: key });
     if (r.error) fail(r.error); return r.data || [];
   }
+  async function getPublicLive(slug, since) {              // changed scores + announcement + moved courts in one request (step 20)
+    needSb(); const r = await sb.rpc('get_public_live', { p_slug: String(slug || ''), p_since: since || null });
+    if (r.error) fail(r.error); return r.data;
+  }
   async function getCourtMoves(slug) {
     needSb(); const r = await sb.rpc('get_court_moves', { p_slug: String(slug || '') });
     if (r.error) fail(r.error); return r.data || [];
@@ -355,8 +359,22 @@
       ch.on('broadcast', { event: 'ping' }, msg => e.cbs.slice().forEach(f => { try { f(msg && msg.payload); } catch (x) {} })).subscribe();
     }
     if (onPing) e.cbs.push(onPing);
-    return { ping: payload => { try { e.ch.send({ type: 'broadcast', event: 'ping', payload: payload || {} }); } catch (x) {} } };
+    // a ping on slive-<code> (TV screens, Match Control, the organizer) goes out at once; the public page listens on spub-<code>,
+    // which gets at most one ping every 3 seconds (quick ones are merged), so a crowd of viewers does not multiply every point
+    const pub = name.indexOf('slive-') === 0 ? 'spub-' + name.slice(6) : null;
+    return { ping: payload => { try { e.ch.send({ type: 'broadcast', event: 'ping', payload: payload || {} }); } catch (x) {} if (pub) pubPing(pub); } };
   }
+  const pubQ = {};
+  function pubPing(name) {
+    try {
+      const q = pubQ[name] || (pubQ[name] = { last: 0, t: null });
+      let e = live[name]; if (!e) { const ch = sb.channel(name, { config: { broadcast: { self: false } } }); e = live[name] = { ch, cbs: [] }; ch.subscribe(); }
+      const send = () => { q.last = Date.now(); try { e.ch.send({ type: 'broadcast', event: 'ping', payload: {} }); } catch (x) {} };
+      const wait = 3000 - (Date.now() - q.last);
+      if (wait <= 0) send(); else if (!q.t) q.t = setTimeout(() => { q.t = null; send(); }, wait);
+    } catch (x) {}
+  }
+
 
   window.Platform = {
     configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, updatePassword, isOrganizer,
@@ -365,7 +383,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, getLiveScoresSince, clearLiveScores, umpireGet, umpireScore, umpireReset, resetUmpireKey, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, setExtraSlot, editScore, setAnnouncement, getAnnouncement, addLog, getLog, setMatchNote, getMatchNotes, getCourtMoves, unpublishSchedule, getPublicSchedule, getScheduleVersion,
+    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, getLiveScoresSince, getPublicLive, clearLiveScores, umpireGet, umpireScore, umpireReset, resetUmpireKey, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, setExtraSlot, editScore, setAnnouncement, getAnnouncement, addLog, getLog, setMatchNote, getMatchNotes, getCourtMoves, unpublishSchedule, getPublicSchedule, getScheduleVersion,
     liveChannel, whenReady: () => readyP,
     get user() { return user; }
   };
