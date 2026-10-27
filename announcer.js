@@ -113,7 +113,19 @@
   function stop() { S.on = false; clearInterval(timer); timer = null; keepAwake(false); stopAll(); paint(); }
 
   // ----- the panel -----
+  var baseTitle = null;
+  function badge() {                      // the Speaker button (and the browser tab title) show when announcements are running, even with the panel closed
+    var b = document.querySelector('[data-p="voice"]'); if (!b || !S) return;
+    if (baseTitle === null) baseTitle = document.title.replace(/^\uD83D\uDD0A\s*/, '');
+    var on = !!S.on, s = Math.max(0, Math.round((nextAt - Date.now()) / 1000)), t = playing ? 'Speaking' : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    var key = on + '|' + t; if (b._k === key) return; b._k = key;
+    b.classList.toggle('vcon', on);
+    b.innerHTML = on ? '<span class="vcdot' + (playing ? ' talk' : '') + '"></span>Speaker <span class="vct">' + t + '</span>' : 'Speaker';
+    b.setAttribute('aria-label', on ? 'Speaker announcements are on. ' + (playing ? 'Speaking now.' : 'Next in ' + t) : 'Speaker announcements, off');
+    document.title = on ? '\uD83D\uDD0A ' + baseTitle : baseTitle;
+  }
   function paintCount() {
+    badge();
     var e = $('#vcCount'); if (!e) return;
     if (!S.on) { e.textContent = 'Not running'; return; }
     if (playing) { e.textContent = 'Announcing now...'; return; }
