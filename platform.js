@@ -221,13 +221,20 @@
     needSb(); const r = await sb.rpc('umpire_get', { p_slug: slug, p_key: key });
     if (r.error) fail(r.error); return r.data;
   }
-  let noServer = false;                                      // step 17 not run yet: send scores the old way
-  async function umpireScore(slug, key, match, s1, s2, status, server) {
+  let noServer = false, noRecv = false;                      // step 17 not run yet (or an older copy of it): send scores the older way
+  async function umpireScore(slug, key, match, s1, s2, status, server, receiver) {
     needSb(); const base = { p_slug: slug, p_key: key, p_match: match, p_s1: s1, p_s2: s2, p_status: status };
+    const missing = e => /p_server|p_receiver|schema cache|could not find|PGRST202/i.test((e && e.message) || '');
+    if (server && receiver && !noRecv && !noServer) {
+      const r2 = await sb.rpc('umpire_score', Object.assign({ p_server: server, p_receiver: receiver }, base));
+      if (!r2.error) return;
+      if (!missing(r2.error)) fail(r2.error);
+      noRecv = true;
+    }
     if (server && !noServer) {
       const r1 = await sb.rpc('umpire_score', Object.assign({ p_server: server }, base));
       if (!r1.error) return;
-      if (!/p_server|schema cache|could not find|PGRST202/i.test(r1.error.message || '')) fail(r1.error);
+      if (!missing(r1.error)) fail(r1.error);
       noServer = true;
     }
     const r = await sb.rpc('umpire_score', base);

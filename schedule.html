@@ -2083,6 +2083,7 @@ const PUB_CSS = `
 .pub .nplive{margin-left:auto;background:#E5383B;color:#fff;border-radius:999px;padding:2px 11px;font-size:12px;font-weight:800;letter-spacing:.06em;animation:lv 1.4s infinite}
 .pub .npwait{margin-left:auto;color:#8E8E93;font-size:13px;font-weight:700}
 .pub .npt{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.09);border:2px solid transparent}
+.pub .nprc{display:inline-block;margin-top:4px;padding:1px 9px;border-radius:999px;background:#5AC8FA;color:#04283A;font-size:11px;font-weight:800;letter-spacing:.03em}
 .pub .npt.npon{border-color:#FFD60A;background:rgba(255,214,10,.12)}
 .pub .npn{flex:1;min-width:0;font-size:17px;font-weight:700;line-height:1.3}.pub .npn div{overflow-wrap:anywhere}
 .pub .npsv{display:inline-block;margin-top:4px;padding:1px 9px;border-radius:999px;background:#FFD60A;color:#3A2E00;font-size:11px;font-weight:800;letter-spacing:.03em}
@@ -2132,9 +2133,9 @@ courts.forEach(function(c){
 var mine=M.filter(function(x){return x.c===c;}),cur=mine.filter(function(x){return x.live;})[0],nxt=mine.filter(function(x){return !x.live&&!x.fin;})[0];
 var up=nxt?'<div class="npx">'+(cur?'Up next':'Next')+': <b>'+E(nxt.m.t1||'To be decided')+'</b> vs <b>'+E(nxt.m.t2||'To be decided')+'</b> &middot; '+E(nxt.m.a)+'</div>':'';
 if(cur){
-var s=cur.live,sv=s.server||'',side=-1;
+var s=cur.live,sv=s.server||'',rc=s.receiver||'',side=-1;
 if(sv){if(parts(cur.m.t1).indexOf(sv)>-1)side=0;else if(parts(cur.m.t2).indexOf(sv)>-1)side=1;}
-var tile=function(i,name,a,b){return '<div class="npt'+(a>b?' lead':'')+(side===i?' npon':'')+'"><div class="npn">'+names(name)+(side===i?'<span class="npsv">\\u25CF SERVING &middot; '+E(sv)+'</span>':'')+'</div><div class="nps">'+a+'</div></div>';};
+var tile=function(i,name,a,b){return '<div class="npt'+(a>b?' lead':'')+(side===i?' npon':'')+(side>=0&&side!==i?' nprx':'')+'"><div class="npn">'+names(name)+(side===i?'<span class="npsv">\\u25CF SERVING &middot; '+E(sv)+'</span>':'')+(side>=0&&side!==i?'<span class="nprc">RECEIVING'+(rc?' &middot; '+E(rc):'')+'</span>':'')+'</div><div class="nps">'+a+'</div></div>';};
 html+='<div class="npc live" data-level="'+E(cur.m.l)+'" data-text="'+tx(cur)+'"><div class="nph"><span class="npct">'+E(c)+'</span>'+lvl(cur.m.l)+'<span class="npbk">'+E(cur.m.b)+'</span><span class="nplive">LIVE</span></div>'+tile(0,cur.m.t1,s.s1,s.s2)+'<div class="npvs">VS</div>'+tile(1,cur.m.t2,s.s2,s.s1)+up+'</div>';
 }else{
 html+='<div class="npc idle" data-level="'+(nxt?E(nxt.m.l):'')+'" data-text="'+(nxt?tx(nxt):E(String(c).toLowerCase()))+'"><div class="nph"><span class="npct">'+E(c)+'</span><span class="npwait">'+(nxt?'Waiting for next game':'Done for today')+'</span></div>'+up+'</div>';
