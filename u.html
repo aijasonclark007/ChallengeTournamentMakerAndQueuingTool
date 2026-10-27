@@ -338,11 +338,11 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
     pk[court] = server; pk[other] = tk.find(n => n !== server); po[court] = recv; po[other] = to.find(n => n !== recv);
     const pos = []; pos[k] = pk; pos[o] = po; return pb ? { k, pos, n, first } : { k, pos };
   }
-  function chooseServe() {
+  function chooseServe(canClose) {            // canClose: only when the umpire opened it with the Set server button; the first-open toss cannot be dismissed by tapping outside
     const sh = $('#sv'), O = $('#svO'), nm = [cur.t1, cur.t2], fresh = !(s1 + s2), D = isDbl();
     return new Promise(res => {
       const end = v => { sh.classList.remove('on'); res(v); };
-      sh.onclick = e => { if (e.target === sh) end(null); };                    // tap outside to close without changing anything
+      sh.onclick = e => { if (canClose && e.target === sh) end(null); };       // tap outside closes it without changing anything, but only after Set server
       const sheet = sh.querySelector('.sheet'), bump = () => { sheet.classList.remove('step'); void sheet.offsetWidth; sheet.classList.add('step'); };
       const pick = (b, fn) => { if (O.classList.contains('has-pick')) return;      // a second quick tap must not pick again
         buzz(10); O.classList.add('has-pick'); b.classList.add('picked'); setTimeout(fn, 420); };
@@ -382,7 +382,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
     const sheet = sh.querySelector('.sheet'); sheet.classList.remove('step'); void sheet.offsetWidth; sheet.classList.add('step');
     sh.classList.add('on'); buzz([20, 40, 20]);
   }
-  async function setServe() { if (!cur) return; const v = await chooseServe(); if (!v) return; sv = v; save(false, true); paint(); }
+  async function setServe(canClose) { if (!cur) return; const v = await chooseServe(canClose); if (!v) return; sv = v; save(false, true); paint(); }
   function paint(bump) {
     const m = cur, done = state(m) === 'done' && scores[m.mid] && scores[m.mid].status === 'done';
     const a = flipped ? 1 : 0, names = [m.t1, m.t2], pts = [s1, s2];
@@ -399,7 +399,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
         if (isPB()) sb.innerHTML = '<span>' + ICON() + ' <b>' + esc(who.server) + '</b> serves from the <b>' + CT(who.court) + '</b> court to <b>' + esc(who.recv) + '</b> <span class="callb">' + [[s1, s2][sv.k], [s1, s2][1 - sv.k]].concat(isDbl() ? [sv.first ? 2 : sv.n] : []).join(' \u2013 ') + '</span></span><button id="svChg">Change</button>';
         else sb.innerHTML = '<span>' + ICON() + ' <b>' + esc(who.server) + '</b> serves from the <b>' + CT(who.court) + '</b> court to <b>' + esc(who.recv) + '</b><small>If ' + esc(names[0]) + ' score: ' + esc(n0.server) + ' serves ' + CT(n0.court) + ' \u00B7 If ' + esc(names[1]) + ' score: ' + esc(n1.server) + ' serves ' + CT(n1.court) + '</small></span><button id="svChg">Change</button>';
       } else sb.innerHTML = '<span>Serving is not tracked<small>Set who serves to see server and receiver.</small></span><button id="svChg">Set server</button>';
-      $('#svChg').onclick = () => setServe();
+      $('#svChg').onclick = () => setServe(true);
     }
     if (bump != null) { const el = $('#sides').querySelector('[data-i="' + bump + '"]'); if (el) el.classList.add('bump'); }
     const isWon = won();
