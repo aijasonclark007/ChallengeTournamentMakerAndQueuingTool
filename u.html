@@ -195,6 +195,9 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
     dot(n && off ? 'err' : n ? 'off' : (off ? 'err' : ''));
   }
   function enqueue(op) { const o = readOut(); op.seq = ((o[op.id] && o[op.id].seq) || 0) + 1; o[op.id] = op; writeOut(o); paintNet(); flush(); }
+  // a match finished a moment ago stays FINAL even if a download that began before the score landed still says live (no extra requests)
+  const recent = {};
+  function applyRecent() { const now = Date.now(); Object.keys(recent).forEach(id => { const r = recent[id]; if (now - r.t > 30000) delete recent[id]; else if (!scores[id] || scores[id].status !== 'done') scores[id] = r.row; }); }
   function applyOutbox() { const o = readOut(); Object.keys(o).forEach(id => { const x = o[id]; if (x.op === 'reset') delete scores[id]; else scores[id] = { id, s1: x.s1, s2: x.s2, status: x.status }; }); }
   const permanent = e => /finished|valid|tie|Bad/i.test((e && e.message) || '');       // the server said no: retrying will not help
   function flush() {
@@ -228,7 +231,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
       const d = await P.umpireGet(slug, key); data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; });
       try { localStorage.setItem(CACHE, JSON.stringify(d)); } catch (e) {}
       if (!quick) { try { showAnn(await P.getAnnouncement(slug)); } catch (e) {} }
-      netErr = false; applyOutbox(); if (!cur) renderList();
+      netErr = false; applyOutbox(); applyRecent(); if (!cur) renderList();
     } catch (e) {
       netErr = true;
       if (!data) { try { const c = JSON.parse(localStorage.getItem(CACHE) || 'null'); if (c) { data = c; scores = {}; (c.scores || []).forEach(x => { scores[x.id] = x; }); applyOutbox(); if (!cur) renderList(); } } catch (x) {} }
@@ -299,6 +302,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
   function save(final, localOnly) {            // newest score for the match wins, so only the latest needs to be kept and sent
     const st = final ? 'done' : 'live';
     if (!localOnly) { scores[cur.mid] = { id: cur.mid, s1, s2, status: st };
+    if (final && !localOnly) recent[cur.mid] = { row: { id: cur.mid, s1, s2, status: 'done' }, t: Date.now() };
     const w = !final && sv && !won() ? svWho(sv, s1, s2) : null;
     enqueue({ id: cur.mid, op: 'score', s1, s2, status: st, srv: w ? w.server : null, rcv: w ? w.recv : null }); }
     try { localStorage.setItem('ump.' + slug + '.' + cur.mid, JSON.stringify({ s1, s2, hist, sv })); } catch (e) {}
