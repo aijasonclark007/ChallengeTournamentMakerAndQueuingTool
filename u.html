@@ -205,7 +205,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
         const o = readOut(), ids = Object.keys(o); if (!ids.length) break;
         const id = ids[0], x = o[id];
         try {
-          if (x.op === 'reset') await P.umpireReset(slug, key, id); else await P.umpireScore(slug, key, id, x.s1, x.s2, x.status, x.srv);
+          if (x.op === 'reset') await P.umpireReset(slug, key, id); else await P.umpireScore(slug, key, id, x.s1, x.s2, x.status, x.srv, x.rcv);
           netErr = false; try { P.liveChannel('slive-' + slug).ping(); } catch (e) {}
         } catch (e) {
           if (!permanent(e)) { netErr = true; break; }                                  // offline: keep it and try again later
@@ -300,7 +300,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
     const st = final ? 'done' : 'live';
     if (!localOnly) { scores[cur.mid] = { id: cur.mid, s1, s2, status: st };
     const w = !final && sv && !won() ? svWho(sv, s1, s2) : null;
-    enqueue({ id: cur.mid, op: 'score', s1, s2, status: st, srv: w ? w.server : null }); }
+    enqueue({ id: cur.mid, op: 'score', s1, s2, status: st, srv: w ? w.server : null, rcv: w ? w.recv : null }); }
     try { localStorage.setItem('ump.' + slug + '.' + cur.mid, JSON.stringify({ s1, s2, hist, sv })); } catch (e) {}
   }
   // ----- who serves / receives (badminton rules) -----
