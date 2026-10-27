@@ -140,6 +140,24 @@ button.on{background:#D7E6FB!important}
 #mvOv .box{background:var(--card,#fff);color:var(--ink,#1C1C1E);width:100%;max-width:440px;border-radius:20px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 #mvOv h3{margin:0 0 4px}#mvOv .mvn{margin:8px 0;padding:9px 12px;border-radius:10px;font-size:14px}.mvn.ok{background:rgba(52,199,89,.14)}.mvn.sw{background:rgba(0,122,255,.12)}.mvn.bad{background:rgba(255,59,48,.12);color:#B3261E}
 .hidden,#previewBar.hidden,#stepbar.hidden,#sharePanel.hidden{display:none!important}
+/* smooth, calm motion for the share tools (switched off for people who ask their device for less motion) */
+#sharePanel button,#schedSec .tools button,#tabs button{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .22s,color .22s,box-shadow .22s,opacity .2s,filter .2s}
+#sharePanel button:not(:disabled):hover,#schedSec .tools button:not(:disabled):hover,#tabs button:not(:disabled):hover{filter:brightness(.97);transform:translateY(-1px)}
+#sharePanel button:not(:disabled):active,#schedSec .tools button:not(:disabled):active,#tabs button:not(:disabled):active{transform:scale(.96);filter:brightness(.94)}
+button.busy{pointer-events:none;opacity:.9;cursor:progress}
+button.busy::before{content:'';display:inline-block;width:.9em;height:.9em;margin-right:.55em;vertical-align:-.12em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+button.okflash{background:#34C759!important;color:#fff!important;animation:pop .45s cubic-bezier(.2,.9,.3,1.4)}
+button.okflash::before{content:'\2713';display:inline-block;margin-right:.4em;font-weight:800}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{0%{transform:scale(.94)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes rowin{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+@keyframes glow{0%{box-shadow:0 0 0 0 rgba(52,199,89,.55)}100%{box-shadow:0 0 0 14px rgba(52,199,89,0)}}
+.panelin{animation:fadeup .3s cubic-bezier(.2,.8,.2,1)}
+#pubMsg.pulse{animation:fadeup .35s cubic-bezier(.2,.8,.2,1)}
+#pubUrl.glow{animation:glow 1.1s ease-out 1}
+.stag .umprow{animation:rowin .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 60ms)}
+@media (prefers-reduced-motion:reduce){#sharePanel button,#schedSec .tools button,#tabs button{transition:none}.panelin,#pubMsg.pulse,#pubUrl.glow,.stag .umprow,button.okflash{animation:none!important}button.busy::before{animation-duration:1.6s}}
 @media print{.noprint{display:none!important}body{background:#fff;color:#000}th{background:#ddd;color:#000}}
 #printView{display:none}.pubwrap{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#F4F6FB;color:#0B1B33}
 @media print{main{display:none!important}#printView{display:block}}
@@ -1557,7 +1575,40 @@ function renderSchedule() {
 
 const committed = store => Object.keys(store).reduce((o, k) => { if (store[k].saved) o[k] = store[k]; return o; }, {});
 const num = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
-const say = (id, t) => { $(id).textContent = t; };
+const say = (id, t) => { const el = $(id); el.textContent = t; if (id === '#pubMsg') { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); } };
+const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+// show or hide a block with a smooth open / close (height, fade and a small slide); does nothing if it is already in that state
+function vis(el, show) {
+  if (!el) return;
+  if (el._vt) { if (el._vs === show) return; }                                   // already on its way there
+  else if (show === !el.classList.contains('hidden')) return;                    // already there
+  el._vs = show; const tok = el._vt = {}, done = () => { if (el._vt !== tok) return; el._vt = null; ['height', 'overflow', 'opacity', 'transform', 'transition', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'].forEach(p => { el.style[p] = ''; }); };
+  const P = ['paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'], T = 'height .34s cubic-bezier(.2,.8,.2,1),opacity .26s ease,transform .34s cubic-bezier(.2,.8,.2,1),padding .34s cubic-bezier(.2,.8,.2,1),margin .34s cubic-bezier(.2,.8,.2,1)';
+  if (REDUCED || !el.isConnected) { el.classList.toggle('hidden', !show); done(); return; }
+  if (show) {
+    done(); el._vt = tok; el.classList.remove('hidden');
+    const cs = getComputedStyle(el), full = {}; P.forEach(p => { full[p] = cs[p]; }); const h = el.scrollHeight;
+    el.style.overflow = 'hidden'; el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-8px)'; P.forEach(p => { el.style[p] = '0px'; });
+    void el.offsetHeight; el.style.transition = T; el.style.height = h + 'px'; el.style.opacity = '1'; el.style.transform = 'none'; P.forEach(p => { el.style[p] = full[p]; });
+    setTimeout(done, 420);
+  } else {
+    if (!el.offsetParent) { el.classList.add('hidden'); el._vt = null; return; }
+    el.style.overflow = 'hidden'; el.style.height = el.offsetHeight + 'px'; void el.offsetHeight; el.style.transition = T;
+    el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-8px)'; P.forEach(p => { el.style[p] = '0px'; });
+    setTimeout(() => { if (el._vt === tok) { el.classList.add('hidden'); done(); } }, 380);
+  }
+}
+// a button shows a spinner while its job runs, then a quick green tick; returns what the job returned
+async function busyBtn(btn, label, job, okLabel) {
+  if (!btn) return job();
+  const html = btn.innerHTML, w = btn.offsetWidth; btn.style.minWidth = w + 'px'; btn.classList.add('busy'); btn.textContent = label;
+  let r, err; try { r = await job(); } catch (e) { err = e; }
+  btn.classList.remove('busy');
+  if (!err && r !== false && okLabel) { btn.textContent = okLabel; btn.classList.add('okflash'); setTimeout(() => { btn.classList.remove('okflash'); btn.innerHTML = html; btn.style.minWidth = ''; }, 1300); }
+  else { btn.innerHTML = html; btn.style.minWidth = ''; }
+  if (err) throw err; return r;
+}
+const flashBtn = (btn, label, ms) => { if (!btn) return; const html = btn.dataset.h || (btn.dataset.h = btn.innerHTML); btn.textContent = label; btn.classList.add('okflash'); clearTimeout(btn._ft); btn._ft = setTimeout(() => { btn.classList.remove('okflash'); btn.innerHTML = html; }, ms || 1400); };
 const inputsOf = (kind, id) => [...document.querySelectorAll('.sc[data-k="' + kind + '"][data-m="' + id + '"]')];
 function setLocked(kind, id, a, b, locked) {
   const ins = inputsOf(kind, id);
@@ -2352,10 +2403,10 @@ function matchList() {
   const sp = tSport, dt = $('#eventDate').value || ''; return out.map(x => Object.assign(x, { sport: sp, date: dt }));      // the umpire page scores by this sport's rules
 }
 function showUmp() {
-  const box = $('#umpBox'); box.classList.toggle('hidden', !(pubSlug && pubKey && sched)); if (!(pubSlug && pubKey && sched)) return;
+  const box = $('#umpBox'), want = !!(pubSlug && pubKey && sched), fresh = want && box.classList.contains('hidden'); vis(box, want); if (!want) return;
   $('#ctlLink').href = ctlUrl();
-  $('#coCopy').onclick = async () => { const u = ctlUrl(); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Co-organizer link copied. They can run Match Control with it.'); };
-  $('#coMore').onclick = () => { $('#coBox').classList.toggle('hidden'); $('#coMore').classList.toggle('on', !$('#coBox').classList.contains('hidden')); };
+  $('#coCopy').onclick = async () => { const u = ctlUrl(); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Co-organizer link copied. They can run Match Control with it.'); flashBtn($('#coCopy'), 'Copied', 1400); };
+  $('#coMore').onclick = () => { const x = $('#coBox'), open = x.classList.contains('hidden'); vis(x, open); $('#coMore').classList.toggle('on', open); };
   $('#coReset').onclick = async () => {
     if (!confirm('This stops every link you shared (co-organizer, umpires, TV screens). You will need to send new ones. Continue?')) return;
     try { pubKey = await Platform.resetUmpireKey(pubSlug); showUmp(); say('#pubMsg', 'Old links are cut off. Send the new links to your helpers.'); }
@@ -2363,7 +2414,8 @@ function showUmp() {
   };
   const courts = [...new Set(sched.matches.map(m => m.courtName))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
   $('#umpList').innerHTML = courts.map((c, i) => '<div class="umprow"><b>' + esc(c) + '</b><button class="ghost" data-uc="' + i + '" type="button">Copy link</button><button class="ghost" data-lk="' + i + '" type="button">More</button><div class="lk hidden" data-lkb="' + i + '"><button class="ghost" data-uq="' + i + '" type="button">QR code</button><button class="ghost" data-ut="' + i + '" type="button">TV link (columns)</button><button class="ghost" data-ur="' + i + '" type="button">TV link (rows)</button><button class="ghost" data-ul="' + i + '" type="button">Long link</button><span data-ub="' + i + '"></span></div></div>').join('');
-  $('#umpList').querySelectorAll('[data-lk]').forEach(b => b.onclick = () => { const x = $('#umpList').querySelector('[data-lkb="' + b.dataset.lk + '"]'); x.classList.toggle('hidden'); b.classList.toggle('on', !x.classList.contains('hidden')); });
+  $('#umpList').querySelectorAll('[data-lk]').forEach(b => b.onclick = () => { const x = $('#umpList').querySelector('[data-lkb="' + b.dataset.lk + '"]'); vis(x, x.classList.contains('hidden')); b.classList.toggle('on', x.classList.contains('hidden')); });
+  if (fresh && !REDUCED) { const L = $('#umpList'); L.querySelectorAll('.umprow').forEach((r, i) => r.style.setProperty('--i', i + 1)); const co = $('#coRow'); if (co) co.style.setProperty('--i', 0); L.classList.add('stag'); if (co) co.classList.add('stag'); setTimeout(() => { L.classList.remove('stag'); if (co) co.classList.remove('stag'); }, 1200); }
   $('#umpList').querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const u = umpUrl(courts[+b.dataset.uc]); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Link for ' + courts[+b.dataset.uc] + ' copied.'); });
   const copyTv = async (court, rows) => {
     let u, msg;
@@ -2382,7 +2434,13 @@ function showUmp() {
     const q = qrcode(0, 'M'); q.addData(umpUrl(courts[+b.dataset.uq])); q.make(); slot.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2 }); slot.firstChild.style.cssText = 'width:150px;height:150px;background:#fff';
   });
 }
-function showPubLink() { $('#pubLinkBox').classList.toggle('hidden', !pubSlug); if (pubSlug) $('#pubUrl').value = pubUrlFor(pubSlug); showUmp(); }
+function showPubLink() {
+  const box = $('#pubLinkBox'), fresh = !!pubSlug && box.classList.contains('hidden');
+  if (pubSlug) $('#pubUrl').value = pubUrlFor(pubSlug);
+  vis(box, !!pubSlug);
+  if (fresh && !REDUCED) { const u = $('#pubUrl'); u.classList.remove('glow'); void u.offsetWidth; u.classList.add('glow'); setTimeout(() => u.classList.remove('glow'), 1300); }
+  showUmp();
+}
 async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} pubSig = pubSigNow(); showPubLink(); subLive(); }
 // finished matches from the umpires' phones are saved into the scoreboard automatically
 let lvBook = {}, lvCursor = 0, lvFull = 0, lvSlug = null, lvDelta = true;
@@ -2445,12 +2503,13 @@ async function publishNow(msg) {
   if (!Platform.user) return say('#pubMsg', 'Sign in to get a shareable link. You can still download the page.');
   if (!tid) return say('#pubMsg', 'Save this tournament to your account first, then get the link.');
   say('#pubMsg', 'Publishing...');
-  try { await saveNow(); pubSlug = await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); await loadPubLink(); pubSig = pubSigNow(); pubLast = Date.now(); say('#pubMsg', msg); }
-  catch (e) { say('#pubMsg', e.message); }
+  try { await saveNow(); pubSlug = await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); await loadPubLink(); pubSig = pubSigNow(); pubLast = Date.now(); say('#pubMsg', msg); return true; }
+  catch (e) { say('#pubMsg', e.message); return false; }
 }
-$('#pubLink').onclick = () => publishNow('Your link is ready. Copy it and send it to players. It keeps itself up to date while this page is open. You can also press "Update with latest scores".');
-$('#pubUpd').onclick = () => publishNow('Updated. The same link now shows the latest schedule and scores.');
-$('#pubCopy').onclick = async () => { const i = $('#pubUrl'); i.select(); try { await navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); } say('#pubMsg', 'Link copied.'); };
+const LINK_MSG = 'Your link is ready. Copy it and send it to players. It keeps itself up to date while this page is open. You can also press "Update with latest scores".';
+$('#pubLink').onclick = () => busyBtn($('#pubLink'), 'Creating link', () => publishNow(LINK_MSG), 'Link ready');
+$('#pubUpd').onclick = () => busyBtn($('#pubUpd'), 'Updating', () => publishNow('Updated. The same link now shows the latest schedule and scores.'), 'Updated');
+$('#pubCopy').onclick = async () => { const i = $('#pubUrl'); i.select(); try { await navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); } say('#pubMsg', 'Link copied.'); flashBtn($('#pubCopy'), 'Copied', 1400); const u = $('#pubUrl'); if (!REDUCED) { u.classList.remove('glow'); void u.offsetWidth; u.classList.add('glow'); } };
 function askStopSharing(liveN) {          // a clear warning first: umpires scoring right now would lose their link
   return new Promise(res => {
     const d = document.createElement('div'); d.id = 'sdlg';
@@ -2468,7 +2527,7 @@ function askStopSharing(liveN) {          // a clear warning first: umpires scor
 $('#pubOff').onclick = async () => { if (!pubSlug) return;
   let liveN = 0; try { liveN = (await Platform.getLiveScores(pubSlug)).filter(r => r.status === 'live').length; } catch (e) {}
   if (!(await askStopSharing(liveN))) return;
-  try { await Platform.unpublishSchedule(pubSlug); pubSlug = null; showPubLink(); say('#pubMsg', 'Sharing stopped. The old link no longer works.'); } catch (e) { say('#pubMsg', e.message); } };
+  try { await busyBtn($('#pubOff'), 'Stopping', async () => { await Platform.unpublishSchedule(pubSlug); pubSlug = null; showPubLink(); setTimeout(() => { $('#pubMore').classList.add('hidden'); $('#pubDots').classList.remove('on'); }, 600); }); say('#pubMsg', 'Sharing stopped. The old link no longer works.'); } catch (e) { say('#pubMsg', e.message); } };
 $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pubBody(false); window.print(); };
 </script>
 <script>
@@ -2534,12 +2593,12 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   $('#nowPlay').after($('#pubLinkBox'));
   const pb = document.createElement('button'); pb.id = 'pubPrevBtn'; pb.type = 'button'; pb.className = 'ghost'; pb.textContent = 'Preview what people will see'; pb.style.marginTop = '10px';
   $('#pubDet').before(pb); pb.onclick = () => { $('#pubDet').open = !$('#pubDet').open; pb.classList.toggle('on', $('#pubDet').open); };
-  $('#pubDots').onclick = () => { $('#pubMore').classList.toggle('hidden'); $('#pubDots').classList.toggle('on', !$('#pubMore').classList.contains('hidden')); };
+  $('#pubDots').onclick = () => { const x = $('#pubMore'), open = x.classList.contains('hidden'); vis(x, open); $('#pubDots').classList.toggle('on', open); };
   // one row of tools; only one panel is open at a time
   let tabOn = null;
   const showTab = id => {
     tabOn = id && tabOn !== id ? id : null;
-    ['sharePanel', 'lateBox', 'fairBox', 'brkPanel'].forEach(t => $('#' + t).classList.toggle('hidden', t !== tabOn));
+    ['sharePanel', 'lateBox', 'fairBox', 'brkPanel'].forEach(t => { const el = $('#' + t); el.classList.toggle('hidden', t !== tabOn); if (t === tabOn && !REDUCED) { el.classList.remove('panelin'); void el.offsetWidth; el.classList.add('panelin'); } });
     document.querySelectorAll('#tabs [data-tab]').forEach(b => { const on = b.dataset.tab === tabOn; b.classList.toggle('go', on); b.classList.toggle('ghost', !on); });
     if (tabOn === 'fairBox') renderFair();
   };
@@ -2556,7 +2615,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     box.innerHTML = '<b>Now playing</b>' + (live.length ? live.map(r => { const m = by[r.match_id]; return '<div class="np"><span class="np-c">' + esc(m.court) + '</span><span class="np-t">' + esc(m.t1) + '</span><span class="np-s"><span' + (r.s1 > r.s2 ? ' class="np-lead"' : '') + '>' + r.s1 + '</span><i>:</i><span' + (r.s2 > r.s1 ? ' class="np-lead"' : '') + '>' + r.s2 + '</span></span><span class="np-t r">' + esc(m.t2) + '</span></div>'; }).join('') : '<div class="none">No games are being scored live right now.</div>');
   }
   setInterval(nowTick, 8000);
-  $('#introGet').onclick = () => $('#pubLink').click();
+  $('#introGet').onclick = () => busyBtn($('#introGet'), 'Creating link', () => publishNow(LINK_MSG), 'Link ready');
   // a status line belongs to one tournament: clear it whenever another one opens or the state resets
   const _lpl = loadPubLink; loadPubLink = async function () { $('#pubMsg').textContent = ''; return _lpl.apply(this, arguments); };
   const _rs = resetState; resetState = function () { $('#pubMsg').textContent = ''; return _rs.apply(this, arguments); };
@@ -2638,8 +2697,8 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     if (pending && avail(pending) && !$(STEPS.find(s => s[0] === pending)[2]).classList.contains('hidden')) { const k = pending; pending = null; setTimeout(() => goStep(k, true), 250); }
     if (pubSlug && np.sub !== pubSlug) { np.sub = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, nowTick); } catch (e) {} nowTick(); }
     if (!pubSlug) $('#nowPlay').innerHTML = '';
-    $('#shareIntro').classList.toggle('hidden', !!pubSlug || preview);
-    $('#sharePanel h3').nextElementSibling.classList.toggle('hidden', !!pubSlug);
+    vis($('#shareIntro'), !(pubSlug || preview));
+    vis($('#sharePanel h3').nextElementSibling, !pubSlug);
   }
   ['click', 'input', 'change'].forEach(ev => document.addEventListener(ev, () => setTimeout(refresh, 120), true));
   setInterval(refresh, 1500); count(); refresh();
