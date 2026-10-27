@@ -221,8 +221,16 @@
     needSb(); const r = await sb.rpc('umpire_get', { p_slug: slug, p_key: key });
     if (r.error) fail(r.error); return r.data;
   }
-  async function umpireScore(slug, key, match, s1, s2, status) {
-    needSb(); const r = await sb.rpc('umpire_score', { p_slug: slug, p_key: key, p_match: match, p_s1: s1, p_s2: s2, p_status: status });
+  let noServer = false;                                      // step 17 not run yet: send scores the old way
+  async function umpireScore(slug, key, match, s1, s2, status, server) {
+    needSb(); const base = { p_slug: slug, p_key: key, p_match: match, p_s1: s1, p_s2: s2, p_status: status };
+    if (server && !noServer) {
+      const r1 = await sb.rpc('umpire_score', Object.assign({ p_server: server }, base));
+      if (!r1.error) return;
+      if (!/p_server|schema cache|could not find|PGRST202/i.test(r1.error.message || '')) fail(r1.error);
+      noServer = true;
+    }
+    const r = await sb.rpc('umpire_score', base);
     if (r.error) fail(r.error);
   }
   async function moveMatch(slug, key, mid, court) {
