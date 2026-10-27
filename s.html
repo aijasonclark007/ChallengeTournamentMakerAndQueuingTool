@@ -28,22 +28,43 @@ iframe{border:0;width:100%;height:100%;display:block}
     f.setAttribute('sandbox', 'allow-scripts allow-popups');   // runs the name search, nothing else
     f.srcdoc = row.html;
     m.remove(); document.body.appendChild(f);
-    // live data: scores come as "what changed since last time" (a full copy every 2 minutes in case a game was reset); at most one refresh every 5 seconds; nothing while the tab is hidden
-    let book = {}, cursor = 0, lastFull = 0, lastRun = 0, tmr = null, delta = true, lastMv = [];
+    // live data in ONE request: the scores that changed since last time (a full copy every 2 minutes, and whenever the count looks off), the announcement and moved courts.
+    // At most one refresh every 5 seconds, and nothing while the tab is hidden.
+    let book = {}, cursor = 0, lastFull = 0, lastRun = 0, tmr = null, one = true, delta = true, lastMv = [];
     const post = () => { if (f.contentWindow) f.contentWindow.postMessage({ t: 'live', scores: Object.keys(book).map(k => book[k]), moves: lastMv }, '*'); };
-    const fetchScores = async () => {
+    const showAnn = a => { const b = document.getElementById('ann'); if (a) { b.textContent = a.body; if (b.dataset.at !== a.updated_at) { b.dataset.at = a.updated_at; b.style.display = 'block'; } } else { b.style.display = 'none'; b.dataset.at = ''; } };
+    const merge = (rows, full) => { if (full) { book = {}; lastFull = Date.now(); } rows.forEach(r => { book[r.match_id] = r; cursor = Math.max(cursor, new Date(r.updated_at).getTime() || 0); }); if (full && !rows.length) cursor = 1; };
+    const oldWay = async () => {                                  // steps 18/20 not run: ask in several requests (or for everything)
+      try { showAnn(await Platform.getAnnouncement(slug).catch(() => null)); } catch (e) {}
       const full = !cursor || !delta || Date.now() - lastFull > 120000;
-      if (delta) { try { const rows = await Platform.getLiveScoresSince(slug, full ? null : new Date(cursor).toISOString()); if (full) { book = {}; lastFull = Date.now(); } rows.forEach(r => { book[r.match_id] = r; cursor = Math.max(cursor, new Date(r.updated_at).getTime() || 0); }); if (full && !rows.length) cursor = 1; return; } catch (e) { delta = false; } }   // step 18 not run: ask for everything
-      const all = await Platform.getLiveScores(slug); book = {}; all.forEach(r => { book[r.match_id] = r; });
+      if (delta) { try { merge(await Platform.getLiveScoresSince(slug, full ? null : new Date(cursor).toISOString()), full); } catch (e) { delta = false; } }
+      if (!delta) { const all = await Platform.getLiveScores(slug); book = {}; all.forEach(r => { book[r.match_id] = r; }); }
+      try { lastMv = await Platform.getCourtMoves(slug); } catch (e) {}
     };
-    const doPush = async () => { lastRun = Date.now(); try { const a = await Platform.getAnnouncement(slug).catch(() => null), b = document.getElementById('ann'); if (a) { b.textContent = a.body; if (b.dataset.at !== a.updated_at) { b.dataset.at = a.updated_at; b.style.display = 'block'; } } else { b.style.display = 'none'; b.dataset.at = ''; } } catch (e) {} try { await fetchScores(); try { lastMv = await Platform.getCourtMoves(slug); } catch (e) {} post(); } catch (e) {} };
+    const doPush = async () => {
+      lastRun = Date.now();
+      try {
+        if (one) {
+          try {
+            for (let pass = 0; pass < 2; pass++) {
+              const full = !cursor || Date.now() - lastFull > 120000 || pass > 0;
+              const d = await Platform.getPublicLive(slug, full ? null : new Date(cursor).toISOString());
+              if (!d || typeof d !== 'object') throw new Error('no data');
+              merge(d.scores || [], full); showAnn(d.ann || null); lastMv = d.moves || [];
+              if (Object.keys(book).length === d.n) break;          // our copy matches the server's count
+            }
+          } catch (e) { if (!/get_public_live|schema cache|could not find|PGRST202|no data/i.test((e && e.message) || '')) throw e; one = false; await oldWay(); }     // a plain network error just tries again next time
+        } else await oldWay();
+        post();
+      } catch (e) {}
+    };
     const push = () => { if (document.hidden) return; const wait = 5000 - (Date.now() - lastRun); if (wait <= 0) return doPush(); if (!tmr) tmr = setTimeout(() => { tmr = null; doPush(); }, wait); };
     document.addEventListener('visibilitychange', () => { if (!document.hidden) push(); });
     let lastHtml = row.html, lastVer = row.updated_at, light = true;      // light: ask for a tiny version stamp first, download the page only when it changed
     setInterval(async () => { if (document.hidden) return; try {
       if (light) { try { const v = await Platform.getScheduleVersion(slug); if (v && v === lastVer) return; if (v) lastVer = v; } catch (e) { light = false; } }   // step 16 not run: fall back to the old full download
       const r = await Platform.getPublicSchedule(slug); if (r && r.html) { lastVer = r.updated_at || lastVer; if (r.html !== lastHtml) { lastHtml = r.html; f.srcdoc = r.html; } } } catch (e) {} }, 45000);      // new times (running late, moved games) reach people who already have the page open
-    f.addEventListener('load', () => { post(); push(); }); setInterval(push, 20000); try { Platform.liveChannel('slive-' + slug, () => push()); } catch (e) {}
+    f.addEventListener('load', () => { post(); push(); }); setInterval(push, 20000); try { Platform.liveChannel('spub-' + slug, () => push()); } catch (e) {}
   } catch (e) { m.textContent = 'Could not load the schedule: ' + e.message; }
 })();
 </script>
