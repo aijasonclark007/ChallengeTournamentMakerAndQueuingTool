@@ -157,9 +157,14 @@
       '<label class="vcck"><input type="checkbox" id="vcUseLines"' + (S.useLines ? ' checked' : '') + '> Reminders for players</label><div id="vcLines"></div><div class="btns"><button type="button" id="vcAddLine">Add a reminder</button></div>' +
       '<label class="vcck"><input type="checkbox" id="vcUseCustom"' + (S.useCustom ? ' checked' : '') + '> Your own messages</label><input class="vcin" id="vcCustom" value="' + esc(S.custom) + '" maxlength="240" placeholder="e.g. Lunch is served at the canteen"><div id="vcMore"></div><div class="btns"><button type="button" id="vcAddMsg">Add another message</button></div>' +
       '<h4>Recordings</h4><div id="vcRecs"></div><div class="btns"><button type="button" id="vcUp">Upload audio</button><button type="button" id="vcRec">Record with microphone</button></div>' +
-      '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg">Ticked recordings play after the spoken lines, in this order.</div></div>';
+      '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg">Ticked recordings play after the spoken lines, in this order.</div>' +
+      '<h4>Save or reuse these settings</h4><div class="meta" style="margin-bottom:6px">Saves the text settings (not the recordings) to a small file. Load it on any computer, or for your next tournament, to get the same sponsors and reminders back.</div>' +
+      '<div class="btns"><button type="button" id="vcSave">Save settings to a file</button><button type="button" id="vcLoad">Load settings</button></div><input type="file" id="vcLoadFile" accept=".json,application/json" hidden><div class="meta" id="vcFileMsg"></div></div>';
   }
+  var lastLink = '';
+  var KEEP = ['mins', 'rate', 'voice', 'useOpen', 'open', 'useSpons', 'spons', 'sponsLead', 'useLink', 'link', 'linkSay', 'useLines', 'lines', 'useCustom', 'custom', 'more'];
   function bind(box, link) {
+    lastLink = link;
     var v = $('#vcVoice'), fill = function () {
       var vs = voices().filter(function (x) { return /^en/i.test(x.lang); }); if (!vs.length) vs = voices();
       v.innerHTML = '<option value="">Auto (Brian)</option>' + vs.map(function (x) { return '<option value="' + esc(x.name) + '"' + (S.voice === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
@@ -174,6 +179,25 @@
     $('#vcGo').onclick = function () { S.on ? stop() : start(); };
     $('#vcNow').onclick = function () { if (playing) stopAll(); else playAll(); };
     $('#vcAdd').onclick = function () { S.spons.push({ name: '', say: '' }); save(); lists(); var i = $('#vcSpons input[data-n="' + (S.spons.length - 1) + '"]'); if (i) i.focus(); };
+    $('#vcSave').onclick = function () {
+      var o = { app: 'matchday-speaker', version: 1, saved: new Date().toISOString() }; KEEP.forEach(function (k) { o[k] = S[k]; });
+      var a = document.createElement('a'), u = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' }));
+      a.href = u; a.download = 'speaker-settings-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+      $('#vcFileMsg').textContent = 'Saved to your Downloads folder. Keep the file somewhere safe.';
+    };
+    $('#vcLoad').onclick = function () { $('#vcLoadFile').click(); };
+    $('#vcLoadFile').onchange = function () {
+      var f = this.files[0]; this.value = ''; if (!f) return;
+      var rd = new FileReader(); rd.onload = function () {
+        var o; try { o = JSON.parse(rd.result); } catch (e) { o = null; }
+        if (!o || o.app !== 'matchday-speaker') { $('#vcFileMsg').textContent = 'That is not a speaker settings file.'; return; }
+        KEEP.forEach(function (k) { if (o[k] !== undefined && typeof o[k] === typeof DEF[k] && Array.isArray(o[k]) === Array.isArray(DEF[k])) S[k] = o[k]; });
+        S.spons = S.spons.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { name: String(x.name || ''), say: String(x.say || '') }; });
+        S.lines = S.lines.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { on: x.on !== false, text: String(x.text || '') }; });
+        S.more = S.more.map(String); save();
+        var box = $('#vcBox'); if (box) { box.outerHTML = html(lastLink); bind(null, lastLink); $('#vcFileMsg').textContent = 'Settings loaded.'; }
+      }; rd.readAsText(f);
+    };
     $('#vcAddMsg').onclick = function () { S.more.push(''); S.useCustom = true; var c = $('#vcUseCustom'); if (c) c.checked = true; save(); lists(); var i = $('#vcMore input[data-mi="' + (S.more.length - 1) + '"]'); if (i) i.focus(); };
     $('#vcMore').oninput = function (e) { var t = e.target; if (t.dataset.mi != null) { S.more[+t.dataset.mi] = t.value; save(); } };
     $('#vcMore').onclick = function (e) { var t = e.target.closest('button'); if (t && t.dataset.md != null) { S.more.splice(+t.dataset.md, 1); save(); lists(); } };
