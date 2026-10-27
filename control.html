@@ -80,23 +80,27 @@ button{transition:transform .12s ease,filter .12s ease,background .2s ease}butto
 #toast.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 select{-webkit-appearance:none;appearance:none;box-sizing:border-box;min-height:44px;padding:10px 38px 10px 14px;border-radius:12px;border:1px solid #D1D1D6;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238E8E93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;color:inherit;font:inherit;font-size:15px;font-weight:600;line-height:1.2;text-overflow:ellipsis;cursor:pointer;transition:border-color .15s,box-shadow .15s}select:focus{outline:none;border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.18)}.pn select{display:block;width:100%;max-width:100%}option{font-weight:500;padding:8px}
+.vcrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:6px 0}.vcrow label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:#6E6E73;flex:1 1 140px}.vcrow button{flex:1 1 150px;min-height:44px}#vcBox h4{margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#6E6E73}.vcck{display:flex;align-items:center;gap:8px;font-weight:700;margin:12px 0 6px}.vcck input{width:20px;height:20px;margin:0}.vcin{display:block;box-sizing:border-box;width:100%;min-height:44px;padding:10px 14px;margin-top:6px;border-radius:12px;border:1px solid #D1D1D6;font:inherit;font-size:15px;background:#fff}.vcin:focus{outline:none;border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.18)}.vcsp{display:flex;gap:6px;margin-top:6px;align-items:center}.vcsp input{flex:1 1 0;min-width:0;min-height:44px;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid #D1D1D6;font:inherit;font-size:15px}.vcsp button{min-height:44px;padding:0 14px;border-radius:12px;border:0;background:#E9E9EE;color:#007AFF;font-weight:700;font:inherit;font-weight:700}.vcsp .x{color:#FF3B30;font-size:20px;padding:0 12px}.vcr .vcck{flex:1;margin:0}#vcBox button.rec{background:#FF3B30;color:#fff}
+.vcsp input[type=checkbox]{flex:none;width:20px;height:20px;min-height:0;padding:0}.vcr .vcck{justify-content:flex-start}#vcBox .vcrow button,#vcBox .btns button{border:0;border-radius:12px;background:#E9E9EE;color:#007AFF;font:inherit;font-weight:800;font-size:15px;cursor:pointer;transition:transform .12s,background .15s}#vcBox button:active{transform:scale(.97)}#vcBox #vcGo.ok{background:#34C759;color:#fff}#vcBox #vcGo.stop{background:#FF3B30;color:#fff}#vcBox .btns{margin-top:8px}#vcBox .btns button{min-height:44px;padding:0 14px;flex:1}
 </style>
 </head>
 <body>
 <div class="top"><h1 id="ttl">Match Control<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
-<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
+<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" data-p="voice">Speaker</button><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
 <div class="wrap" id="app"><div class="msg">Loading...</div></div>
 <div class="sh" id="es"><div><h2 style="margin:0 0 2px;font-size:19px">Fix the score</h2><p class="meta" id="esMsg" style="margin:0"></p><div class="sc"><b id="esT1"></b><input id="esA" type="number" inputmode="numeric" min="0" max="99"><b id="esT2"></b><input id="esB" type="number" inputmode="numeric" min="0" max="99"></div><div class="btns"><button class="go" id="esSave">Save score</button><button id="esCancel">Cancel</button></div></div></div>
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
+<script src="announcer.js"></script>
 <script>
 (() => {
   const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k');
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
+  window.__cmdToast = toast; if (window.Announcer) Announcer.init(slug);
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const P = window.Platform;
   const openMore = {};
@@ -252,6 +256,7 @@ select{-webkit-appearance:none;appearance:none;box-sizing:border-box;min-height:
       if (logRows == null) return '<div class="pn"><h3>Activity log</h3><div class="meta">Loading...</div></div>';
       return '<div class="pn"><h3>Activity log</h3>' + (logRows.length ? logRows.map(r => '<div class="lg"><span>' + esc(new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '</span><div>' + esc(r.body) + '</div></div>').join('') : '<div class="meta">Nothing yet. Moves, defaults, score fixes and announcements are listed here.</div>') + '</div>';
     }
+    if (kind === 'voice') return window.Announcer ? Announcer.html(location.origin + '/s.html?s=' + slug) : '';
     if (kind === 'wd') {
       const ts = teamsLeft(); if (!ts.length) return '<div class="pn"><h3>Withdraw a team</h3><div class="meta">Every team has finished its games.</div></div>';
       return '<div class="pn"><h3>Withdraw a team</h3><div class="meta" style="margin-bottom:8px">For a team that cannot continue (no substitutes). Every game it has not finished is recorded as a default for the other team. Games already played keep their scores.</div><select id="wdTeam" aria-label="Team">' + ts.map(t => '<option>' + esc(t) + '</option>').join('') + '</select><select id="wdReason" aria-label="Reason" style="margin-top:8px">' + REASONS.map(r => '<option>' + r + '</option>').join('') + '</select><div class="meta" id="wdInfo" style="margin:8px 0"></div><div class="btns"><button class="stop" id="wdGo">Withdraw this team</button></div></div>';
@@ -267,10 +272,11 @@ select{-webkit-appearance:none;appearance:none;box-sizing:border-box;min-height:
   }
   function renderPanel() {
     const box = $('#panel'); if (!panelKind) { box.innerHTML = ''; shownKind = ''; return; }
-    if ((panelKind === 'ann' && $('#annText')) || (panelKind === 'wd' && $('#wdTeam'))) return;                // never redraw the box someone is typing in
+    if ((panelKind === 'voice' && $('#vcBox')) || (panelKind === 'ann' && $('#annText')) || (panelKind === 'wd' && $('#wdTeam'))) return;                // never redraw the box someone is typing in
     box.innerHTML = panelHtml(panelKind);
     if (shownKind === panelKind && box.firstElementChild) box.firstElementChild.style.animation = 'none';      // slide in once when opened; later updates (data arriving, refreshes, typing) swap quietly
     shownKind = panelKind;
+    if (panelKind === 'voice' && window.Announcer) Announcer.bind();
     if (panelKind === 'wd' && $('#wdTeam')) {
       const upd = () => { const t = $('#wdTeam').value, gs = wdGames(t); $('#wdInfo').textContent = gs.length + ' game' + (gs.length === 1 ? '' : 's') + ' will be recorded as a default: ' + gs.slice(0, 4).map(m => String(m.time).split(' - ')[0] + ' ' + m.court).join(', ') + (gs.length > 4 ? ', ...' : ''); };
       $('#wdTeam').onchange = upd; upd(); $('#wdGo').onclick = () => withdrawTeam($('#wdTeam').value, $('#wdReason').value);
