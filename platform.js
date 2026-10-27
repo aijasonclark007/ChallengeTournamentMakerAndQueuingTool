@@ -221,9 +221,34 @@
     if (r.error) fail(r.error); return r.data || [];
   }
   async function clearLiveScores(slug) { need(); const r = await sb.rpc('clear_live_scores', { p_slug: slug }); if (r.error) fail(r.error); }
-  async function umpireGet(slug, key) {
+  async function umpireGetFull(slug, key) {                  // the original call: the whole game list and every score
     needSb(); const r = await sb.rpc('umpire_get', { p_slug: slug, p_key: key });
     if (r.error) fail(r.error); return r.data;
+  }
+  // TV screens, Match Control and umpire phones call this often. It keeps the game list from the last answer and asks the
+  // server (umpire_sync, step 19) only for what changed: the list when it was edited, scores that changed since last time.
+  // The answer has the same shape as before, so the pages do not change. Without step 19 it falls back to the full call.
+  const usync = {};
+  async function umpireGet(slug, key) {
+    needSb(); const id = slug + '|' + key; let c = usync[id];
+    if (c === false) return umpireGetFull(slug, key);
+    if (!c) c = usync[id] = { ver: null, matches: null, name: '', book: {}, cursor: 0, full: 0 };
+    for (let pass = 0; pass < 2; pass++) {
+      const full = !c.cursor || Date.now() - c.full > 120000 || pass > 0;                    // a complete copy now and then, and whenever the count looks off
+      const r = await sb.rpc('umpire_sync', { p_slug: slug, p_key: key, p_ver: c.matches ? c.ver : null, p_since: full ? null : new Date(c.cursor).toISOString() });
+      if (r.error) {
+        if (/umpire_sync|schema cache|could not find|PGRST202/i.test(r.error.message || '')) { usync[id] = false; return umpireGetFull(slug, key); }
+        fail(r.error);
+      }
+      const d = r.data; if (!d || typeof d !== 'object') { usync[id] = false; return umpireGetFull(slug, key); }
+      if (d.matches) c.matches = d.matches;
+      c.ver = d.ver; c.name = d.name;
+      if (full) { c.book = {}; c.full = Date.now(); }
+      (d.scores || []).forEach(x => { c.book[x.id] = { id: x.id, s1: x.s1, s2: x.s2, status: x.status }; c.cursor = Math.max(c.cursor, x.t || 0); });
+      if (full && !(d.scores || []).length) c.cursor = 1;
+      if (Object.keys(c.book).length === d.n) break;                                       // our copy matches the server's count: done
+    }
+    return JSON.parse(JSON.stringify({ name: c.name, matches: c.matches, scores: Object.keys(c.book).map(k => c.book[k]) }));
   }
   let noServer = false, noRecv = false;                      // step 17 not run yet (or an older copy of it): send scores the older way
   async function umpireScore(slug, key, match, s1, s2, status, server, receiver) {
