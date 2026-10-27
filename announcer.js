@@ -69,13 +69,34 @@
       by(function (x) { return /brian/i.test(x.name) && /natural/i.test(x.name) && /^en/i.test(x.lang); }) ||
       by(function (x) { return /natural/i.test(x.name) && /^en/i.test(x.lang); }) || null;
   }
+  // Edge/Chrome text-to-speech can wedge after many plays (an utterance that never ends, a queue that stays paused, a cancel that swallows the next line).
+  // So: keep a strong reference to the utterance, cancel anything left over and wait a moment before speaking, retry once if nothing starts, and never wait forever.
+  var uttRef = null;
   function say(text, forCall) {
     return new Promise(function (res) {
       if (!text || !('speechSynthesis' in window)) { res(); return; }
-      var u = new SpeechSynthesisUtterance(text), v = pickVoice(forCall);
-      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-      u.rate = forCall && S.callRate ? S.callRate : S.rate; u.volume = S.vol; u.onend = u.onerror = function () { res(); };
-      speechSynthesis.speak(u);
+      var ss = speechSynthesis, done = false, started = false, tries = 0, timers = [], v = pickVoice(forCall), u;
+      var clear = function () { timers.forEach(clearTimeout); timers = []; };
+      var fin = function () { if (done) return; done = true; clear(); if (uttRef === u) uttRef = null; res(); };
+      var hardStop = function () { try { ss.cancel(); } catch (e) {} };
+      var attempt = function () {
+        if (done) return; tries++; started = false; clear();
+        u = new SpeechSynthesisUtterance(text);
+        if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+        u.rate = forCall && S.callRate ? S.callRate : S.rate; u.volume = S.vol;
+        u.onstart = function () { started = true; };
+        var mine = u; u.onend = u.onerror = function () { if (u === mine) fin(); };
+        uttRef = u;                                                      // without this the browser can drop the utterance and its end event never comes
+        try { ss.resume(); } catch (e) {}
+        try { ss.speak(u); } catch (e) { fin(); return; }
+        timers.push(setTimeout(function () {                             // nothing started: the engine is stuck. Reset it and try once more
+          if (done || started) return; hardStop();
+          if (tries < 2) setTimeout(attempt, 200); else fin();
+        }, 3500));
+        timers.push(setTimeout(function () { if (!done) { hardStop(); fin(); } }, 8000 + text.length * 140 / (u.rate || 1)));      // started but never ended
+      };
+      var busy = false; try { busy = ss.speaking || ss.pending || ss.paused; } catch (e) {}
+      if (busy) { hardStop(); setTimeout(attempt, 150); } else attempt();
     });
   }
   function playBlob(blob) {
@@ -106,7 +127,6 @@
   async function run(ps) {
     if (playing) return; playing = true; stopFlag = false; paint();
     try {
-      try { speechSynthesis.cancel(); } catch (e) {}
       if (!ps.length) toast('Nothing is selected to announce.');
       for (var i = 0; i < ps.length && !stopFlag; i++) {
         await drain(); if (stopFlag) break;
@@ -121,7 +141,8 @@
   async function drain() {
     if (calling || !callQ.length) return;
     calling = true; paint();
-    while (callQ.length && !stopFlag) { await say(callQ.shift(), true); if (callQ.length) await pause(900); }
+    try { while (callQ.length && !stopFlag) { await say(callQ.shift(), true); if (callQ.length) await pause(900); } }
+    catch (e) { callQ.length = 0; }
     calling = false; hold = Date.now() + 4000; paint();
   }
   var pronMap = function () { var m = {}; (S.pron || []).forEach(function (x) { if (x && x.name && x.say) m[String(x.name).trim().toLowerCase()] = String(x.say).trim(); }); return m; };
@@ -160,7 +181,6 @@
   function start() {
     S.on = true; var now = Date.now(); S.items.forEach(function (it) { it._due = now + everyMs(it); });
     clearInterval(timer); timer = setInterval(tick, 1000); keepAwake(true);
-    try { speechSynthesis.cancel(); } catch (e) {}                        // a click unlocks sound in the browser
     paint();
   }
   function stop() { S.on = false; clearInterval(timer); timer = null; keepAwake(false); stopAll(); paint(); }
@@ -272,7 +292,7 @@
     $('#vcPron').oninput = function (e) { var t = e.target; if (t.dataset.pn != null) S.pron[+t.dataset.pn].name = t.value; if (t.dataset.ps != null) S.pron[+t.dataset.ps].say = t.value; save(); };
     $('#vcPron').onclick = function (e) {
       var t = e.target.closest('button'); if (!t) return;
-      if (t.dataset.pt != null) { var x = S.pron[+t.dataset.pt]; try { speechSynthesis.cancel(); } catch (er) {} say(x.say || x.name, true); }
+      if (t.dataset.pt != null) { var x = S.pron[+t.dataset.pt]; say(x.say || x.name, true); }
       if (t.dataset.pd != null) { S.pron.splice(+t.dataset.pd, 1); save(); lists(); }
     };
     $('#vcAdd').onclick = function () { S.spons.push({ name: '', say: '' }); save(); lists(); var i = $('#vcSpons input[data-n="' + (S.spons.length - 1) + '"]'); if (i) i.focus(); };
@@ -318,7 +338,7 @@
     $('#vcSpons').onchange = function () { lists(); };
     $('#vcSpons').onclick = function (e) {
       var t = e.target.closest('button'); if (!t) return;
-      if (t.dataset.t != null) { var x = S.spons[+t.dataset.t]; try { speechSynthesis.cancel(); } catch (er) {} say(sp(x)); }
+      if (t.dataset.t != null) { var x = S.spons[+t.dataset.t]; say(sp(x)); }
       if (t.dataset.d != null) { S.spons.splice(+t.dataset.d, 1); save(); lists(); }
     };
     var addRec = async function (blob, name) {
@@ -362,10 +382,10 @@
     el.onclick = function (e) {
       if (e.target === el) { close(); return; }
       var b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.p != null) { var i = +b.dataset.p; try { speechSynthesis.cancel(); } catch (er) {} say(val(i) || names[i], true); }
+      if (b.dataset.p != null) { var i = +b.dataset.p; say(val(i) || names[i], true); }
       else if (b.id === 'vcPronX') close();
       else if (b.id === 'vcPronSave') { commit(); close(); toast('Saved. Names will be said this way.'); }
-      else if (b.id === 'vcPronGo') { commit(); close(); try { speechSynthesis.cancel(); } catch (er) {} var was = S.callOn; S.callOn = true; callCourt(info); S.callOn = was; }
+      else if (b.id === 'vcPronGo') { commit(); close(); var was = S.callOn; S.callOn = true; callCourt(info); S.callOn = was; }
     };
   }
   window.Announcer = {
