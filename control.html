@@ -88,6 +88,7 @@ button,select,input,textarea,summary,.chip{transition:background-color .2s ease,
 select:focus,input:focus,textarea:focus{outline:none;border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.16)}
 button:disabled,input:disabled{transition:opacity .25s ease}
 details>summary{transition:color .2s ease}
+.vcit{display:grid;grid-template-columns:auto 1fr auto;gap:6px 8px;align-items:center;margin-top:8px;padding:10px;border-radius:12px;background:#F5F5F7}.vcit input[type=checkbox]{width:20px;height:20px;margin:0}.vcit .vcmain{display:flex;gap:8px;align-items:center;min-width:0}.vcit .vcmain input{flex:1 1 0;min-width:0;min-height:44px;box-sizing:border-box;padding:10px 12px;border-radius:12px;border:1px solid #D1D1D6;font:inherit;font-size:15px;background:#fff}.vcit .vcmain .vcl{flex:1;font-weight:700;font-size:14px;overflow-wrap:anywhere}.vcit button{min-height:36px;min-width:40px;border:0;border-radius:10px;background:#E9E9EE;color:#007AFF;font:inherit;font-weight:700;cursor:pointer}.vcit button:disabled{opacity:.35}.vcit .x{color:#FF3B30;font-size:20px}.vcit .vcsub{grid-column:2 / 4;display:flex;gap:6px;align-items:center}.vcit select,#vcBox select{min-height:36px;border-radius:10px;border:1px solid #D1D1D6;background:#fff;font:inherit;font-size:14px;padding:0 8px}.vcit select{flex:1}#vcBox input[type=range]{width:100%;accent-color:#007AFF}.vcrow2 button:disabled{opacity:.4}
 </style>
 </head>
 <body>
@@ -143,7 +144,7 @@ details>summary{transition:color .2s ease}
   const mById = mid => ((data && data.matches) || []).find(m => m.mid === mid);
   const mName = m => m ? (m.t1 || 'TBD') + ' vs ' + (m.t2 || 'TBD') : 'a match';
   function logIt(text) { P.addLog(slug, key, text); if (panelKind === 'log') setTimeout(() => openPanel('log', true), 500); }
-  function call(m) { logIt('Called to court: ' + mName(m) + ' (' + m.court + ')'); send({ t: 'call', mid: m.mid, label: m.t1 + ' vs ' + m.t2 }); toast('Called: ' + m.t1 + ' vs ' + m.t2); }
+  function call(m) { logIt('Called to court: ' + mName(m) + ' (' + m.court + ')'); send({ t: 'call', mid: m.mid, label: m.t1 + ' vs ' + m.t2 }); toast('Called: ' + m.t1 + ' vs ' + m.t2); if (window.Announcer) Announcer.call({ court: m.court, bracket: m.bracket, t1: m.t1, t2: m.t2 }); }
 
   const target = m => m.sport === 'pickleball' ? 11 : 31;      // a default counts as a full game to nothing: 31-0 (pickleball 11-0)
   const REASONS = ['No-show', 'Injury', 'Personal emergency', 'Other'];
@@ -295,14 +296,16 @@ details>summary{transition:color .2s ease}
       shownKind = ''; return;
     }
     if ((panelKind === 'voice' && $('#vcBox')) || (panelKind === 'ann' && $('#annText')) || (panelKind === 'wd' && $('#wdTeam'))) return;                // never redraw the box someone is typing in
-    morph(() => { box.innerHTML = panelHtml(panelKind); });
+    morph(() => {                                                      // fill the panel completely inside the animation, so its height is measured with all its content
+      box.innerHTML = panelHtml(panelKind);
+      if (panelKind === 'voice' && window.Announcer) Announcer.bind();
+      if (panelKind === 'wd' && $('#wdTeam')) {
+        const upd = () => { const t = $('#wdTeam').value, gs = wdGames(t); $('#wdInfo').textContent = gs.length + ' game' + (gs.length === 1 ? '' : 's') + ' will be recorded as a default: ' + gs.slice(0, 4).map(m => String(m.time).split(' - ')[0] + ' ' + m.court).join(', ') + (gs.length > 4 ? ', ...' : ''); };
+        $('#wdTeam').onchange = upd; upd(); $('#wdGo').onclick = () => withdrawTeam($('#wdTeam').value, $('#wdReason').value);
+      }
+    });
     if (shownKind === panelKind && box.firstElementChild) box.firstElementChild.style.animation = 'none';      // slide in once when opened; later updates (data arriving, refreshes, typing) swap quietly
     shownKind = panelKind;
-    if (panelKind === 'voice' && window.Announcer) Announcer.bind();
-    if (panelKind === 'wd' && $('#wdTeam')) {
-      const upd = () => { const t = $('#wdTeam').value, gs = wdGames(t); $('#wdInfo').textContent = gs.length + ' game' + (gs.length === 1 ? '' : 's') + ' will be recorded as a default: ' + gs.slice(0, 4).map(m => String(m.time).split(' - ')[0] + ' ' + m.court).join(', ') + (gs.length > 4 ? ', ...' : ''); };
-      $('#wdTeam').onchange = upd; upd(); $('#wdGo').onclick = () => withdrawTeam($('#wdTeam').value, $('#wdReason').value);
-    }
     const set = $('#annSet'), clr = $('#annClr');
     if (set) set.onclick = async () => { const t = ($('#annText').value || '').trim(); if (!t) { toast('Type a message first.'); return; } try { await P.setAnnouncement(slug, key, t); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step13.sql first.' : (e.message || 'Could not send.')); return; } logIt('Announcement: ' + t); changed('Announcement is live.'); };
     if (clr) clr.onclick = async () => { try { await P.setAnnouncement(slug, key, ''); } catch (e) { toast(e.message || 'Could not clear.'); return; } logIt('Announcement cleared'); ann = null; $('#panel').innerHTML = ''; shownKind = ''; panelKind = ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); changed('Announcement cleared.'); };
