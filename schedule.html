@@ -2421,10 +2421,14 @@ let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pub
 $('#eventDate').addEventListener('click', e => { try { e.target.showPicker(); } catch (x) {} });      // a tap anywhere on the box opens the calendar
 $('#eventDate').addEventListener('change', () => { queueSave(); try { autoPublish(); } catch (e) {} });
 let pubSig = null, pubBusy = false, pubLast = 0;
-const pubSigNow = () => sched ? JSON.stringify([$('#eventDate').value, [...WD], koSched ? koSched.matches.map(m => m.id + ':' + m.slot + ':' + m.court) : '', Object.keys(mnotes).map(k => k + mnotes[k].kind),  committed(results), committed(koResults), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)]) : null;
+// [0] = everything about times, courts, teams and tags; [1] = just the saved scores. Scores alone also reach viewers live, so they republish less often.
+const pubParts = () => sched ? [[$('#eventDate').value, [...WD], koSched ? koSched.matches.map(m => m.id + ':' + m.slot + ':' + m.court) : '', Object.keys(mnotes).map(k => k + mnotes[k].kind), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)], [committed(results), committed(koResults)]] : null;
+const pubSigNow = () => sched ? JSON.stringify(pubParts()) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
-  const sig = pubSigNow(); if (sig === pubSig || Date.now() - pubLast < 15000) return;
+  const sig = pubSigNow(); if (sig === pubSig) return;
+  let scoresOnly = false; try { scoresOnly = JSON.stringify(JSON.parse(pubSig)[0]) === JSON.stringify(pubParts()[0]); } catch (e) {}
+  if (Date.now() - pubLast < (scoresOnly ? 120000 : 15000)) return;      // only scores changed: viewers already get them live, so republish at most every 2 minutes
   pubBusy = true;
   try { await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); pubSig = sig; pubLast = Date.now(); say('#pubMsg', 'Link updated automatically at ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.'); }
   catch (e) { /* try again next round */ }
