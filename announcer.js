@@ -1,34 +1,48 @@
 /* Speaker announcements for Match Control.
    Reads the text out loud (browser text-to-speech) and plays recordings through whatever speaker the laptop uses (e.g. Bluetooth).
-   Everything is stored on this laptop only (localStorage + IndexedDB). Nothing is sent to Supabase. */
+   Everything is stored on this laptop only (localStorage + IndexedDB). Nothing is sent to Supabase.
+   One ordered list of items (sponsors, messages, recordings), each with its own repeat time. Court calls are spoken on request and never overlap the timer. */
 (function () {
   'use strict';
-  var slug = '', S = null, timer = null, nextAt = 0, playing = false, stopFlag = false, wake = null, curAudio = null, recState = null;
+  var slug = '', S = null, timer = null, playing = false, calling = false, stopFlag = false, hold = 0, wake = null, curAudio = null, recState = null, callQ = [];
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var $ = function (s) { return document.querySelector(s); };
+  var EVERY = [0, 10, 15, 20, 30, 40, 45, 60, 90, 120];       // 0 = follow the main "Repeat every" setting
   var DEF = {
-    mins: 30, rate: 0.95, voice: '', on: false,
+    mins: 30, rate: 0.95, vol: 1, voice: '', on: false,
     useOpen: true, open: 'Attention everyone.',
-    useSpons: true, spons: [], sponsLead: 'This tournament is sponsored by',
-    msgs: [                               // one list of things to say: [{on,text}]
-      { on: true, text: 'Please check your match time and court on the web link. Be ready 10 minutes before your game.' },
-      { on: true, text: 'Teams that are not at their court when called may be given a default after the grace time.' },
-      { on: true, text: 'Please follow the umpire\u2019s decisions. Respect to players, officials and volunteers.' }
+    spons: [], sponsLead: 'This tournament is sponsored by',
+    items: [                              // the announcement list, in the order it is spoken: {k:'spons'|'msg'|'rec', on, every, text | id}
+      { k: 'spons', on: true, every: 0 },
+      { k: 'msg', on: true, every: 0, text: 'Please check your match time and court on the web link. Be ready 10 minutes before your game.' },
+      { k: 'msg', on: true, every: 0, text: 'Teams that are not at their court when called may be given a default after the grace time.' },
+      { k: 'msg', on: true, every: 0, text: 'Please follow the umpire’s decisions. Respect to players, officials and volunteers.' }
     ],
-    recs: []                              // [{id,name,on}] the audio itself lives in IndexedDB
+    recs: [],                             // [{id,name}] the audio itself lives in IndexedDB
+    callOn: false, callTwice: true, callText: 'Court {court}, {bracket}. {team1} versus {team2}. Please proceed to the court.'
   };
   function key() { return 'cmd_voice_' + slug; }
-  function migrate(o) {                   // older versions kept the schedule line, reminders and own messages in separate places
-    if (!o || Array.isArray(o.msgs)) return o;
-    var m = [], add = function (on, t) { t = String(t || '').trim(); if (t) m.push({ on: on, text: t }); };
-    if (o.link !== undefined) add(o.useLink !== false, o.link + (o.linkSay ? ' ' + o.linkSay : ''));
-    (Array.isArray(o.lines) ? o.lines : []).forEach(function (l) { if (l) add(o.useLines !== false && l.on !== false, l.text); });
-    [o.custom].concat(Array.isArray(o.more) ? o.more : []).forEach(function (t) { add(!!o.useCustom, t); });
-    if (m.length) o.msgs = m;
+  function migrate(o) {                   // older versions kept things in separate places; fold them into the one list
+    if (!o || typeof o !== 'object') return o;
+    if (!Array.isArray(o.msgs) && !Array.isArray(o.items)) {
+      var m = [], add = function (on, t) { t = String(t || '').trim(); if (t) m.push({ on: on, text: t }); };
+      if (o.link !== undefined) add(o.useLink !== false, o.link + (o.linkSay ? ' ' + o.linkSay : ''));
+      (Array.isArray(o.lines) ? o.lines : []).forEach(function (l) { if (l) add(o.useLines !== false && l.on !== false, l.text); });
+      [o.custom].concat(Array.isArray(o.more) ? o.more : []).forEach(function (t) { add(!!o.useCustom, t); });
+      if (m.length) o.msgs = m;
+    }
+    if (!Array.isArray(o.items) && (Array.isArray(o.msgs) || o.useSpons !== undefined || Array.isArray(o.recs))) {
+      var it = [{ k: 'spons', on: o.useSpons !== false, every: 0 }];
+      (Array.isArray(o.msgs) ? o.msgs : DEF.items.filter(function (x) { return x.k === 'msg'; })).forEach(function (x) { if (x) it.push({ k: 'msg', on: x.on !== false, every: 0, text: String(x.text || '') }); });
+      (Array.isArray(o.recs) ? o.recs : []).forEach(function (r) { if (r && r.id) it.push({ k: 'rec', on: r.on !== false, every: 0, id: r.id }); });
+      o.items = it;
+    }
+    if (Array.isArray(o.recs)) o.recs = o.recs.filter(function (r) { return r && r.id; }).map(function (r) { return { id: r.id, name: String(r.name || 'Recording') }; });
+    delete o.msgs; delete o.useSpons;
     return o;
   }
-  function load() { try { S = Object.assign({}, DEF, migrate(JSON.parse(localStorage.getItem(key()) || '{}'))); } catch (e) { S = Object.assign({}, DEF); } S.on = false; }
-  function save() { try { localStorage.setItem(key(), JSON.stringify(S)); } catch (e) {} }
+  function load() { try { S = Object.assign({}, DEF, migrate(JSON.parse(localStorage.getItem(key()) || '{}'))); } catch (e) { S = Object.assign({}, DEF); } S.on = false; S.items.forEach(function (i) { i._due = null; }); }
+  function save() { try { localStorage.setItem(key(), JSON.stringify(S, function (k, v) { return k === '_due' ? undefined : v; })); } catch (e) {} }
 
   // ----- recordings are kept in IndexedDB (they are too big for localStorage) -----
   function db() {
@@ -57,48 +71,81 @@
       if (!text || !('speechSynthesis' in window)) { res(); return; }
       var u = new SpeechSynthesisUtterance(text), v = pickVoice();
       if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-      u.rate = S.rate; u.onend = u.onerror = function () { res(); };
+      u.rate = S.rate; u.volume = S.vol; u.onend = u.onerror = function () { res(); };
       speechSynthesis.speak(u);
     });
   }
   function playBlob(blob) {
     return new Promise(function (res) {
-      var url = URL.createObjectURL(blob), a = new Audio(url); curAudio = a;
+      var url = URL.createObjectURL(blob), a = new Audio(url); curAudio = a; a.volume = S.vol;
       var done = function () { curAudio = null; URL.revokeObjectURL(url); res(); };
       a.onended = a.onerror = done; a.play().catch(done);
     });
   }
+  var pause = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var sp = function (x) { return String(x.say || x.name || '').trim(); };
   function names(list) { var n = list.map(sp).filter(Boolean); return n.length < 2 ? n.join('') : n.length === 2 ? n[0] + ' and ' + n[1] : n.slice(0, -1).join(', ') + ', and ' + n[n.length - 1]; }
-  function parts() {                      // the things that get said, in order: [{t:'say',text} | {t:'rec',id}]
+  function partsFor(items) {              // what gets said, in order: [{t:'say',text} | {t:'rec',id}]
     var p = [];
     if (S.useOpen && S.open.trim()) p.push({ t: 'say', text: S.open.trim() });
-    if (S.useSpons && S.spons.length) p.push({ t: 'say', text: (S.sponsLead.trim() || 'This tournament is sponsored by') + ' ' + names(S.spons) + '.' });
-    S.msgs.forEach(function (m) { if (m.on && m.text.trim()) p.push({ t: 'say', text: m.text.trim() }); });
-    S.recs.forEach(function (r) { if (r.on) p.push({ t: 'rec', id: r.id }); });
+    items.forEach(function (it) {
+      if (it.k === 'spons') { if (S.spons.some(sp)) p.push({ t: 'say', text: (S.sponsLead.trim() || 'This tournament is sponsored by') + ' ' + names(S.spons) + '.' }); }
+      else if (it.k === 'msg') { if (String(it.text || '').trim()) p.push({ t: 'say', text: it.text.trim() }); }
+      else if (it.k === 'rec') p.push({ t: 'rec', id: it.id });
+    });
     return p;
   }
-  async function playAll() {
+  function stopAll() { stopFlag = true; callQ.length = 0; try { speechSynthesis.cancel(); } catch (e) {} skipNow(); }
+  function skipNow() { try { speechSynthesis.cancel(); } catch (e) {} if (curAudio) { try { curAudio.pause(); curAudio.dispatchEvent(new Event('ended')); } catch (e) {} } }
+  var toast = function (t) { if (window.__cmdToast) window.__cmdToast(t); };
+
+  // a round of announcements; a court call that arrives meanwhile is spoken between two parts, never on top of one
+  async function run(ps) {
     if (playing) return; playing = true; stopFlag = false; paint();
     try {
       try { speechSynthesis.cancel(); } catch (e) {}
-      var ps = parts();
       if (!ps.length) toast('Nothing is selected to announce.');
       for (var i = 0; i < ps.length && !stopFlag; i++) {
-        if (ps[i].t === 'say') { await say(ps[i].text); }
+        await drain(); if (stopFlag) break;
+        if (ps[i].t === 'say') await say(ps[i].text);
         else { var b = await getRec(ps[i].id); if (b) await playBlob(b); }
-        if (!stopFlag) await new Promise(function (r) { setTimeout(r, 450); });
+        if (!stopFlag) await pause(450);
       }
+      await drain();
     } catch (e) { toast('Could not play: ' + (e && e.message || e)); }
-    playing = false; paint();
+    playing = false; hold = Date.now() + 1500; paint();
   }
-  function stopAll() { stopFlag = true; try { speechSynthesis.cancel(); } catch (e) {} if (curAudio) { try { curAudio.pause(); curAudio.dispatchEvent(new Event('ended')); } catch (e) {} } }
-  var toast = function (t) { if (window.__cmdToast) window.__cmdToast(t); };
+  async function drain() {
+    if (calling || !callQ.length) return;
+    calling = true; paint();
+    while (callQ.length && !stopFlag) { await say(callQ.shift()); if (callQ.length) await pause(900); }
+    calling = false; hold = Date.now() + 4000; paint();
+  }
+  function callCourt(info) {              // from Match Control's Call to court button
+    if (!S || !S.callOn || !info) return false;
+    var team = function (n) { return String(n || '').split('/').map(function (x) { return x.trim(); }).filter(Boolean).join(' and '); };
+    var t = String(S.callText || DEF.callText).replace(/\{court\}/gi, String(info.court || '').replace(/^court\s*/i, '')).replace(/\{bracket\}/gi, info.bracket || '').replace(/\{team1\}/gi, team(info.t1)).replace(/\{team2\}/gi, team(info.t2)).replace(/\s+/g, ' ').trim();
+    if (!t) return false;
+    stopFlag = false; callQ.push(t); if (S.callTwice) callQ.push(t);
+    if (!playing) drain();
+    return true;
+  }
 
   // ----- the repeat timer (runs even when the panel is closed) -----
+  var everyMs = function (it) { return (it.every || S.mins) * 60000; };
+  var live = function (it) { return it.on && (it.k !== 'msg' || String(it.text || '').trim()) && (it.k !== 'spons' || S.spons.some(sp)); };
+  function nextDue() { var d = Infinity; S.items.forEach(function (it) { if (live(it) && it._due != null && it._due < d) d = it._due; }); return d; }
   function tick() {
     if (!S || !S.on) return;
-    if (Date.now() >= nextAt) { nextAt = Date.now() + S.mins * 60000; playAll(); }
+    var now = Date.now();
+    S.items.forEach(function (it) { if (live(it) && it._due == null) it._due = now + everyMs(it); });
+    if (!playing && !calling && !callQ.length && now >= hold) {
+      var due = S.items.filter(function (it) { return live(it) && it._due != null && it._due <= now + 15000; });
+      if (due.length && due.some(function (it) { return it._due <= now; })) {
+        due.forEach(function (it) { it._due = now + everyMs(it); });
+        run(partsFor(due));
+      }
+    }
     paintCount();
   }
   async function keepAwake(on) {
@@ -106,7 +153,8 @@
   }
   document.addEventListener('visibilitychange', function () { if (S && S.on && document.visibilityState === 'visible') keepAwake(true); });
   function start() {
-    S.on = true; nextAt = Date.now() + S.mins * 60000; clearInterval(timer); timer = setInterval(tick, 1000); keepAwake(true);
+    S.on = true; var now = Date.now(); S.items.forEach(function (it) { it._due = now + everyMs(it); });
+    clearInterval(timer); timer = setInterval(tick, 1000); keepAwake(true);
     try { speechSynthesis.cancel(); } catch (e) {}                        // a click unlocks sound in the browser
     paint();
   }
@@ -116,43 +164,55 @@
   var baseTitle = null;
   function badge() {                      // the Speaker button (and the browser tab title) show when announcements are running, even with the panel closed
     var b = document.querySelector('[data-p="voice"]'); if (!b || !S) return;
-    if (baseTitle === null) baseTitle = document.title.replace(/^\uD83D\uDD0A\s*/, '');
-    var on = !!S.on, s = Math.max(0, Math.round((nextAt - Date.now()) / 1000)), t = playing ? 'Speaking' : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-    var key = on + '|' + t; if (b._k === key) return; b._k = key;
+    if (baseTitle === null) baseTitle = document.title.replace(/^🔊\s*/, '');
+    var busy = playing || calling, nd = nextDue(), s = nd === Infinity ? 0 : Math.max(0, Math.round((nd - Date.now()) / 1000)), on = !!S.on || busy;
+    var t = busy ? 'Speaking' : S.on ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : '';
+    var k = on + '|' + t; if (b._k === k) return; b._k = k;
     b.classList.toggle('vcon', on);
-    b.innerHTML = on ? '<span class="vcdot' + (playing ? ' talk' : '') + '"></span>Speaker <span class="vct">' + t + '</span>' : 'Speaker';
-    b.setAttribute('aria-label', on ? 'Speaker announcements are on. ' + (playing ? 'Speaking now.' : 'Next in ' + t) : 'Speaker announcements, off');
-    document.title = on ? '\uD83D\uDD0A ' + baseTitle : baseTitle;
+    b.innerHTML = on ? '<span class="vcdot' + (busy ? ' talk' : '') + '"></span>Speaker ' + (t ? '<span class="vct">' + t + '</span>' : '') : 'Speaker';
+    b.setAttribute('aria-label', on ? 'Speaker announcements are on. ' + (busy ? 'Speaking now.' : 'Next in ' + t) : 'Speaker announcements, off');
+    document.title = S.on ? '🔊 ' + baseTitle : baseTitle;
   }
   function paintCount() {
     badge();
     var e = $('#vcCount'); if (!e) return;
-    if (!S.on) { e.textContent = 'Not running'; return; }
     if (playing) { e.textContent = 'Announcing now...'; return; }
-    var s = Math.max(0, Math.round((nextAt - Date.now()) / 1000)); e.textContent = 'Next announcement in ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    if (calling) { e.textContent = 'Calling a court...'; return; }
+    if (!S.on) { e.textContent = 'Not running'; return; }
+    var nd = nextDue(); if (nd === Infinity) { e.textContent = 'Nothing is ticked to announce.'; return; }
+    var s = Math.max(0, Math.round((nd - Date.now()) / 1000)); e.textContent = 'Next announcement in ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   }
+  var itemLabel = function (it) {
+    if (it.k === 'spons') return S.spons.some(sp) ? 'Sponsors: ' + names(S.spons) : 'Sponsors (add names above)';
+    if (it.k === 'rec') { var r = S.recs.filter(function (x) { return x.id === it.id; })[0]; return 'Recording: ' + (r ? r.name : 'missing'); }
+    return '';
+  };
   function lists() {
     var sb = $('#vcSpons'); if (sb) sb.innerHTML = S.spons.map(function (x, i) {
       return '<div class="vcsp"><input data-n="' + i + '" value="' + esc(x.name) + '" placeholder="Name as written" aria-label="Sponsor name"><input data-s="' + i + '" value="' + esc(x.say || '') + '" placeholder="Say it like (optional)" aria-label="How to say it">' +
         '<button type="button" data-t="' + i + '" title="Hear it">Test</button><button type="button" data-d="' + i + '" class="x" title="Remove">&times;</button></div>';
     }).join('') || '<div class="meta">No sponsors yet. Tap Add sponsor.</div>';
-    var mb = $('#vcMsgs'); if (mb) mb.innerHTML = S.msgs.map(function (m, i) {
-      return '<div class="vcsp"><input type="checkbox" data-mc="' + i + '"' + (m.on ? ' checked' : '') + ' aria-label="Say this"><input data-mt="' + i + '" value="' + esc(m.text) + '" maxlength="240" placeholder="Type a message" aria-label="Message"><button type="button" data-md="' + i + '" class="x" title="Remove">&times;</button></div>';
-    }).join('') || '<div class="meta">No messages yet. Tap Add a message.</div>';
-    var rb = $('#vcRecs'); if (rb) rb.innerHTML = S.recs.map(function (r, i) {
-      return '<div class="vcsp vcr"><label class="vcck"><input type="checkbox" data-ri="' + i + '"' + (r.on ? ' checked' : '') + '> ' + esc(r.name) + '</label><button type="button" data-rp="' + i + '">Play</button><button type="button" data-rd="' + i + '" class="x" title="Delete">&times;</button></div>';
-    }).join('') || '<div class="meta">No recordings yet.</div>';
+    var ib = $('#vcItems'); if (ib) ib.innerHTML = S.items.map(function (it, i) {
+      var main = it.k === 'msg' ? '<input data-it="' + i + '" value="' + esc(it.text) + '" maxlength="240" placeholder="Type a message" aria-label="Message">' : '<div class="vcl">' + esc(itemLabel(it)) + '</div>' + (it.k === 'rec' ? '<button type="button" data-ip="' + i + '">Play</button>' : '');
+      return '<div class="vcit"><input type="checkbox" data-ic="' + i + '"' + (it.on ? ' checked' : '') + ' aria-label="Say this"><div class="vcmain">' + main + '</div><button type="button" data-ix="' + i + '" class="x" title="Remove">&times;</button>' +
+        '<div class="vcsub"><select data-ie="' + i + '" aria-label="How often">' + EVERY.map(function (m) { return '<option value="' + m + '"' + ((it.every || 0) === m ? ' selected' : '') + '>' + (m ? 'Every ' + m + ' min' : 'Default (' + S.mins + ' min)') + '</option>'; }).join('') + '</select>' +
+        '<button type="button" data-iu="' + i + '" title="Move up"' + (i ? '' : ' disabled') + '>&#9650;</button><button type="button" data-idn="' + i + '" title="Move down"' + (i < S.items.length - 1 ? '' : ' disabled') + '>&#9660;</button></div></div>';
+    }).join('') || '<div class="meta">Nothing yet. Add a message or a recording.</div>';
   }
   function paint() {
     var b = $('#vcGo'); if (b) { b.textContent = S.on ? 'Stop announcements' : 'Start announcements'; b.className = S.on ? 'stop' : 'ok'; }
-    var n = $('#vcNow'); if (n) { n.textContent = playing ? 'Stop talking' : 'Play now'; }
+    var n = $('#vcNow'); if (n) n.textContent = 'Preview everything';
+    var k = $('#vcSkip'); if (k) k.disabled = !(playing || calling);
+    var st = $('#vcStop'); if (st) st.disabled = !(playing || calling);
     paintCount();
   }
   function html(link) {
     return '<div class="pn" id="vcBox"><h3>Speaker announcements</h3>' +
       '<div class="meta" style="margin-bottom:8px">Connect your laptop to the speaker in your computer settings, keep this page open, then press Start. Everything here is saved on this laptop only.</div>' +
-      '<div class="vcrow"><button type="button" id="vcGo" class="ok">Start announcements</button><button type="button" id="vcNow">Play now</button></div><div class="meta" id="vcCount" style="margin:6px 0 10px"></div>' +
-      '<div class="vcrow"><label>Repeat every<select id="vcMins">' + [10, 15, 20, 30, 40, 45, 60].map(function (m) { return '<option value="' + m + '"' + (S.mins === m ? ' selected' : '') + '>' + m + ' minutes</option>'; }).join('') + '</select></label>' +
+      '<div class="vcrow"><button type="button" id="vcGo" class="ok">Start announcements</button><button type="button" id="vcNow">Preview everything</button></div>' +
+      '<div class="vcrow vcrow2"><button type="button" id="vcSkip" disabled>Skip this one</button><button type="button" id="vcStop" disabled>Stop talking</button></div><div class="meta" id="vcCount" style="margin:6px 0 10px"></div>' +
+      '<div class="vcrow"><label>Volume <span id="vcVolV">' + Math.round(S.vol * 100) + '%</span><input type="range" id="vcVol" min="0" max="100" step="5" value="' + Math.round(S.vol * 100) + '"></label></div>' +
+      '<div class="vcrow"><label>Repeat every (default)<select id="vcMins">' + [10, 15, 20, 30, 40, 45, 60].map(function (m) { return '<option value="' + m + '"' + (S.mins === m ? ' selected' : '') + '>' + m + ' minutes</option>'; }).join('') + '</select></label>' +
       '<label>Voice<select id="vcVoice"></select></label><label>Speed<select id="vcRate">' + [[0.8, 'Slow'], [0.95, 'Normal'], [1.1, 'Fast']].map(function (r) { return '<option value="' + r[0] + '"' + (S.rate === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></label></div>' +
       '<details class="vcnote"><summary>Keep the speaker from turning off</summary><ol>' +
         '<li>Give Match Control its <b>own Edge window</b>. Drag this tab out of the others and keep that window open behind your other windows. Do not minimize it.</li>' +
@@ -161,17 +221,20 @@
         '<li>Press <b>Start announcements</b> once, then check with a 10 minute timer: switch to another tab and make sure the announcement still plays.</li>' +
         '<li>Set the speaker and laptop volume before the first game, and keep the Bluetooth speaker charged and close to the laptop.</li></ol></details>' +
       '<h4>What to say</h4>' +
-      '<label class="vcck"><input type="checkbox" id="vcUseOpen"' + (S.useOpen ? ' checked' : '') + '> Opening line</label><input class="vcin" id="vcOpen" value="' + esc(S.open) + '" maxlength="160">' +
-      '<label class="vcck"><input type="checkbox" id="vcUseSpons"' + (S.useSpons ? ' checked' : '') + '> Sponsors</label><input class="vcin" id="vcLead" value="' + esc(S.sponsLead) + '" maxlength="100"><div id="vcSpons"></div><div class="btns"><button type="button" id="vcAdd">Add sponsor</button></div>' +
+      '<label class="vcck"><input type="checkbox" id="vcUseOpen"' + (S.useOpen ? ' checked' : '') + '> Opening line (said at the start of every round)</label><input class="vcin" id="vcOpen" value="' + esc(S.open) + '" maxlength="160">' +
+      '<label class="vcck" style="margin-top:14px">Sponsors</label><input class="vcin" id="vcLead" value="' + esc(S.sponsLead) + '" maxlength="100"><div id="vcSpons"></div><div class="btns"><button type="button" id="vcAdd">Add sponsor</button></div>' +
       '<div class="meta">In the second box, spell the name the way it should sound. For example: Jollibee, say it like "Jolly bee".</div>' +
-      '<h4>Messages</h4><div class="meta">Reminders, food, rules, anything you want said. Tick the ones to include.</div><div id="vcMsgs"></div><div class="btns"><button type="button" id="vcAddMsg">Add a message</button></div>' +
-      '<h4>Recordings</h4><div id="vcRecs"></div><div class="btns"><button type="button" id="vcUp">Upload audio</button><button type="button" id="vcRec">Record with microphone</button></div>' +
-      '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg">Ticked recordings play after the spoken lines, in this order.</div>' +
+      '<h4>Announcement list</h4><div class="meta">Spoken top to bottom. Tick what to include, choose how often each one plays, and use the arrows to change the order.</div><div id="vcItems"></div>' +
+      '<div class="btns"><button type="button" id="vcAddMsg">Add a message</button><button type="button" id="vcUp">Upload audio</button><button type="button" id="vcRec">Record with microphone</button></div>' +
+      '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg"></div>' +
+      '<h4>Court calls</h4><label class="vcck"><input type="checkbox" id="vcCallOn"' + (S.callOn ? ' checked' : '') + '> Say it out loud when I press Call to court</label>' +
+      '<input class="vcin" id="vcCallText" value="' + esc(S.callText) + '" maxlength="240"><div class="meta">Fills in {court}, {bracket}, {team1} and {team2} for that game. A court call never talks over the timer: it waits for the current line to finish.</div>' +
+      '<label class="vcck"><input type="checkbox" id="vcCallTwice"' + (S.callTwice ? ' checked' : '') + '> Say it twice</label><div class="btns"><button type="button" id="vcCallTest">Test a court call</button></div>' +
       '<h4>Save or reuse these settings</h4><div class="meta" style="margin-bottom:6px">Saves the text settings (not the recordings) to a small file. Load it on any computer, or for your next tournament, to get the same sponsors and reminders back.</div>' +
       '<div class="btns"><button type="button" id="vcSave">Save settings to a file</button><button type="button" id="vcLoad">Load settings</button></div><input type="file" id="vcLoadFile" accept=".json,application/json" hidden><div class="meta" id="vcFileMsg"></div></div>';
   }
   var lastLink = '';
-  var KEEP = ['mins', 'rate', 'voice', 'useOpen', 'open', 'useSpons', 'spons', 'sponsLead', 'msgs'];
+  var KEEP = ['mins', 'rate', 'vol', 'voice', 'useOpen', 'open', 'spons', 'sponsLead', 'items', 'callOn', 'callText', 'callTwice'];
   function bind(box, link) {
     lastLink = link;
     var v = $('#vcVoice'), fill = function () {
@@ -180,16 +243,21 @@
     };
     fill(); try { speechSynthesis.onvoiceschanged = fill; } catch (e) {}
     lists(); paint();
-    var set = function (id, k, bool) { $(id).onchange = $(id).oninput = function () { S[k] = bool ? this.checked : this.value; save(); }; };
-    set('#vcUseOpen', 'useOpen', 1); set('#vcOpen', 'open'); set('#vcUseSpons', 'useSpons', 1); set('#vcLead', 'sponsLead');
-    $('#vcMins').onchange = function () { S.mins = +this.value; save(); if (S.on) nextAt = Date.now() + S.mins * 60000; paintCount(); };
+    var set = function (id, k, bool) { $(id).onchange = $(id).oninput = function () { S[k] = bool ? this.checked : this.value; save(); if (k === 'sponsLead') return; }; };
+    set('#vcUseOpen', 'useOpen', 1); set('#vcOpen', 'open'); set('#vcLead', 'sponsLead'); set('#vcCallOn', 'callOn', 1); set('#vcCallText', 'callText'); set('#vcCallTwice', 'callTwice', 1);
+    $('#vcMins').onchange = function () { S.mins = +this.value; save(); var now = Date.now(); if (S.on) S.items.forEach(function (it) { if (!it.every) it._due = now + everyMs(it); }); lists(); paintCount(); };
     v.onchange = function () { S.voice = this.value; save(); };
     $('#vcRate').onchange = function () { S.rate = +this.value; save(); };
+    $('#vcVol').oninput = function () { S.vol = +this.value / 100; $('#vcVolV').textContent = this.value + '%'; if (curAudio) curAudio.volume = S.vol; save(); };
     $('#vcGo').onclick = function () { S.on ? stop() : start(); };
-    $('#vcNow').onclick = function () { if (playing) stopAll(); else playAll(); };
+    $('#vcNow').onclick = function () { if (playing || calling) return; run(partsFor(S.items.filter(live))); };      // hear everything once; the timer is not touched
+    $('#vcSkip').onclick = function () { skipNow(); };
+    $('#vcStop').onclick = function () { stopAll(); };
+    $('#vcCallTest').onclick = function () { var was = S.callOn; S.callOn = true; callCourt({ court: 'Court 7', bracket: 'Low Bracket A', t1: 'Beth Montero / Yojaa Timbancaya', t2: 'Marc Isagani / Kenn Papo' }); S.callOn = was; };
     $('#vcAdd').onclick = function () { S.spons.push({ name: '', say: '' }); save(); lists(); var i = $('#vcSpons input[data-n="' + (S.spons.length - 1) + '"]'); if (i) i.focus(); };
     $('#vcSave').onclick = function () {
-      var o = { app: 'matchday-speaker', version: 1, saved: new Date().toISOString() }; KEEP.forEach(function (k) { o[k] = S[k]; });
+      var o = { app: 'matchday-speaker', version: 2, saved: new Date().toISOString() }; KEEP.forEach(function (k) { o[k] = S[k]; });
+      o.items = S.items.filter(function (it) { return it.k !== 'rec'; }).map(function (it) { var c = {}; Object.keys(it).forEach(function (k) { if (k !== '_due') c[k] = it[k]; }); return c; });
       var a = document.createElement('a'), u = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' }));
       a.href = u; a.download = 'speaker-settings-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
       $('#vcFileMsg').textContent = 'Saved to your Downloads folder. Keep the file somewhere safe.';
@@ -200,32 +268,40 @@
       var rd = new FileReader(); rd.onload = function () {
         var o; try { o = JSON.parse(rd.result); } catch (e) { o = null; }
         if (!o || o.app !== 'matchday-speaker') { $('#vcFileMsg').textContent = 'That is not a speaker settings file.'; return; }
-        migrate(o);
+        migrate(o); var mine = S.items.filter(function (it) { return it.k === 'rec'; });
         KEEP.forEach(function (k) { if (o[k] !== undefined && typeof o[k] === typeof DEF[k] && Array.isArray(o[k]) === Array.isArray(DEF[k])) S[k] = o[k]; });
         S.spons = S.spons.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { name: String(x.name || ''), say: String(x.say || '') }; });
-        S.msgs = S.msgs.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { on: x.on !== false, text: String(x.text || '') }; }); save();
-        var box = $('#vcBox'); if (box) { box.outerHTML = html(lastLink); bind(null, lastLink); $('#vcFileMsg').textContent = 'Settings loaded.'; }
+        S.items = S.items.filter(function (x) { return x && typeof x === 'object' && (x.k === 'msg' || x.k === 'spons'); }).map(function (x) { return { k: x.k, on: x.on !== false, every: EVERY.indexOf(+x.every) > -1 ? +x.every : 0, text: String(x.text || ''), _due: null }; }).concat(mine);
+        S.vol = Math.min(1, Math.max(0, +S.vol || 0)); S.on = S.on; save();
+        var bx = $('#vcBox'); if (bx) { bx.outerHTML = html(lastLink); bind(null, lastLink); $('#vcFileMsg').textContent = 'Settings loaded.'; }
       }; rd.readAsText(f);
     };
-    $('#vcAddMsg').onclick = function () { S.msgs.push({ on: true, text: '' }); save(); lists(); var i = $('#vcMsgs input[data-mt="' + (S.msgs.length - 1) + '"]'); if (i) i.focus(); };
-    $('#vcMsgs').oninput = function (e) { var t = e.target; if (t.dataset.mt != null) { S.msgs[+t.dataset.mt].text = t.value; save(); } };
-    $('#vcMsgs').onchange = function (e) { var t = e.target; if (t.dataset.mc != null) { S.msgs[+t.dataset.mc].on = t.checked; save(); } };
-    $('#vcMsgs').onclick = function (e) { var t = e.target.closest('button'); if (t && t.dataset.md != null) { S.msgs.splice(+t.dataset.md, 1); save(); lists(); } };
-    $('#vcSpons').oninput = function (e) { var t = e.target; if (t.dataset.n != null) S.spons[+t.dataset.n].name = t.value; if (t.dataset.s != null) S.spons[+t.dataset.s].say = t.value; save(); };
+    $('#vcAddMsg').onclick = function () { S.items.push({ k: 'msg', on: true, every: 0, text: '', _due: null }); save(); lists(); var i = $('#vcItems input[data-it="' + (S.items.length - 1) + '"]'); if (i) i.focus(); };
+    var ib = $('#vcItems');
+    ib.oninput = function (e) { var t = e.target; if (t.dataset.it != null) { S.items[+t.dataset.it].text = t.value; save(); } };
+    ib.onchange = function (e) {
+      var t = e.target, now = Date.now();
+      if (t.dataset.ic != null) { var a = S.items[+t.dataset.ic]; a.on = t.checked; a._due = S.on && a.on ? now + everyMs(a) : null; save(); }
+      if (t.dataset.ie != null) { var b = S.items[+t.dataset.ie]; b.every = +t.value; if (S.on && b.on) b._due = now + everyMs(b); save(); }
+    };
+    ib.onclick = async function (e) {
+      var t = e.target.closest('button'); if (!t || t.disabled) return;
+      var mv = function (i, d) { var x = S.items[i]; S.items[i] = S.items[i + d]; S.items[i + d] = x; save(); lists(); };
+      if (t.dataset.iu != null) mv(+t.dataset.iu, -1);
+      else if (t.dataset.idn != null) mv(+t.dataset.idn, 1);
+      else if (t.dataset.ix != null) { var it = S.items.splice(+t.dataset.ix, 1)[0]; if (it && it.k === 'rec') { S.recs = S.recs.filter(function (r) { return r.id !== it.id; }); try { await delRec(it.id); } catch (er) {} } save(); lists(); paintCount(); }
+      else if (t.dataset.ip != null) { var r = S.items[+t.dataset.ip]; var bl = await getRec(r.id); if (bl) { if (curAudio) skipNow(); playBlob(bl); } }
+    };
+    $('#vcSpons').oninput = function (e) { var t = e.target; if (t.dataset.n != null) S.spons[+t.dataset.n].name = t.value; if (t.dataset.s != null) S.spons[+t.dataset.s].say = t.value; save(); var l = $('#vcItems .vcl'); };
+    $('#vcSpons').onchange = function () { lists(); };
     $('#vcSpons').onclick = function (e) {
       var t = e.target.closest('button'); if (!t) return;
       if (t.dataset.t != null) { var x = S.spons[+t.dataset.t]; try { speechSynthesis.cancel(); } catch (er) {} say(sp(x)); }
       if (t.dataset.d != null) { S.spons.splice(+t.dataset.d, 1); save(); lists(); }
     };
-    $('#vcRecs').onclick = async function (e) {
-      var t = e.target.closest('button'); if (!t) return;
-      if (t.dataset.rp != null) { var b = await getRec(S.recs[+t.dataset.rp].id); if (b) { if (curAudio) stopAll(); playBlob(b); } }
-      if (t.dataset.rd != null) { var r = S.recs.splice(+t.dataset.rd, 1)[0]; await delRec(r.id); save(); lists(); }
-    };
-    $('#vcRecs').onchange = function (e) { var t = e.target; if (t.dataset.ri != null) { S.recs[+t.dataset.ri].on = t.checked; save(); } };
     var addRec = async function (blob, name) {
       var id = 'r' + Date.now(); try { await putRec(id, blob); } catch (er) { $('#vcRecMsg').textContent = 'Could not save the recording on this browser.'; return; }
-      S.recs.push({ id: id, name: name, on: true }); save(); lists(); $('#vcRecMsg').textContent = 'Saved. It is ticked, so it plays in the rotation.';
+      S.recs.push({ id: id, name: name }); S.items.push({ k: 'rec', on: true, every: 0, id: id, _due: null }); save(); lists(); $('#vcRecMsg').textContent = 'Saved. It is in the list, ticked.';
     };
     $('#vcUp').onclick = function () { $('#vcFile').click(); };
     $('#vcFile').onchange = function () { var f = this.files[0]; this.value = ''; if (!f) return; if (f.size > 25 * 1024 * 1024) { $('#vcRecMsg').textContent = 'That file is over 25 MB.'; return; } addRec(f, f.name.replace(/\.[^.]+$/, '')); };
@@ -243,6 +319,7 @@
   window.Announcer = {
     init: function (s) { if (slug !== s) { slug = s; load(); } },
     html: function (link) { return html(link); },
-    bind: function (link) { bind(null, link); }
+    bind: function (link) { bind(null, link); },
+    call: function (info) { return callCourt(info); }
   };
 })();
