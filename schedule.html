@@ -212,6 +212,7 @@ summary:hover{background:#fff}
 #savePill:empty{display:none}
 #previewBar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:#FFF4D6;color:#5c4100;border-radius:14px;padding:10px 14px;margin-bottom:12px}
 .pvbox{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+#pubLinkBox{margin:8px 0}#pubLinkBox,#umpBox{display:flow-root}      /* keeps inner margins inside the box, so nothing shifts when an open/close animation ends */
 #sharePanel{margin:12px 0;padding:16px}#sharePanel h3{margin:0 0 4px;font-size:18px}
 #shareIntro .how{margin:8px 0 12px;padding-left:22px;color:var(--ink)}#shareIntro .how li{margin:6px 0}
 #sdlg{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;animation:sdfade .2s}
@@ -364,7 +365,7 @@ summary:hover{background:#fff}
       <h2>4. Game schedule</h2>
       <div class="tools"><button id="pubLink" class="go" type="button">Get shareable link</button><button id="pubDl" class="ghost" type="button">Download page</button><button id="print" class="ghost" type="button">Print</button><button id="sheets" class="ghost" type="button">Court sheets</button></div>
     </div>
-    <div id="pubLinkBox" class="noprint hidden" style="margin:8px 0"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:8px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubDots" class="ghost" type="button" aria-label="More sharing options">More</button></div>
+    <div id="pubLinkBox" class="noprint hidden"><input id="pubUrl" type="text" readonly style="width:100%"><div class="tools" style="margin-top:8px"><button id="pubCopy" class="go" type="button">Copy link</button><button id="pubDots" class="ghost" type="button" aria-label="More sharing options">More</button></div>
       <div id="pubMore" class="hidden"><div class="tools"><button id="pubUpd" class="ghost" type="button">Update with latest scores</button><button id="pubOff" class="ghost" type="button">Stop sharing</button></div>
       <label style="display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--ink)"><input id="pubAuto" type="checkbox" checked> Keep this link updated automatically</label></div></div>
     <div id="umpBox" class="noprint hidden"><div class="umph"><b>Umpire &amp; TV links</b><a id="ctlLink" class="btnlink" href="#" target="_blank" rel="noopener">Open Match Control</a></div>
@@ -1583,15 +1584,26 @@ function renderSchedule() {
 
 const committed = store => Object.keys(store).reduce((o, k) => { if (store[k].saved) o[k] = store[k]; return o; }, {});
 const num = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
-const say = (id, t) => { const el = $(id); el.textContent = t; if (id === '#pubMsg') { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); } };
+const say = (id, t) => {
+  const el = $(id), glide = id === '#pubMsg' && !REDUCED && el.isConnected && el.offsetParent, h0 = glide ? el.getBoundingClientRect().height : 0;
+  el.textContent = t;
+  if (id !== '#pubMsg') return;
+  el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+  if (!glide) return;
+  const tok = el._gt = {}; el.style.transition = 'none'; el.style.height = 'auto'; el.style.overflow = '';
+  const h1 = el.getBoundingClientRect().height; if (Math.abs(h1 - h0) < 1) { el.style.height = ''; el.style.transition = ''; return; }
+  el.style.overflow = 'hidden'; el.style.height = h0 + 'px'; void el.offsetHeight;                                   // the message box slides to its new height instead of jumping
+  el.style.transition = 'height .34s cubic-bezier(.2,.8,.2,1)'; el.style.height = h1 + 'px';
+  setTimeout(() => { if (el._gt === tok) { el.style.height = ''; el.style.overflow = ''; el.style.transition = ''; } }, 380);
+};
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 // show or hide a block with a smooth open / close (height, fade and a small slide); does nothing if it is already in that state
 function vis(el, show) {
   if (!el) return;
   if (el._vt) { if (el._vs === show) return; }                                   // already on its way there
   else if (show === !el.classList.contains('hidden')) return;                    // already there
-  el._vs = show; const tok = el._vt = {}, done = () => { if (el._vt !== tok) return; el._vt = null; if (gap) { par.style.rowGap = ''; par.style.transition = ''; } ['height', 'overflow', 'opacity', 'transform', 'transition', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'].forEach(p => { el.style[p] = ''; }); };
-  const P = ['paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'], T = 'height .34s cubic-bezier(.2,.8,.2,1),opacity .26s ease,transform .34s cubic-bezier(.2,.8,.2,1),padding .34s cubic-bezier(.2,.8,.2,1),margin .34s cubic-bezier(.2,.8,.2,1)';
+  el._vs = show; const tok = el._vt = {}, done = () => { if (el._vt !== tok) return; el._vt = null; if (gap) { par.style.rowGap = ''; par.style.transition = ''; } ['height', 'overflow', 'opacity', 'transform', 'transition', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom', 'minHeight'].forEach(p => { el.style[p] = ''; }); };
+  const P = ['paddingTop', 'paddingBottom', 'marginTop', 'marginBottom', 'minHeight'], T = 'min-height .34s cubic-bezier(.2,.8,.2,1),height .34s cubic-bezier(.2,.8,.2,1),opacity .26s ease,transform .34s cubic-bezier(.2,.8,.2,1),padding .34s cubic-bezier(.2,.8,.2,1),margin .34s cubic-bezier(.2,.8,.2,1)';
   const par = el.parentNode, gap = (par && par.style && parseFloat(getComputedStyle(par).rowGap)) || 0, gapTo = v => { if (!gap) return; par.style.transition = 'row-gap .34s cubic-bezier(.2,.8,.2,1)'; par.style.rowGap = v; };   // a wrapped flex row keeps its gap while the box is 0 tall, so shrink that gap in step or the end of the close jumps
   if (REDUCED || !el.isConnected) { el.classList.toggle('hidden', !show); done(); return; }
   if (show) {
@@ -2439,7 +2451,7 @@ function matchList() {
   const sp = tSport, dt = $('#eventDate').value || ''; return out.map(x => Object.assign(x, { sport: sp, date: dt }));      // the umpire page scores by this sport's rules
 }
 function showUmp() {
-  const box = $('#umpBox'), want = !!(pubSlug && pubKey && sched), fresh = want && box.classList.contains('hidden'); vis(box, want); if (!want) return;
+  const box = $('#umpBox'), want = !!(pubSlug && pubKey && sched), fresh = want && box.classList.contains('hidden'); if (!want) { vis(box, false); return; }      // the box opens only after its rows are filled in, so it grows to its real height in one smooth move
   $('#ctlLink').href = ctlUrl();
   $('#coCopy').onclick = async () => { const u = ctlUrl(); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Co-organizer link copied. They can run Match Control with it.'); flashBtn($('#coCopy'), 'Copied', 1400); };
   $('#coMore').onclick = () => { const x = $('#coBox'), open = x.classList.contains('hidden'); vis(x, open); $('#coMore').classList.toggle('on', open); };
@@ -2450,6 +2462,7 @@ function showUmp() {
   };
   const courts = [...new Set(sched.matches.map(m => m.courtName))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
   $('#umpList').innerHTML = courts.map((c, i) => '<div class="umprow"><b>' + esc(c) + '</b><button class="ghost" data-uc="' + i + '" type="button">Copy link</button><button class="ghost" data-lk="' + i + '" type="button">More</button><div class="lk hidden" data-lkb="' + i + '"><button class="ghost" data-uq="' + i + '" type="button">QR code</button><button class="ghost" data-ut="' + i + '" type="button">TV link (columns)</button><button class="ghost" data-ur="' + i + '" type="button">TV link (rows)</button><button class="ghost" data-ul="' + i + '" type="button">Long link</button><span data-ub="' + i + '"></span></div></div>').join('');
+  vis(box, true);
   $('#umpList').querySelectorAll('[data-lk]').forEach(b => b.onclick = () => { const x = $('#umpList').querySelector('[data-lkb="' + b.dataset.lk + '"]'); vis(x, x.classList.contains('hidden')); b.classList.toggle('on', x.classList.contains('hidden')); });
   if (fresh && !REDUCED) { const L = $('#umpList'); L.querySelectorAll('.umprow').forEach((r, i) => r.style.setProperty('--i', i + 1)); const co = $('#coRow'); if (co) co.style.setProperty('--i', 0); L.classList.add('stag'); if (co) co.classList.add('stag'); setTimeout(() => { L.classList.remove('stag'); if (co) co.classList.remove('stag'); }, 1200); }
   $('#umpList').querySelectorAll('[data-uc]').forEach(b => b.onclick = async () => { const u = umpUrl(courts[+b.dataset.uc]); try { await navigator.clipboard.writeText(u); } catch (e) { prompt('Copy this link', u); } say('#pubMsg', 'Link for ' + courts[+b.dataset.uc] + ' copied.'); });
@@ -2474,6 +2487,7 @@ function showPubLink() {
   const box = $('#pubLinkBox'), fresh = !!pubSlug && box.classList.contains('hidden');
   if (pubSlug) $('#pubUrl').value = pubUrlFor(pubSlug);
   vis(box, !!pubSlug);
+  vis($('#shareIntro'), !(pubSlug || preview)); vis($('#sharePanel h3').nextElementSibling, !pubSlug);      // swap the 'how it works' text and the link box in the same move
   if (fresh && !REDUCED) { const u = $('#pubUrl'); u.classList.remove('glow'); void u.offsetWidth; u.classList.add('glow'); setTimeout(() => u.classList.remove('glow'), 1300); }
   showUmp();
 }
@@ -2671,7 +2685,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   setInterval(nowTick, 8000);
   $('#introGet').onclick = () => busyBtn($('#introGet'), 'Creating link', () => publishNow(LINK_MSG), 'Link ready');
   // a status line belongs to one tournament: clear it whenever another one opens or the state resets
-  const _lpl = loadPubLink; loadPubLink = async function () { $('#pubMsg').textContent = ''; return _lpl.apply(this, arguments); };
+  const _lpl = loadPubLink; loadPubLink = async function () { const m = $('#pubMsg'); if (!/^Publishing/.test(m.textContent)) m.textContent = ''; return _lpl.apply(this, arguments); };      // keep 'Publishing...' on screen while the link is made, so the message does not blink out and back
   const _rs = resetState; resetState = function () { $('#pubMsg').textContent = ''; return _rs.apply(this, arguments); };
 
   // saved indicator
