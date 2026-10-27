@@ -1582,18 +1582,20 @@ function vis(el, show) {
   if (!el) return;
   if (el._vt) { if (el._vs === show) return; }                                   // already on its way there
   else if (show === !el.classList.contains('hidden')) return;                    // already there
-  el._vs = show; const tok = el._vt = {}, done = () => { if (el._vt !== tok) return; el._vt = null; ['height', 'overflow', 'opacity', 'transform', 'transition', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'].forEach(p => { el.style[p] = ''; }); };
+  el._vs = show; const tok = el._vt = {}, done = () => { if (el._vt !== tok) return; el._vt = null; if (gap) { par.style.rowGap = ''; par.style.transition = ''; } ['height', 'overflow', 'opacity', 'transform', 'transition', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'].forEach(p => { el.style[p] = ''; }); };
   const P = ['paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'], T = 'height .34s cubic-bezier(.2,.8,.2,1),opacity .26s ease,transform .34s cubic-bezier(.2,.8,.2,1),padding .34s cubic-bezier(.2,.8,.2,1),margin .34s cubic-bezier(.2,.8,.2,1)';
+  const par = el.parentNode, gap = (par && par.style && parseFloat(getComputedStyle(par).rowGap)) || 0, gapTo = v => { if (!gap) return; par.style.transition = 'row-gap .34s cubic-bezier(.2,.8,.2,1)'; par.style.rowGap = v; };   // a wrapped flex row keeps its gap while the box is 0 tall, so shrink that gap in step or the end of the close jumps
   if (REDUCED || !el.isConnected) { el.classList.toggle('hidden', !show); done(); return; }
   if (show) {
     done(); el._vt = tok; el.classList.remove('hidden');
     const cs = getComputedStyle(el), full = {}; P.forEach(p => { full[p] = cs[p]; }); const h = el.scrollHeight;
     el.style.overflow = 'hidden'; el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-8px)'; P.forEach(p => { el.style[p] = '0px'; });
-    void el.offsetHeight; el.style.transition = T; el.style.height = h + 'px'; el.style.opacity = '1'; el.style.transform = 'none'; P.forEach(p => { el.style[p] = full[p]; });
+    if (gap) { par.style.transition = 'none'; par.style.rowGap = '0px'; }
+    void el.offsetHeight; el.style.transition = T; gapTo(gap + 'px'); el.style.height = h + 'px'; el.style.opacity = '1'; el.style.transform = 'none'; P.forEach(p => { el.style[p] = full[p]; });
     setTimeout(done, 420);
   } else {
     if (!el.offsetParent) { el.classList.add('hidden'); el._vt = null; return; }
-    el.style.overflow = 'hidden'; el.style.height = el.offsetHeight + 'px'; void el.offsetHeight; el.style.transition = T;
+    el.style.overflow = 'hidden'; el.style.height = el.offsetHeight + 'px'; void el.offsetHeight; el.style.transition = T; gapTo('0px');
     el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-8px)'; P.forEach(p => { el.style[p] = '0px'; });
     setTimeout(() => { if (el._vt === tok) { el.classList.add('hidden'); done(); } }, 380);
   }
