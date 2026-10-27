@@ -141,6 +141,14 @@ button.on{background:#D7E6FB!important}
 #mvOv h3{margin:0 0 4px}#mvOv .mvn{margin:8px 0;padding:9px 12px;border-radius:10px;font-size:14px}.mvn.ok{background:rgba(52,199,89,.14)}.mvn.sw{background:rgba(0,122,255,.12)}.mvn.bad{background:rgba(255,59,48,.12);color:#B3261E}
 .hidden,#previewBar.hidden,#stepbar.hidden,#sharePanel.hidden{display:none!important}
 /* smooth, calm motion for the share tools (switched off for people who ask their device for less motion) */
+/* every button, field and switch eases between its states */
+button,select,input,textarea,.chip,summary{transition:background-color .2s,color .2s,border-color .2s,box-shadow .2s,opacity .2s,filter .2s,transform .14s cubic-bezier(.2,.8,.2,1)}
+button:not(:disabled):not(.tg):active{transform:scale(.97)}
+button:not(:disabled):hover{filter:brightness(.97)}
+input:disabled,select:disabled,textarea:disabled,button:disabled{transition:opacity .25s,background-color .25s}
+.collapsed>.stepsum{animation:fadeup .35s cubic-bezier(.2,.8,.2,1)}
+section:not(.collapsed)>.card,section:not(.collapsed)>#teams,section:not(.collapsed)>.hint{animation:fadeup .4s cubic-bezier(.2,.8,.2,1)}
+.secin{animation:fadeup .45s cubic-bezier(.2,.8,.2,1)}
 #sharePanel button,#schedSec .tools button,#tabs button{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .22s,color .22s,box-shadow .22s,opacity .2s,filter .2s}
 #sharePanel button:not(:disabled):hover,#schedSec .tools button:not(:disabled):hover,#tabs button:not(:disabled):hover{filter:brightness(.97);transform:translateY(-1px)}
 #sharePanel button:not(:disabled):active,#schedSec .tools button:not(:disabled):active,#tabs button:not(:disabled):active{transform:scale(.96);filter:brightness(.94)}
@@ -157,7 +165,7 @@ button.okflash::before{content:'\2713';display:inline-block;margin-right:.4em;fo
 #pubMsg.pulse{animation:fadeup .35s cubic-bezier(.2,.8,.2,1)}
 #pubUrl.glow{animation:glow 1.1s ease-out 1}
 .stag .umprow{animation:rowin .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 60ms)}
-@media (prefers-reduced-motion:reduce){#sharePanel button,#schedSec .tools button,#tabs button{transition:none}.panelin,#pubMsg.pulse,#pubUrl.glow,.stag .umprow,button.okflash{animation:none!important}button.busy::before{animation-duration:1.6s}}
+@media (prefers-reduced-motion:reduce){button,select,input,textarea,.chip,summary,.collapsed>.stepsum,section:not(.collapsed)>.card,.secin{transition:none!important;animation:none!important}#sharePanel button,#schedSec .tools button,#tabs button{transition:none}.panelin,#pubMsg.pulse,#pubUrl.glow,.stag .umprow,button.okflash{animation:none!important}button.busy::before{animation-duration:1.6s}}
 @media print{.noprint{display:none!important}body{background:#fff;color:#000}th{background:#ddd;color:#000}}
 #printView{display:none}.pubwrap{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#F4F6FB;color:#0B1B33}
 @media print{main{display:none!important}#printView{display:block}}
@@ -1173,37 +1181,37 @@ $('#shuffleTeams').onclick = () => {   // choose which level to pair again, or a
   const lv = LEVELS.filter(l => draw.getState().teams.some(t => t.level === l) || draw.getState().unpaired.some(p => p.level === l));
   if (lv.length < 2) { doShuffleT(null); return; }
   const box = $('#shufPickT');
-  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+  if (!box.classList.contains('hidden') && !(box._vt && box._vs === false)) { vis(box, false); return; }
   box.innerHTML = '<div class="card" style="margin-bottom:12px"><b>Which teams do you want to shuffle?</b><div class="hint" style="min-height:0;margin:4px 0 8px">Only the level you pick is paired again (and its brackets redrawn). The other levels stay as they are.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="go shufoptT" data-lv="">All levels</button>' + lv.map(l => '<button type="button" class="ghost shufoptT" data-lv="' + l + '">' + l + ' only</button>').join('') + '<button type="button" class="ghost cxl" data-shufxT>Cancel</button></div></div>';
-  box.classList.remove('hidden');
+  vis(box, true);
 };
 function doShuffleT(level) {
-  $('#shufPickT').classList.add('hidden');
+  vis($('#shufPickT'), false);
   if (blocked('#hintT')) return;
   draw.reshuffleTeams(undefined, level || null); selP = selT = null; hideResults(); renderTeams(); renderBrackets((level ? level + ' players were paired again, so the ' + level + ' brackets were redrawn too. Other levels did not change.' : 'Teams were paired again, so the brackets were redrawn too.'));
 }
 document.addEventListener('click', e => {
   const o = e.target.closest && e.target.closest('.shufoptT'); if (o && draw) { doShuffleT(o.dataset.lv); return; }
-  if (e.target.closest && e.target.closest('[data-shufxT]')) $('#shufPickT').classList.add('hidden');
+  if (e.target.closest && e.target.closest('[data-shufxT]')) vis($('#shufPickT'), false);
 });
 $('#shuffleBrackets').onclick = () => {   // choose which level to redraw, or all of them
   if (blocked('#hintB')) return;
   const lv = LEVELS.filter(l => draw.getState().brackets.some(b => b.level === l));
   if (lv.length < 2) { doShuffleB(null); return; }
   const box = $('#shufPick');
-  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+  if (!box.classList.contains('hidden') && !(box._vt && box._vs === false)) { vis(box, false); return; }
   box.innerHTML = '<div class="card" style="margin-bottom:12px"><b>Which brackets do you want to shuffle?</b><div class="hint" style="min-height:0;margin:4px 0 8px">Only the level you pick is redrawn. The teams and the other levels stay as they are.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="go shufopt" data-lv="">All levels</button>' + lv.map(l => '<button type="button" class="ghost shufopt" data-lv="' + l + '">' + l + ' only</button>').join('') + '<button type="button" class="ghost cxl" data-shufx>Cancel</button></div></div>';
-  box.classList.remove('hidden');
+  vis(box, true);
 };
 function doShuffleB(level) {
-  $('#shufPick').classList.add('hidden');
+  vis($('#shufPick'), false);
   if (blocked('#hintB')) return;
   draw.reshuffleBrackets(undefined, level || null); selT = null; hideResults();
   renderBrackets(level ? level + ' brackets were redrawn. The teams and other levels did not change.' : 'Brackets were redrawn. The teams did not change.');
 }
 document.addEventListener('click', e => {
   const o = e.target.closest && e.target.closest('.shufopt'); if (o && draw) { doShuffleB(o.dataset.lv); return; }
-  if (e.target.closest && e.target.closest('[data-shufx]')) $('#shufPick').classList.add('hidden');
+  if (e.target.closest && e.target.closest('[data-shufx]')) vis($('#shufPick'), false);
 });
 
 document.addEventListener('click', e => {
@@ -1658,17 +1666,17 @@ function fillRandom(level) {
     if (results[m.id] && results[m.id].saved) return;
     const [a, b] = randScore(); results[m.id] = { a, b, saved: true }; setLocked('g', m.id, a, b, true); n++;
   });
-  $('#randPick').classList.add('hidden');
+  vis($('#randPick'), false);
   say('#gMsg', 'Random test scores were filled in for ' + (level ? 'the ' + level + ' level' : 'all levels') + ' (' + n + ' games). Press "Clear all scores" before you enter the real results.');
   renderStandings(); queueSave();
 }
 $('#randGroup').onclick = () => {
   if (!sched) return;
   const box = $('#randPick');
-  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+  if (!box.classList.contains('hidden') && !(box._vt && box._vs === false)) { vis(box, false); return; }
   const lv = LEVELS.slice().reverse().filter(l => sched.matches.some(m => m.level === l && !(results[m.id] && results[m.id].saved)));
   box.innerHTML = lv.map(l => '<button class="ghost test" type="button" data-fl="' + l + '">Fill ' + l + '</button>').join('') + (lv.length > 1 ? '<button class="ghost test" type="button" data-fl="">Fill all levels</button>' : '') + (lv.length ? '' : '<span class="hint">Every game already has a score.</span>');
-  box.classList.remove('hidden');
+  vis(box, true);
 };
 $('#randPick').onclick = e => { const b = e.target.closest('[data-fl]'); if (b) fillRandom(b.dataset.fl); };
 $('#randKo').onclick = () => {
@@ -2367,8 +2375,8 @@ $('#sheets').onclick = () => {
   setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {} setTimeout(() => f.remove(), 3000); }, 300);
   say('#gMsg', 'Court sheets opened for printing: one page per court, with blank score boxes. Choose Save as PDF to keep a copy.');
 };
-$('#resExport').onclick = () => { $('#resPick').classList.toggle('hidden'); $('#resExport').classList.toggle('on', !$('#resPick').classList.contains('hidden')); };
-$('#resPick').addEventListener('click', e => { if (e.target.closest('button')) { $('#resPick').classList.add('hidden'); $('#resExport').classList.remove('on'); } });
+$('#resExport').onclick = () => { const want = $('#resPick').classList.contains('hidden') || ($('#resPick')._vt && $('#resPick')._vs === false); vis($('#resPick'), want); $('#resExport').classList.toggle('on', want); };
+$('#resPick').addEventListener('click', e => { if (e.target.closest('button')) { vis($('#resPick'), false); $('#resExport').classList.remove('on'); } });
 $('#resDl').onclick = async () => { if (!sched) return; await saveText(fileSafe() + '-results.html', resultsDoc(), 'text/html'); say('#kMsg', 'Results page downloaded. You can post it or send it as a file.'); };
 $('#resCsv').onclick = async () => { if (!sched) return; await saveText(fileSafe() + '-results.csv', resultsCsv(), 'text/csv'); say('#kMsg', 'CSV downloaded. It opens in Excel or Google Sheets.'); };
 $('#resPrint').onclick = () => {
@@ -2542,12 +2550,24 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   let pending = null, prev = { draw: false, sched: false };
   const tell = k => { try { if (window.parent !== window) window.parent.postMessage({ t: 'tab', tool: 'draw', tab: k }, location.origin); } catch (e) {} };
 
+  // fold or unfold a step: the section grows or shrinks smoothly instead of snapping
+  function fold(sec, on) {
+    if (!sec || sec.classList.contains('collapsed') === on) return;
+    const h0 = sec.offsetHeight;
+    sec.classList.toggle('collapsed', on);
+    const h1 = sec.offsetHeight;
+    if (REDUCED || !h0 || h0 === h1) return;
+    const tok = sec._ft = {};
+    sec.style.transition = 'none'; sec.style.overflow = 'hidden'; sec.style.height = h0 + 'px'; void sec.offsetHeight;
+    sec.style.transition = 'height .4s cubic-bezier(.2,.8,.2,1)'; sec.style.height = h1 + 'px';
+    setTimeout(() => { if (sec._ft === tok) { sec.style.height = sec.style.overflow = sec.style.transition = ''; } }, 460);
+  }
   function goStep(k, quiet) {
     const s = STEPS.find(x => x[0] === k); if (!s) return;
     if (!avail(k)) { pending = k; return; }
-    const el = $(s[2]); el.classList.remove('collapsed');
-    if (k === 'teams') $('#secAdd').classList.add('collapsed');
-    if (k === 'schedule') { $('#secTeams').classList.add('collapsed'); $('#secBrackets').classList.add('collapsed'); }
+    const el = $(s[2]); fold(el, false);
+    if (k === 'teams') fold($('#secAdd'), true);
+    if (k === 'schedule') { fold($('#secTeams'), true); fold($('#secBrackets'), true); }
     settle(el); refresh();
     if (!quiet) tell(k);
   }
@@ -2567,11 +2587,17 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   }
   window.addEventListener('message', e => { if (e.origin !== location.origin) return; const d = e.data; if (d && d.t === 'goto' && d.tab) { pending = d.tab; refresh(); } });
 
+  // sections that appear (the teams, schedule, standings, knockout parts) ease in instead of popping
+  if (!REDUCED && window.MutationObserver) {
+    const mo = new MutationObserver(ms => ms.forEach(m => { const el = m.target; if (/\bhidden\b/.test(m.oldValue || '') && !el.classList.contains('hidden') && el.isConnected) { el.classList.remove('secin'); void el.offsetWidth; el.classList.add('secin'); setTimeout(() => el.classList.remove('secin'), 600); } }));
+    ['#drawSec', '#schedSec', '#standSec', '#koSec', '#fixUndo'].forEach(q => { const el = $(q); if (el) mo.observe(el, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }); });
+  }
+
   // stepbar
   $('#steps').addEventListener('click', e => { const b = e.target.closest('button'); if (b && !b.classList.contains('off')) goStep(b.dataset.s); });
   document.addEventListener('click', e => {
     const n = e.target.closest('[data-next]'); if (n) { goStep(n.dataset.next); return; }
-    const t = e.target.closest('.tg'); if (t) { const sec = t.closest('section'); sec.classList.toggle('collapsed'); refresh(); }
+    const t = e.target.closest('.tg'); if (t) { const sec = t.closest('section'); fold(sec, !sec.classList.contains('collapsed')); refresh(); }
   });
 
   // headers: collapse button + summary line on sections 1-3, "next" buttons
@@ -2686,13 +2712,17 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     const toolOn = !$('#toolRoot').classList.contains('hidden');
     $('#stepbar').classList.toggle('hidden', !toolOn);
     // collapse finished steps once, when they first become finished
-    if (draw && !prev.draw) $('#secAdd').classList.add('collapsed');
-    if (sched && !prev.sched) { $('#secTeams').classList.add('collapsed'); $('#secBrackets').classList.add('collapsed'); }
-    if (!draw) ['#secAdd', '#secTeams', '#secBrackets'].forEach(s => $(s).classList.remove('collapsed'));
+    if (draw && !prev.draw) fold($('#secAdd'), true);
+    if (sched && !prev.sched) { fold($('#secTeams'), true); fold($('#secBrackets'), true); }
+    if (!draw) ['#secAdd', '#secTeams', '#secBrackets'].forEach(s => fold($(s), false));
     prev = { draw: !!draw, sched: !!sched };
     const cur = (STEPS.find(s => avail(s[0]) && !isDone(s[0])) || STEPS[STEPS.length - 1])[0];
     let done = 0;
-    $('#steps').innerHTML = STEPS.map((s, i) => { const d = isDone(s[0]), a = avail(s[0]); if (d) done++; return '<button type="button" data-s="' + s[0] + '" class="' + (d ? 'done ' : '') + (s[0] === cur ? 'cur ' : '') + (a ? '' : 'off') + '"><i>' + (d ? '✓' : i + 1) + '</i>' + s[1] + '</button>'; }).join('');
+    const stepHtml = (s, i) => { const d = isDone(s[0]); return ['<i>' + (d ? '\u2713' : i + 1) + '</i>' + s[1], (d ? 'done ' : '') + (s[0] === cur ? 'cur ' : '') + (avail(s[0]) ? '' : 'off')]; };
+    STEPS.forEach(s => { if (isDone(s[0])) done++; });
+    const stEl = $('#steps');
+    if (stEl.children.length !== STEPS.length) stEl.innerHTML = STEPS.map(s => '<button type="button" data-s="' + s[0] + '"></button>').join('');
+    STEPS.forEach((s, i) => { const b = stEl.children[i], [h, c] = stepHtml(s, i); if (b.innerHTML !== h) b.innerHTML = h; if (b.className !== c) b.className = c; });
     $('#prog').textContent = done + ' of ' + STEPS.length + ' steps done';
     [['players', 'draw'], ['teams', 'draw'], ['brackets', 'draw']].forEach(([k]) => { const sec = $('#' + ({ players: 'secAdd', teams: 'secTeams', brackets: 'secBrackets' })[k]), b = sec.querySelector('.tg'); b.classList.toggle('on', !!draw); b.textContent = sec.classList.contains('collapsed') ? 'Edit' : 'Hide'; });
     sums();
