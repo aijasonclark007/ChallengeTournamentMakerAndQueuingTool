@@ -295,14 +295,16 @@ details>summary{transition:color .2s ease}
       shownKind = ''; return;
     }
     if ((panelKind === 'voice' && $('#vcBox')) || (panelKind === 'ann' && $('#annText')) || (panelKind === 'wd' && $('#wdTeam'))) return;                // never redraw the box someone is typing in
-    morph(() => { box.innerHTML = panelHtml(panelKind); });
+    morph(() => {                                                      // fill the panel completely inside the animation, so its height is measured with all its content
+      box.innerHTML = panelHtml(panelKind);
+      if (panelKind === 'voice' && window.Announcer) Announcer.bind();
+      if (panelKind === 'wd' && $('#wdTeam')) {
+        const upd = () => { const t = $('#wdTeam').value, gs = wdGames(t); $('#wdInfo').textContent = gs.length + ' game' + (gs.length === 1 ? '' : 's') + ' will be recorded as a default: ' + gs.slice(0, 4).map(m => String(m.time).split(' - ')[0] + ' ' + m.court).join(', ') + (gs.length > 4 ? ', ...' : ''); };
+        $('#wdTeam').onchange = upd; upd(); $('#wdGo').onclick = () => withdrawTeam($('#wdTeam').value, $('#wdReason').value);
+      }
+    });
     if (shownKind === panelKind && box.firstElementChild) box.firstElementChild.style.animation = 'none';      // slide in once when opened; later updates (data arriving, refreshes, typing) swap quietly
     shownKind = panelKind;
-    if (panelKind === 'voice' && window.Announcer) Announcer.bind();
-    if (panelKind === 'wd' && $('#wdTeam')) {
-      const upd = () => { const t = $('#wdTeam').value, gs = wdGames(t); $('#wdInfo').textContent = gs.length + ' game' + (gs.length === 1 ? '' : 's') + ' will be recorded as a default: ' + gs.slice(0, 4).map(m => String(m.time).split(' - ')[0] + ' ' + m.court).join(', ') + (gs.length > 4 ? ', ...' : ''); };
-      $('#wdTeam').onchange = upd; upd(); $('#wdGo').onclick = () => withdrawTeam($('#wdTeam').value, $('#wdReason').value);
-    }
     const set = $('#annSet'), clr = $('#annClr');
     if (set) set.onclick = async () => { const t = ($('#annText').value || '').trim(); if (!t) { toast('Type a message first.'); return; } try { await P.setAnnouncement(slug, key, t); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step13.sql first.' : (e.message || 'Could not send.')); return; } logIt('Announcement: ' + t); changed('Announcement is live.'); };
     if (clr) clr.onclick = async () => { try { await P.setAnnouncement(slug, key, ''); } catch (e) { toast(e.message || 'Could not clear.'); return; } logIt('Announcement cleared'); ann = null; $('#panel').innerHTML = ''; shownKind = ''; panelKind = ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); changed('Announcement cleared.'); };
