@@ -17,7 +17,7 @@
       { on: true, text: 'Teams that are not at their court when called may be given a default after the grace time.' },
       { on: true, text: 'Please follow the umpire\u2019s decisions. Respect to players, officials and volunteers.' }
     ],
-    useCustom: false, custom: '',
+    useCustom: false, custom: '', more: [],
     recs: []                              // [{id,name,on}] the audio itself lives in IndexedDB
   };
   function key() { return 'cmd_voice_' + slug; }
@@ -70,7 +70,7 @@
     if (S.useSpons && S.spons.length) p.push({ t: 'say', text: (S.sponsLead.trim() || 'This tournament is sponsored by') + ' ' + names(S.spons) + '.' });
     if (S.useLink && S.link.trim()) p.push({ t: 'say', text: S.link.trim() + (S.linkSay.trim() ? ' ' + S.linkSay.trim() : '') });
     if (S.useLines) S.lines.forEach(function (l) { if (l.on && l.text.trim()) p.push({ t: 'say', text: l.text.trim() }); });
-    if (S.useCustom && S.custom.trim()) p.push({ t: 'say', text: S.custom.trim() });
+    if (S.useCustom) [S.custom].concat(S.more).forEach(function (t) { if (String(t || '').trim()) p.push({ t: 'say', text: String(t).trim() }); });
     S.recs.forEach(function (r) { if (r.on) p.push({ t: 'rec', id: r.id }); });
     return p;
   }
@@ -120,6 +120,9 @@
       return '<div class="vcsp"><input data-n="' + i + '" value="' + esc(x.name) + '" placeholder="Name as written" aria-label="Sponsor name"><input data-s="' + i + '" value="' + esc(x.say || '') + '" placeholder="Say it like (optional)" aria-label="How to say it">' +
         '<button type="button" data-t="' + i + '" title="Hear it">Test</button><button type="button" data-d="' + i + '" class="x" title="Remove">&times;</button></div>';
     }).join('') || '<div class="meta">No sponsors yet. Tap Add sponsor.</div>';
+    var mb = $('#vcMore'); if (mb) mb.innerHTML = S.more.map(function (t, i) {
+      return '<div class="vcsp"><input data-mi="' + i + '" value="' + esc(t) + '" maxlength="240" placeholder="Another message" aria-label="Another message"><button type="button" data-md="' + i + '" class="x" title="Remove">&times;</button></div>';
+    }).join('');
     var lb = $('#vcLines'); if (lb) lb.innerHTML = S.lines.map(function (l, i) {
       return '<div class="vcsp vcl"><input type="checkbox" data-lc="' + i + '"' + (l.on ? ' checked' : '') + ' aria-label="Include"><textarea data-lt="' + i + '" rows="2" maxlength="240" aria-label="Reminder text">' + esc(l.text) + '</textarea><button type="button" data-ld="' + i + '" class="x" title="Remove">&times;</button></div>';
     }).join('') || '<div class="meta">No reminders yet.</div>';
@@ -138,6 +141,12 @@
       '<div class="vcrow"><button type="button" id="vcGo" class="ok">Start announcements</button><button type="button" id="vcNow">Play now</button></div><div class="meta" id="vcCount" style="margin:6px 0 10px"></div>' +
       '<div class="vcrow"><label>Repeat every<select id="vcMins">' + [10, 15, 20, 30, 40, 45, 60].map(function (m) { return '<option value="' + m + '"' + (S.mins === m ? ' selected' : '') + '>' + m + ' minutes</option>'; }).join('') + '</select></label>' +
       '<label>Voice<select id="vcVoice"></select></label><label>Speed<select id="vcRate">' + [[0.8, 'Slow'], [0.95, 'Normal'], [1.1, 'Fast']].map(function (r) { return '<option value="' + r[0] + '"' + (S.rate === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></label></div>' +
+      '<details class="vcnote"><summary>Keep the speaker from turning off</summary><ol>' +
+        '<li>Give Match Control its <b>own Edge window</b>. Drag this tab out of the others and keep that window open behind your other windows. Do not minimize it.</li>' +
+        '<li>Turn off <b>sleeping tabs</b> for this site. In Edge: Settings, System and performance, Sleeping tabs, then add this site under "Never put these sites to sleep".</li>' +
+        '<li>Stop the laptop from <b>sleeping</b>. In Windows: Settings, System, Power, set sleep to Never while plugged in. Keep the charger connected.</li>' +
+        '<li>Press <b>Start announcements</b> once, then check with a 10 minute timer: switch to another tab and make sure the announcement still plays.</li>' +
+        '<li>Set the speaker and laptop volume before the first game, and keep the Bluetooth speaker charged and close to the laptop.</li></ol></details>' +
       '<h4>What to say</h4>' +
       '<label class="vcck"><input type="checkbox" id="vcUseOpen"' + (S.useOpen ? ' checked' : '') + '> Opening line</label><input class="vcin" id="vcOpen" value="' + esc(S.open) + '" maxlength="160">' +
       '<label class="vcck"><input type="checkbox" id="vcUseSpons"' + (S.useSpons ? ' checked' : '') + '> Sponsors</label><input class="vcin" id="vcLead" value="' + esc(S.sponsLead) + '" maxlength="100"><div id="vcSpons"></div><div class="btns"><button type="button" id="vcAdd">Add sponsor</button></div>' +
@@ -146,7 +155,7 @@
       '<input class="vcin" id="vcLinkSay" value="' + esc(S.linkSay) + '" maxlength="120" placeholder="Optional, say the address: challenge match day dot vercel dot app">' +
       '<div class="meta">Your public schedule link: ' + esc(link) + '</div>' +
       '<label class="vcck"><input type="checkbox" id="vcUseLines"' + (S.useLines ? ' checked' : '') + '> Reminders for players</label><div id="vcLines"></div><div class="btns"><button type="button" id="vcAddLine">Add a reminder</button></div>' +
-      '<label class="vcck"><input type="checkbox" id="vcUseCustom"' + (S.useCustom ? ' checked' : '') + '> Your own message</label><input class="vcin" id="vcCustom" value="' + esc(S.custom) + '" maxlength="240" placeholder="e.g. Lunch is served at the canteen">' +
+      '<label class="vcck"><input type="checkbox" id="vcUseCustom"' + (S.useCustom ? ' checked' : '') + '> Your own messages</label><input class="vcin" id="vcCustom" value="' + esc(S.custom) + '" maxlength="240" placeholder="e.g. Lunch is served at the canteen"><div id="vcMore"></div><div class="btns"><button type="button" id="vcAddMsg">Add another message</button></div>' +
       '<h4>Recordings</h4><div id="vcRecs"></div><div class="btns"><button type="button" id="vcUp">Upload audio</button><button type="button" id="vcRec">Record with microphone</button></div>' +
       '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg">Ticked recordings play after the spoken lines, in this order.</div></div>';
   }
@@ -165,6 +174,9 @@
     $('#vcGo').onclick = function () { S.on ? stop() : start(); };
     $('#vcNow').onclick = function () { if (playing) stopAll(); else playAll(); };
     $('#vcAdd').onclick = function () { S.spons.push({ name: '', say: '' }); save(); lists(); var i = $('#vcSpons input[data-n="' + (S.spons.length - 1) + '"]'); if (i) i.focus(); };
+    $('#vcAddMsg').onclick = function () { S.more.push(''); S.useCustom = true; var c = $('#vcUseCustom'); if (c) c.checked = true; save(); lists(); var i = $('#vcMore input[data-mi="' + (S.more.length - 1) + '"]'); if (i) i.focus(); };
+    $('#vcMore').oninput = function (e) { var t = e.target; if (t.dataset.mi != null) { S.more[+t.dataset.mi] = t.value; save(); } };
+    $('#vcMore').onclick = function (e) { var t = e.target.closest('button'); if (t && t.dataset.md != null) { S.more.splice(+t.dataset.md, 1); save(); lists(); } };
     $('#vcAddLine').onclick = function () { S.lines.push({ on: true, text: '' }); save(); lists(); var t = $('#vcLines textarea[data-lt="' + (S.lines.length - 1) + '"]'); if (t) t.focus(); };
     $('#vcLines').oninput = function (e) { var t = e.target; if (t.dataset.lt != null) { S.lines[+t.dataset.lt].text = t.value; save(); } };
     $('#vcLines').onchange = function (e) { var t = e.target; if (t.dataset.lc != null) { S.lines[+t.dataset.lc].on = t.checked; save(); } };
