@@ -19,7 +19,8 @@
       { k: 'msg', on: true, every: 0, text: 'Please follow the umpire’s decisions. Respect to players, officials and volunteers.' }
     ],
     recs: [],                             // [{id,name}] the audio itself lives in IndexedDB
-    callOn: true, callTwice: true, pron: [],           // pron: [{name, say}] how to say a player's name in court calls
+    callOn: true, callTwice: true, callVoice: '', callRate: 0, pron: [],      // callVoice '' = same as announcements; callRate 0 = same speed
+               // pron: [{name, say}] how to say a player's name in court calls
      callText: 'Court {court}, {bracket}. {team1} versus {team2}. Please proceed to the court.'
   };
   function key() { return 'cmd_voice_' + slug; }
@@ -60,19 +61,20 @@
 
   // ----- speaking -----
   function voices() { try { return speechSynthesis.getVoices() || []; } catch (e) { return []; } }
-  function pickVoice() {                  // the saved choice, otherwise Brian (Multilingual) when this computer has it, otherwise any Natural English voice
+  function pickVoice(forCall) {                  // the saved choice, otherwise Brian (Multilingual) when this computer has it, otherwise any Natural English voice
     var vs = voices(), by = function (f) { return vs.filter(f)[0]; };
-    return by(function (x) { return S.voice && x.name === S.voice; }) ||
+    return by(function (x) { return forCall && S.callVoice && x.name === S.callVoice; }) ||
+      by(function (x) { return S.voice && x.name === S.voice; }) ||
       by(function (x) { return /brian/i.test(x.name) && /multilingual/i.test(x.name) && /^en/i.test(x.lang); }) ||
       by(function (x) { return /brian/i.test(x.name) && /natural/i.test(x.name) && /^en/i.test(x.lang); }) ||
       by(function (x) { return /natural/i.test(x.name) && /^en/i.test(x.lang); }) || null;
   }
-  function say(text) {
+  function say(text, forCall) {
     return new Promise(function (res) {
       if (!text || !('speechSynthesis' in window)) { res(); return; }
-      var u = new SpeechSynthesisUtterance(text), v = pickVoice();
+      var u = new SpeechSynthesisUtterance(text), v = pickVoice(forCall);
       if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
-      u.rate = S.rate; u.volume = S.vol; u.onend = u.onerror = function () { res(); };
+      u.rate = forCall && S.callRate ? S.callRate : S.rate; u.volume = S.vol; u.onend = u.onerror = function () { res(); };
       speechSynthesis.speak(u);
     });
   }
@@ -119,7 +121,7 @@
   async function drain() {
     if (calling || !callQ.length) return;
     calling = true; paint();
-    while (callQ.length && !stopFlag) { await say(callQ.shift()); if (callQ.length) await pause(900); }
+    while (callQ.length && !stopFlag) { await say(callQ.shift(), true); if (callQ.length) await pause(900); }
     calling = false; hold = Date.now() + 4000; paint();
   }
   var pronMap = function () { var m = {}; (S.pron || []).forEach(function (x) { if (x && x.name && x.say) m[String(x.name).trim().toLowerCase()] = String(x.say).trim(); }); return m; };
@@ -236,18 +238,20 @@
       '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg"></div>' +
       '<h4>Court calls</h4><label class="vcck"><input type="checkbox" id="vcCallOn"' + (S.callOn ? ' checked' : '') + '> Say it out loud when I press Call to court</label>' +
       '<input class="vcin" id="vcCallText" value="' + esc(S.callText) + '" maxlength="240"><div class="meta">Fills in {court}, {bracket}, {team1} and {team2} for that game. A court call never talks over the timer: it waits for the current line to finish.</div>' +
+      '<div class="vcrow"><label>Court call voice<select id="vcCallVoice"></select></label><label>Court call speed<select id="vcCallRate">' + [[0, 'Same as announcements'], [0.8, 'Slow'], [0.95, 'Normal'], [1.1, 'Fast']].map(function (r) { return '<option value="' + r[0] + '"' + ((S.callRate || 0) === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></label></div>' +
       '<h4>Name pronunciations</h4><div class="meta">Spell a name the way it should sound, for court calls. You can also add these from the Call to court button in Match Control.</div><div id="vcPron"></div><div class="btns"><button type="button" id="vcPronAdd">Add a name</button></div>' +
       '<label class="vcck"><input type="checkbox" id="vcCallTwice"' + (S.callTwice ? ' checked' : '') + '> Say it twice</label><div class="btns"><button type="button" id="vcCallTest">Test a court call</button></div>' +
       '<h4>Save or reuse these settings</h4><div class="meta" style="margin-bottom:6px">Saves the text settings (not the recordings) to a small file. Load it on any computer, or for your next tournament, to get the same sponsors and reminders back.</div>' +
       '<div class="btns"><button type="button" id="vcSave">Save settings to a file</button><button type="button" id="vcLoad">Load settings</button></div><input type="file" id="vcLoadFile" accept=".json,application/json" hidden><div class="meta" id="vcFileMsg"></div></div>';
   }
   var lastLink = '';
-  var KEEP = ['mins', 'rate', 'vol', 'voice', 'useOpen', 'open', 'spons', 'sponsLead', 'items', 'callOn', 'callText', 'callTwice', 'pron'];
+  var KEEP = ['mins', 'rate', 'vol', 'voice', 'useOpen', 'open', 'spons', 'sponsLead', 'items', 'callOn', 'callText', 'callTwice', 'callVoice', 'callRate', 'pron'];
   function bind(box, link) {
     lastLink = link;
     var v = $('#vcVoice'), fill = function () {
       var vs = voices().filter(function (x) { return /^en/i.test(x.lang); }); if (!vs.length) vs = voices();
       v.innerHTML = '<option value="">Auto (Brian)</option>' + vs.map(function (x) { return '<option value="' + esc(x.name) + '"' + (S.voice === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
+      var cv = $('#vcCallVoice'); if (cv) cv.innerHTML = '<option value="">Same as announcements</option>' + vs.map(function (x) { return '<option value="' + esc(x.name) + '"' + (S.callVoice === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
     };
     fill(); try { speechSynthesis.onvoiceschanged = fill; } catch (e) {}
     lists(); paint();
@@ -255,6 +259,8 @@
     set('#vcUseOpen', 'useOpen', 1); set('#vcOpen', 'open'); set('#vcLead', 'sponsLead'); set('#vcCallOn', 'callOn', 1); set('#vcCallText', 'callText'); set('#vcCallTwice', 'callTwice', 1);
     $('#vcMins').onchange = function () { S.mins = +this.value; save(); var now = Date.now(); if (S.on) S.items.forEach(function (it) { if (!it.every) it._due = now + everyMs(it); }); lists(); paintCount(); };
     v.onchange = function () { S.voice = this.value; save(); };
+    $('#vcCallVoice').onchange = function () { S.callVoice = this.value; save(); };
+    $('#vcCallRate').onchange = function () { S.callRate = +this.value; save(); };
     $('#vcRate').onchange = function () { S.rate = +this.value; save(); };
     $('#vcVol').oninput = function () { S.vol = +this.value / 100; $('#vcVolV').textContent = this.value + '%'; if (curAudio) curAudio.volume = S.vol; save(); };
     $('#vcGo').onclick = function () { S.on ? stop() : start(); };
@@ -266,7 +272,7 @@
     $('#vcPron').oninput = function (e) { var t = e.target; if (t.dataset.pn != null) S.pron[+t.dataset.pn].name = t.value; if (t.dataset.ps != null) S.pron[+t.dataset.ps].say = t.value; save(); };
     $('#vcPron').onclick = function (e) {
       var t = e.target.closest('button'); if (!t) return;
-      if (t.dataset.pt != null) { var x = S.pron[+t.dataset.pt]; try { speechSynthesis.cancel(); } catch (er) {} say(x.say || x.name); }
+      if (t.dataset.pt != null) { var x = S.pron[+t.dataset.pt]; try { speechSynthesis.cancel(); } catch (er) {} say(x.say || x.name, true); }
       if (t.dataset.pd != null) { S.pron.splice(+t.dataset.pd, 1); save(); lists(); }
     };
     $('#vcAdd').onclick = function () { S.spons.push({ name: '', say: '' }); save(); lists(); var i = $('#vcSpons input[data-n="' + (S.spons.length - 1) + '"]'); if (i) i.focus(); };
@@ -356,7 +362,7 @@
     el.onclick = function (e) {
       if (e.target === el) { close(); return; }
       var b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.p != null) { var i = +b.dataset.p; try { speechSynthesis.cancel(); } catch (er) {} say(val(i) || names[i]); }
+      if (b.dataset.p != null) { var i = +b.dataset.p; try { speechSynthesis.cancel(); } catch (er) {} say(val(i) || names[i], true); }
       else if (b.id === 'vcPronX') close();
       else if (b.id === 'vcPronSave') { commit(); close(); toast('Saved. Names will be said this way.'); }
       else if (b.id === 'vcPronGo') { commit(); close(); try { speechSynthesis.cancel(); } catch (er) {} var was = S.callOn; S.callOn = true; callCourt(info); S.callOn = was; }
