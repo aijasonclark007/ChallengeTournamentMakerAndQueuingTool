@@ -344,7 +344,8 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
       const end = v => { sh.classList.remove('on'); res(v); };
       sh.onclick = e => { if (e.target === sh) end(null); };                    // tap outside to close without changing anything
       const sheet = sh.querySelector('.sheet'), bump = () => { sheet.classList.remove('step'); void sheet.offsetWidth; sheet.classList.add('step'); };
-      const pick = (b, fn) => { buzz(10); O.classList.add('has-pick'); b.classList.add('picked'); setTimeout(fn, 420); };
+      const pick = (b, fn) => { if (O.classList.contains('has-pick')) return;      // a second quick tap must not pick again
+        buzz(10); O.classList.add('has-pick'); b.classList.add('picked'); setTimeout(fn, 420); };
       const show = (title, sub, opts, onPick) => {                               // one screen of big buttons
         $('#svT').textContent = title; $('#svP').textContent = sub; O.classList.remove('has-pick'); bump();
         O.innerHTML = opts.map((o, i) => '<button data-i="' + i + '">' + o.h + '</button>').join('');
@@ -375,7 +376,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
     $('#svT').textContent = 'Swap sides'; $('#svP').textContent = t + ' reached ' + MID + '. Both teams change ends (court sides) now.';
     O.classList.remove('has-pick');
     O.innerHTML = '<button data-s="1">\u21C5 Swap sides</button><button data-s="0" style="background:#fff;border:1.5px solid var(--line)">Not now</button>';
-    O.querySelectorAll('button').forEach(b => b.onclick = () => { b.classList.add('picked'); O.classList.add('has-pick'); buzz(10); setTimeout(() => end(b.dataset.s === '1'), 320); });
+    O.querySelectorAll('button').forEach(b => b.onclick = () => { if (O.classList.contains('has-pick')) return; b.classList.add('picked'); O.classList.add('has-pick'); buzz(10); setTimeout(() => end(b.dataset.s === '1'), 320); });
     sh.onclick = e => { if (e.target === sh) end(false); };
     const sheet = sh.querySelector('.sheet'); sheet.classList.remove('step'); void sheet.offsetWidth; sheet.classList.add('step');
     sh.classList.add('on'); buzz([20, 40, 20]);
