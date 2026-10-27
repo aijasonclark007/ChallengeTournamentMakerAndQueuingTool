@@ -294,7 +294,14 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
         '<div class="v">' + esc(m.t1 || 'TBD') + '<i>vs</i>' + esc(m.t2 || 'TBD') + (s ? '<div style="margin-top:4px;font-size:22px">' + s.s1 + ' - ' + s.s2 + '</div>' : '') + '</div></button>';
     };
     $('#list').innerHTML = (quick ? quickForm() : court ? '' : '<p class="msg" style="padding:0 0 6px;text-align:left">Tip: ask the organizer for your court link to see only your court.</p>') + '<h2>' + (quick ? 'Recent matches' : 'Your matches') + '</h2>' + ms.map(card).join('') + (quick ? '<button class="qclr" id="qclr">Clear all matches</button>' : '');
-    $('#list').querySelectorAll('[data-m]').forEach(b => b.onclick = () => openMatch(b.dataset.m));
+    $('#list').querySelectorAll('[data-m]').forEach(b => b.onclick = async () => {
+      const m = ms.find(x => x.mid === b.dataset.m), first = ms.find(x => state(x) !== 'done' && x.t1 && x.t2);       // the game that should be played first
+      if (!quick && m && first && first.mid !== m.mid && state(m) === 'up') {
+        const ok = await ask('Not the next match', 'The current match (' + first.t1 + ' vs ' + first.t2 + ', ' + first.time + ') has not been finished yet. Finish it first, then start this one.', 'Open this match anyway', 'Go back');
+        if (!ok) return;
+      }
+      openMatch(b.dataset.m);
+    });
     if (quick) bindQuick();
   }
 
@@ -582,7 +589,7 @@ a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webki
   };
   $('#swap').onclick = () => { flipped = !flipped; buzz(8); paint(); };
   $('#undo').onclick = () => { if (!hist.length || swapOpen) return; const h = hist.pop(); s1 = h[0]; s2 = h[1]; if (Math.max(s1, s2) < MID) swapAsked = false; if (h.length > 2) { try { sv = JSON.parse(h[2]); } catch (e) { sv = null; } } buzz(8); save(false); paint(); };
-  const ask = (t, p, yes) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
+  const ask = (t, p, yes, no) => new Promise(res => { $('#ovT').textContent = t; $('#ovP').textContent = p; $('#ovYes').textContent = yes; $('#ovNo').textContent = no || 'Keep scoring'; $('#ov').classList.add('on'); const done = v => { $('#ov').classList.remove('on'); res(v); }; $('#ovYes').onclick = () => done(true); $('#ovNo').onclick = () => done(false); });
   $('#fin').onclick = async () => {
     if (!cur || s1 === s2) return;
     const lead = s1 > s2 ? cur.t1 : cur.t2, reached = won();
