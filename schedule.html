@@ -2426,7 +2426,7 @@ $('#eventDate').addEventListener('click', e => { try { e.target.showPicker(); } 
 $('#eventDate').addEventListener('change', () => { queueSave(); try { autoPublish(); } catch (e) {} });
 let pubSig = null, pubBusy = false, pubLast = 0;
 // [0] = everything about times, courts, teams and tags; [1] = just the saved scores. Scores alone also reach viewers live, so they republish less often.
-const pubParts = () => sched ? [[$('#eventDate').value, [...WD], koSched ? koSched.matches.map(m => m.id + ':' + m.slot + ':' + m.court) : '', Object.keys(mnotes).map(k => k + mnotes[k].kind), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)], [committed(results), committed(koResults)]] : null;
+const pubParts = () => sched ? [[$('#eventDate').value, NOW_JS.length + '.' + PUB_CSS.length + '.' + FILTER_JS.length, [...WD], koSched ? koSched.matches.map(m => m.id + ':' + m.slot + ':' + m.court) : '', Object.keys(mnotes).map(k => k + mnotes[k].kind), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)], [committed(results), committed(koResults)]] : null;
 const pubSigNow = () => sched ? JSON.stringify(pubParts()) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
