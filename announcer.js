@@ -19,7 +19,8 @@
       { k: 'msg', on: true, every: 0, text: 'Please follow the umpire’s decisions. Respect to players, officials and volunteers.' }
     ],
     recs: [],                             // [{id,name}] the audio itself lives in IndexedDB
-    callOn: false, callTwice: true, callText: 'Court {court}, {bracket}. {team1} versus {team2}. Please proceed to the court.'
+    callOn: true, callTwice: true, pron: [],           // pron: [{name, say}] how to say a player's name in court calls
+     callText: 'Court {court}, {bracket}. {team1} versus {team2}. Please proceed to the court.'
   };
   function key() { return 'cmd_voice_' + slug; }
   function migrate(o) {                   // older versions kept things in separate places; fold them into the one list
@@ -121,9 +122,11 @@
     while (callQ.length && !stopFlag) { await say(callQ.shift()); if (callQ.length) await pause(900); }
     calling = false; hold = Date.now() + 4000; paint();
   }
+  var pronMap = function () { var m = {}; (S.pron || []).forEach(function (x) { if (x && x.name && x.say) m[String(x.name).trim().toLowerCase()] = String(x.say).trim(); }); return m; };
+  function teamSay(n) { var m = pronMap(); return String(n || '').split('/').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { return m[x.toLowerCase()] || x; }).join(' and '); }
   function callCourt(info) {              // from Match Control's Call to court button
     if (!S || !S.callOn || !info) return false;
-    var team = function (n) { return String(n || '').split('/').map(function (x) { return x.trim(); }).filter(Boolean).join(' and '); };
+    var team = teamSay;
     var t = String(S.callText || DEF.callText).replace(/\{court\}/gi, String(info.court || '').replace(/^court\s*/i, '')).replace(/\{bracket\}/gi, info.bracket || '').replace(/\{team1\}/gi, team(info.t1)).replace(/\{team2\}/gi, team(info.t2)).replace(/\s+/g, ' ').trim();
     if (!t) return false;
     stopFlag = false; callQ.push(t); if (S.callTwice) callQ.push(t);
@@ -192,6 +195,10 @@
       return '<div class="vcsp"><input data-n="' + i + '" value="' + esc(x.name) + '" placeholder="Name as written" aria-label="Sponsor name"><input data-s="' + i + '" value="' + esc(x.say || '') + '" placeholder="Say it like (optional)" aria-label="How to say it">' +
         '<button type="button" data-t="' + i + '" title="Hear it">Test</button><button type="button" data-d="' + i + '" class="x" title="Remove">&times;</button></div>';
     }).join('') || '<div class="meta">No sponsors yet. Tap Add sponsor.</div>';
+    var pb = $('#vcPron'); if (pb) pb.innerHTML = (S.pron || []).map(function (x, i) {
+      return '<div class="vcsp"><input data-pn="' + i + '" value="' + esc(x.name) + '" placeholder="Name as written" aria-label="Name"><input data-ps="' + i + '" value="' + esc(x.say || '') + '" placeholder="Say it like" aria-label="Say it like">' +
+        '<button type="button" data-pt="' + i + '" title="Hear it">Test</button><button type="button" data-pd="' + i + '" class="x" title="Remove">&times;</button></div>';
+    }).join('') || '<div class="meta">None yet.</div>';
     var ib = $('#vcItems'); if (ib) ib.innerHTML = S.items.map(function (it, i) {
       var main = it.k === 'msg' ? '<input data-it="' + i + '" value="' + esc(it.text) + '" maxlength="240" placeholder="Type a message" aria-label="Message">' : '<div class="vcl">' + esc(itemLabel(it)) + '</div>' + (it.k === 'rec' ? '<button type="button" data-ip="' + i + '">Play</button>' : '');
       return '<div class="vcit"><input type="checkbox" data-ic="' + i + '"' + (it.on ? ' checked' : '') + ' aria-label="Say this"><div class="vcmain">' + main + '</div><button type="button" data-ix="' + i + '" class="x" title="Remove">&times;</button>' +
@@ -229,12 +236,13 @@
       '<input type="file" id="vcFile" accept="audio/*" hidden><div class="meta" id="vcRecMsg"></div>' +
       '<h4>Court calls</h4><label class="vcck"><input type="checkbox" id="vcCallOn"' + (S.callOn ? ' checked' : '') + '> Say it out loud when I press Call to court</label>' +
       '<input class="vcin" id="vcCallText" value="' + esc(S.callText) + '" maxlength="240"><div class="meta">Fills in {court}, {bracket}, {team1} and {team2} for that game. A court call never talks over the timer: it waits for the current line to finish.</div>' +
+      '<h4>Name pronunciations</h4><div class="meta">Spell a name the way it should sound, for court calls. You can also add these from the Call to court button in Match Control.</div><div id="vcPron"></div><div class="btns"><button type="button" id="vcPronAdd">Add a name</button></div>' +
       '<label class="vcck"><input type="checkbox" id="vcCallTwice"' + (S.callTwice ? ' checked' : '') + '> Say it twice</label><div class="btns"><button type="button" id="vcCallTest">Test a court call</button></div>' +
       '<h4>Save or reuse these settings</h4><div class="meta" style="margin-bottom:6px">Saves the text settings (not the recordings) to a small file. Load it on any computer, or for your next tournament, to get the same sponsors and reminders back.</div>' +
       '<div class="btns"><button type="button" id="vcSave">Save settings to a file</button><button type="button" id="vcLoad">Load settings</button></div><input type="file" id="vcLoadFile" accept=".json,application/json" hidden><div class="meta" id="vcFileMsg"></div></div>';
   }
   var lastLink = '';
-  var KEEP = ['mins', 'rate', 'vol', 'voice', 'useOpen', 'open', 'spons', 'sponsLead', 'items', 'callOn', 'callText', 'callTwice'];
+  var KEEP = ['mins', 'rate', 'vol', 'voice', 'useOpen', 'open', 'spons', 'sponsLead', 'items', 'callOn', 'callText', 'callTwice', 'pron'];
   function bind(box, link) {
     lastLink = link;
     var v = $('#vcVoice'), fill = function () {
@@ -254,6 +262,13 @@
     $('#vcSkip').onclick = function () { skipNow(); };
     $('#vcStop').onclick = function () { stopAll(); };
     $('#vcCallTest').onclick = function () { var was = S.callOn; S.callOn = true; callCourt({ court: 'Court 7', bracket: 'Low Bracket A', t1: 'Beth Montero / Yojaa Timbancaya', t2: 'Marc Isagani / Kenn Papo' }); S.callOn = was; };
+    $('#vcPronAdd').onclick = function () { S.pron.push({ name: '', say: '' }); save(); lists(); var i = $('#vcPron input[data-pn="' + (S.pron.length - 1) + '"]'); if (i) i.focus(); };
+    $('#vcPron').oninput = function (e) { var t = e.target; if (t.dataset.pn != null) S.pron[+t.dataset.pn].name = t.value; if (t.dataset.ps != null) S.pron[+t.dataset.ps].say = t.value; save(); };
+    $('#vcPron').onclick = function (e) {
+      var t = e.target.closest('button'); if (!t) return;
+      if (t.dataset.pt != null) { var x = S.pron[+t.dataset.pt]; try { speechSynthesis.cancel(); } catch (er) {} say(x.say || x.name); }
+      if (t.dataset.pd != null) { S.pron.splice(+t.dataset.pd, 1); save(); lists(); }
+    };
     $('#vcAdd').onclick = function () { S.spons.push({ name: '', say: '' }); save(); lists(); var i = $('#vcSpons input[data-n="' + (S.spons.length - 1) + '"]'); if (i) i.focus(); };
     $('#vcSave').onclick = function () {
       var o = { app: 'matchday-speaker', version: 2, saved: new Date().toISOString() }; KEEP.forEach(function (k) { o[k] = S[k]; });
@@ -272,6 +287,7 @@
         KEEP.forEach(function (k) { if (o[k] !== undefined && typeof o[k] === typeof DEF[k] && Array.isArray(o[k]) === Array.isArray(DEF[k])) S[k] = o[k]; });
         S.spons = S.spons.filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { name: String(x.name || ''), say: String(x.say || '') }; });
         S.items = S.items.filter(function (x) { return x && typeof x === 'object' && (x.k === 'msg' || x.k === 'spons'); }).map(function (x) { return { k: x.k, on: x.on !== false, every: EVERY.indexOf(+x.every) > -1 ? +x.every : 0, text: String(x.text || ''), _due: null }; }).concat(mine);
+        S.pron = (S.pron || []).filter(function (x) { return x && typeof x === 'object'; }).map(function (x) { return { name: String(x.name || ''), say: String(x.say || '') }; });
         S.vol = Math.min(1, Math.max(0, +S.vol || 0)); S.on = S.on; save();
         var bx = $('#vcBox'); if (bx) { bx.outerHTML = html(lastLink); bind(null, lastLink); $('#vcFileMsg').textContent = 'Settings loaded.'; }
       }; rd.readAsText(f);
@@ -316,7 +332,38 @@
       } catch (er) { $('#vcRecMsg').textContent = 'The microphone is blocked. Allow it for this site, or upload a file.'; }
     };
   }
+  // the "How to say the names" sheet, opened from Call to court: one row per player, saved for every later match
+  function pronSheet(info) {
+    if (!S || !info) return;
+    var seen = {}, names = [];
+    [info.t1, info.t2].forEach(function (t) { String(t || '').split('/').forEach(function (x) { x = x.trim(); if (x && !seen[x.toLowerCase()]) { seen[x.toLowerCase()] = 1; names.push(x); } }); });
+    if (!names.length) return;
+    var m = pronMap(), old = document.getElementById('vcPronSh'); if (old) old.remove();
+    var el = document.createElement('div'); el.className = 'sh'; el.id = 'vcPronSh';
+    el.innerHTML = '<div><h2 style="margin:0 0 2px;font-size:19px">How to say the names</h2><p class="meta" style="margin:0 0 8px">Spell each name the way it should sound, then tap Play. It is saved and used for every later call. Leave a box empty to say the name as written.</p><div id="vcPronRows">' +
+      names.map(function (n, i) { return '<div style="margin-top:8px"><b>' + esc(n) + '</b><div class="vcsp"><input data-i="' + i + '" value="' + esc(m[n.toLowerCase()] || '') + '" placeholder="Say it like, e.g. ' + esc(n) + '" aria-label="How to say ' + esc(n) + '"><button type="button" data-p="' + i + '">Play</button></div></div>'; }).join('') +
+      '</div><div class="btns" style="margin-top:14px"><button class="go" id="vcPronGo">Save and call again</button><button id="vcPronSave">Save</button><button id="vcPronX">Cancel</button></div></div>';
+    document.body.appendChild(el); requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.add('on'); }); });
+    var close = function () { el.classList.remove('on'); setTimeout(function () { el.remove(); }, 400); };
+    var val = function (i) { var x = el.querySelector('input[data-i="' + i + '"]'); return x ? x.value.trim() : ''; };
+    var commit = function () {
+      names.forEach(function (n, i) {
+        var v = val(i), k = n.toLowerCase();
+        S.pron = (S.pron || []).filter(function (x) { return String(x.name).trim().toLowerCase() !== k; });
+        if (v && v.toLowerCase() !== k) S.pron.push({ name: n, say: v });
+      }); save(); var l = $('#vcPron'); if (l) lists();
+    };
+    el.onclick = function (e) {
+      if (e.target === el) { close(); return; }
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.p != null) { var i = +b.dataset.p; try { speechSynthesis.cancel(); } catch (er) {} say(val(i) || names[i]); }
+      else if (b.id === 'vcPronX') close();
+      else if (b.id === 'vcPronSave') { commit(); close(); toast('Saved. Names will be said this way.'); }
+      else if (b.id === 'vcPronGo') { commit(); close(); try { speechSynthesis.cancel(); } catch (er) {} var was = S.callOn; S.callOn = true; callCourt(info); S.callOn = was; }
+    };
+  }
   window.Announcer = {
+    pron: function (info) { pronSheet(info); },
     init: function (s) { if (slug !== s) { slug = s; load(); } },
     html: function (link) { return html(link); },
     bind: function (link) { bind(null, link); },

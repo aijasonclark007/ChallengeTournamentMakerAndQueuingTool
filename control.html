@@ -386,6 +386,7 @@ details>summary{transition:color .2s ease}
         } else if (!live) h += '<div class="meta" style="margin-top:6px">Umpire has not opened this match yet.</div>';
         const btn = [];
         if (!live && ready(cur)) btn.push('<button class="go" data-call="' + esc(cur.mid) + '">Call to court</button>');
+        if (!live && ready(cur) && window.Announcer) btn.push('<button data-pron="' + esc(cur.mid) + '">How to say the names</button>');
         if (on && state(cur) !== 'done') {
           if (clk.dLeft == null && !clk.allHere && !live) btn.push('<button data-c="dstart" data-m="' + esc(cur.mid) + '">Start 5:00 default timer</button>');
           if (clk.dLeft != null && clk.dLeft <= 0 && !clk.allHere) btn.push('<button data-c="dext" data-m="' + esc(cur.mid) + '">Extend another 5:00</button>');
@@ -454,6 +455,7 @@ details>summary{transition:color .2s ease}
     app.querySelectorAll('[data-xlast]').forEach(b => b.onclick = () => doSlot(b.dataset.xlast, 900, 'Set to play last.'));
     app.querySelectorAll('[data-rmx]').forEach(b => b.onclick = () => doRemove(b.dataset.rmx));
     app.querySelectorAll('[data-ulink]').forEach(b => b.onclick = () => copy(umpUrl(b.dataset.ulink), 'Umpire link for ' + b.dataset.ulink + ' copied.'));
+    app.querySelectorAll('[data-pron]').forEach(b => b.onclick = () => { const m = all.find(x => x.mid === b.dataset.pron); if (m && window.Announcer) Announcer.pron({ court: m.court, bracket: m.bracket, t1: m.t1, t2: m.t2 }); });
     app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => call(all.find(m => m.mid === b.dataset.call)));
     app.querySelectorAll('details.more').forEach(d => d.addEventListener('toggle', () => { openMore[d.dataset.mid] = d.open; }));
     app.querySelectorAll('[data-def]').forEach(b => b.onclick = () => {
