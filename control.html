@@ -52,6 +52,7 @@ button:disabled{opacity:.4;cursor:default}
 .pill.late{background:#FFF1D6;color:#8A5200}.sum .lt{background:#FFF1D6;color:#8A5200}
 .recent{margin-top:18px;background:var(--card);box-shadow:var(--shadow);border-radius:20px;padding:14px 16px}.recent h3{margin:0 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
 .rrow{display:grid;grid-template-columns:70px 70px 1fr;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.rrow:first-of-type{border-top:0}.rrow span.t{color:var(--mute);font-size:12px;font-weight:700}.rrow b{font-variant-numeric:tabular-nums}.rrow .w{font-weight:800}
+.hidden{display:none!important}
 .tbw{padding-bottom:0!important;display:none}.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .tb input{flex:1 1 220px;min-width:0;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px}
 .tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
@@ -93,7 +94,7 @@ details>summary{transition:color .2s ease}
 </head>
 <body>
 <div class="top"><h1 id="ttl">Match Control<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
-<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" data-p="voice">Speaker</button><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
+<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" id="bCallAll" class="hidden" title="Call every court whose next game has not started">Call all waiting courts</button><button type="button" data-p="voice">Speaker</button><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
 <div class="wrap" id="app"><div class="msg">Loading...</div></div>
 <div class="sh" id="es"><div><h2 style="margin:0 0 2px;font-size:19px">Fix the score</h2><p class="meta" id="esMsg" style="margin:0"></p><div class="sc"><b id="esT1"></b><input id="esA" type="number" inputmode="numeric" min="0" max="99"><b id="esT2"></b><input id="esB" type="number" inputmode="numeric" min="0" max="99"></div><div class="btns"><button class="go" id="esSave">Save score</button><button id="esCancel">Cancel</button></div></div></div>
 <div id="toast"></div>
@@ -288,6 +289,27 @@ details>summary{transition:color .2s ease}
     box.style.transition = 'height .36s cubic-bezier(.2,.8,.2,1)'; box.style.height = h1 + 'px';
     setTimeout(() => { if (box._mt === tok) { box.style.height = box.style.overflow = box.style.transition = ''; } }, 420);
   }
+  // Call every court whose next game has not started, one court after another (voice + the court TVs), with a Stop
+  let callAllOn = false;
+  const waitingCalls = () => courtsOf().map(ct => (ct.list.some(m => state(m) === 'live') ? null : ct.list.find(m => state(m) === 'up' && ready(m)) || null)).filter(Boolean);
+  function paintCallAll() {
+    const b = $('#bCallAll'); if (!b) return; const n = waitingCalls().length;
+    b.classList.toggle('hidden', !window.Announcer && !n); if (!callAllOn) { b.textContent = n ? 'Call all waiting courts (' + n + ')' : 'Call all waiting courts'; b.disabled = !n; }
+  }
+  async function runCallAll() {
+    if (callAllOn) { callAllOn = false; if (window.Announcer && Announcer.stop) Announcer.stop(); toast('Stopped calling'); return; }
+    const list = waitingCalls(); if (!list.length) { toast('No court is waiting for a game to start'); return; }
+    const b = $('#bCallAll'); callAllOn = true; b.classList.add('on'); logIt('Called all waiting courts (' + list.length + ')');
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    for (let i = 0; i < list.length && callAllOn; i++) {
+      const m = (data.matches || []).find(x => x.mid === list[i].mid) || list[i];
+      if (state(m) !== 'up') continue;                                           // it started while we were calling
+      b.textContent = 'Calling ' + (i + 1) + ' of ' + list.length + ' · tap to stop'; call(m);
+      await sleep(400); let w = 0; while (callAllOn && window.Announcer && Announcer.busy && Announcer.busy() && w < 240) { await sleep(250); w++; }
+      if (callAllOn) await sleep(window.Announcer && Announcer.busy ? 700 : 1500);
+    }
+    const done = callAllOn; callAllOn = false; b.classList.remove('on'); paintCallAll(); if (done) toast('Called every waiting court');
+  }
   function renderPanel() {
     const box = $('#panel');
     if (!panelKind) {
@@ -321,6 +343,7 @@ details>summary{transition:color .2s ease}
   });
   function initToolbar() {
     $('#tbw').style.display = 'block';
+    $('#bCallAll').onclick = runCallAll;
     document.querySelectorAll('.tb [data-p]').forEach(b => b.onclick = () => { if (panelKind === 'find') $('#find').value = ''; openPanel(b.dataset.p); });
     $('#find').addEventListener('input', () => { panelKind = $('#find').value.trim() ? 'find' : ''; document.querySelectorAll('.tb [data-p]').forEach(b => b.classList.remove('on')); renderPanel(); });
   }
@@ -456,6 +479,7 @@ details>summary{transition:color .2s ease}
     app.querySelectorAll('[data-rmx]').forEach(b => b.onclick = () => doRemove(b.dataset.rmx));
     app.querySelectorAll('[data-ulink]').forEach(b => b.onclick = () => copy(umpUrl(b.dataset.ulink), 'Umpire link for ' + b.dataset.ulink + ' copied.'));
     app.querySelectorAll('[data-pron]').forEach(b => b.onclick = () => { const m = all.find(x => x.mid === b.dataset.pron); if (m && window.Announcer) Announcer.pron({ court: m.court, bracket: m.bracket, t1: m.t1, t2: m.t2 }); });
+    paintCallAll();
     app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => call(all.find(m => m.mid === b.dataset.call)));
     app.querySelectorAll('details.more').forEach(d => d.addEventListener('toggle', () => { openMore[d.dataset.mid] = d.open; }));
     app.querySelectorAll('[data-def]').forEach(b => b.onclick = () => {
