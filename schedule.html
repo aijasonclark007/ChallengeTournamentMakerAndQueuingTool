@@ -2483,10 +2483,26 @@ function showUmp() {
     const q = qrcode(0, 'M'); q.addData(umpUrl(courts[+b.dataset.uq])); q.make(); slot.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2 }); slot.firstChild.style.cssText = 'width:150px;height:150px;background:#fff';
   });
 }
+// the 'Now playing' block opens, changes and closes by gliding its height, so nothing under it jumps
+function setNow(html) {
+  const el = $('#nowPlay'); if (el._want === html) return; el._want = html;
+  const tok = el._gt = {}, fin = () => { if (el._gt === tok) { el.style.height = el.style.overflow = el.style.opacity = el.style.transition = ''; if (!html) el.innerHTML = ''; } };
+  if (REDUCED || !el.isConnected || !el.offsetParent) { el.innerHTML = html; fin(); return; }
+  const h0 = el.getBoundingClientRect().height, T = 'height .34s cubic-bezier(.2,.8,.2,1),opacity .28s ease';
+  el.style.transition = 'none'; el.style.height = 'auto';
+  let h1;
+  if (html) { el.innerHTML = html; h1 = el.getBoundingClientRect().height; } else h1 = 0;
+  if (Math.abs(h0 - h1) < 1) { if (html) el.innerHTML = html; el.style.height = el.style.transition = ''; if (!html) el.innerHTML = ''; return; }
+  if (!html) el.innerHTML = el.innerHTML || '';
+  el.style.overflow = 'hidden'; el.style.height = h0 + 'px'; el.style.opacity = !h0 ? '0' : '1'; void el.offsetHeight;
+  el.style.transition = T; el.style.height = h1 + 'px'; el.style.opacity = html ? '1' : '0';
+  setTimeout(fin, 380);
+}
 function showPubLink() {
   const box = $('#pubLinkBox'), fresh = !!pubSlug && box.classList.contains('hidden');
   if (pubSlug) $('#pubUrl').value = pubUrlFor(pubSlug);
   vis(box, !!pubSlug);
+  if (!pubSlug) setNow('');                                   // 'Now playing' leaves in the same move as the link box
   vis($('#shareIntro'), !(pubSlug || preview)); vis($('#sharePanel h3').nextElementSibling, !pubSlug);      // swap the 'how it works' text and the link box in the same move
   if (fresh && !REDUCED) { const u = $('#pubUrl'); u.classList.remove('glow'); void u.offsetWidth; u.classList.add('glow'); setTimeout(() => u.classList.remove('glow'), 1300); }
   showUmp();
@@ -2675,12 +2691,12 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   $('#pubLink').addEventListener('click', () => setTimeout(() => { if (tabOn !== 'sharePanel') showTab('sharePanel'); }, 700));
   const np = { sub: null, t: 0 };
   async function nowTick() {
-    const box = $('#nowPlay'); if (preview || !pubSlug || !sched) { box.innerHTML = ''; return; }
+    const box = $('#nowPlay'); if (preview || !pubSlug || !sched) { setNow(''); return; }
     if (document.hidden) return;
     let rows; try { rows = await Platform.getLiveScores(pubSlug); } catch (e) { return; }
     const by = {}; try { matchList().forEach(m => { by[m.mid] = m; }); } catch (e) {}
     const live = rows.filter(r => r.status === 'live' && by[r.match_id]);
-    box.innerHTML = '<b>Now playing</b>' + (live.length ? live.map(r => { const m = by[r.match_id]; return '<div class="np"><span class="np-c">' + esc(m.court) + '</span><span class="np-t">' + esc(m.t1) + '</span><span class="np-s"><span' + (r.s1 > r.s2 ? ' class="np-lead"' : '') + '>' + r.s1 + '</span><i>:</i><span' + (r.s2 > r.s1 ? ' class="np-lead"' : '') + '>' + r.s2 + '</span></span><span class="np-t r">' + esc(m.t2) + '</span></div>'; }).join('') : '<div class="none">No games are being scored live right now.</div>');
+    setNow('<b>Now playing</b>' + (live.length ? live.map(r => { const m = by[r.match_id]; return '<div class="np"><span class="np-c">' + esc(m.court) + '</span><span class="np-t">' + esc(m.t1) + '</span><span class="np-s"><span' + (r.s1 > r.s2 ? ' class="np-lead"' : '') + '>' + r.s1 + '</span><i>:</i><span' + (r.s2 > r.s1 ? ' class="np-lead"' : '') + '>' + r.s2 + '</span></span><span class="np-t r">' + esc(m.t2) + '</span></div>'; }).join('') : '<div class="none">No games are being scored live right now.</div>'));
   }
   setInterval(nowTick, 8000);
   $('#introGet').onclick = () => busyBtn($('#introGet'), 'Creating link', () => publishNow(LINK_MSG), 'Link ready');
@@ -2768,7 +2784,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     sums();
     if (pending && avail(pending) && !$(STEPS.find(s => s[0] === pending)[2]).classList.contains('hidden')) { const k = pending; pending = null; setTimeout(() => goStep(k, true), 250); }
     if (pubSlug && np.sub !== pubSlug) { np.sub = pubSlug; try { Platform.liveChannel('slive-' + pubSlug, nowTick); } catch (e) {} nowTick(); }
-    if (!pubSlug) $('#nowPlay').innerHTML = '';
+    if (!pubSlug) setNow('');
     vis($('#shareIntro'), !(pubSlug || preview));
     vis($('#sharePanel h3').nextElementSibling, !pubSlug);
   }
