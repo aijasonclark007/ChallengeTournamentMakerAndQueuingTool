@@ -393,6 +393,8 @@
     init: function (s) { if (slug !== s) { slug = s; load(); } },
     html: function (link) { return html(link); },
     bind: function (link) { bind(null, link); },
-    call: function (info) { return callCourt(info); }
+    call: function (info) { return callCourt(info); },
+    busy: function () { return !!(calling || playing || callQ.length); },
+    stop: function () { stopAll(); }
   };
 })();
