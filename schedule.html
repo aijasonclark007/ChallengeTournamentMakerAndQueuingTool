@@ -340,6 +340,7 @@ summary:hover{background:#fff}
         <textarea id="pairs" placeholder="Ana Reyes, Ben Cruz, Mixed, Level G&#10;Carl Uy / Dan Lim, Men's, Level F"></textarea>
         <div class="orow ocfg">
           <label class="sel">Days <select id="oDays"><option value="1">1 day</option><option value="2" selected>2 days</option></select></label>
+          <label class="sel">Minutes per game <input id="oLen" type="number" min="10" max="90" step="5" value="20" style="width:70px"></label>
           <label class="sel">Each day ends <input id="oEnd" type="time" value="21:00"></label>
           <label class="sel">Advance <select id="oAdv"><option value="2">Top 2 of each pool</option><option value="1">Top 1 only</option></select></label>
           <label class="ck"><input type="checkbox" id="oSeed" checked> Use seeds</label>
@@ -1341,7 +1342,7 @@ function ocPlan(P) {
     const n = P.counts[c], sz = poolSizes(n, 4), pg = sz.reduce((t, k) => t + k * (k - 1) / 2, 0), a = oc.advBy[c] || adv0, adv = sz.length * Math.min(a, 2), kg = sz.length ? (n === 2 ? 0 : Math.max(0, adv - 1)) : 0;
     rows.push({ c, n, pools: sz.length, pg, kg, a }); pool += pg; kog += kg;
   });
-  const courts = Math.max(1, +$('#courts').value || 10), days = +$('#oDays').value, sm = 20;
+  const courts = Math.max(1, +$('#courts').value || 10), days = +$('#oDays').value, sm = Math.max(10, +$('#oLen').value || 20);
   const st = toMinutes($('#start').value || '09:00'), perDay = Math.max(1, Math.floor((toMinutes($('#oEnd').value || '21:00') - st) / sm));
   return { rows, pool, kog, slots: Math.ceil((pool + kog) / courts), perDay, days, fits: Math.ceil(pool / courts) <= perDay * days };
 }
@@ -1369,7 +1370,7 @@ function setMode(m, instant) {
 const swMode = m => { if (draw && m !== tmode) { $('#loadMsg').textContent = 'This tournament is already started as ' + (tmode === 'open' ? 'an Open Tournament' : 'Fun Games') + '. Create a new tournament to use the other type.'; return; } setMode(m); };
 $('#tmFun').onclick = () => swMode('fun'); $('#tmOpen').onclick = () => swMode('open');
 $('#oPreset').onclick = () => { $('#oLevels').value = OPEN_PRESET.join(', '); renderOpenInfo(); };
-['#oLevels', '#pairs', '#oMen', '#oWomen', '#oMixed', '#oNg', '#oDays', '#oEnd', '#oAdv', '#courts', '#start'].forEach(i => $(i).addEventListener('input', () => { if (tmode === 'open') renderOpenInfo(); }));
+['#oLevels', '#pairs', '#oMen', '#oWomen', '#oMixed', '#oNg', '#oDays', '#oLen', '#oEnd', '#oAdv', '#courts', '#start'].forEach(i => $(i).addEventListener('input', () => { if (tmode === 'open') renderOpenInfo(); }));
 $('#oInfo').addEventListener('change', e => { const t = e.target.closest('.oadv'); if (!t) return; if (+t.value === +$('#oAdv').value) delete oc.advBy[t.dataset.c]; else oc.advBy[t.dataset.c] = +t.value; $('#oInfo')._h = null; renderOpenInfo(); });
 function openSampleText() {
   const CATS = [['Novice', 'Non-gender', 32], ['Level G', "Men's", 12], ['Level G', "Women's", 6], ['Level G', 'Mixed', 6], ['Level F', "Men's", 6], ['Level F', "Women's", 4], ['Level F', 'Mixed', 6], ['Level E', "Men's", 8], ['Level D', 'Mixed', 16], ['Advance', "Men's", 20]];
@@ -1387,7 +1388,7 @@ function startOpenDraw() {
   if (P.errs.length) { $('#loadMsg').textContent = P.errs.length + ' line(s) need fixing first (see the red notes above). Fix or delete them, then try again.'; return; }
   setLevels(P.cats);
   const days = +$('#oDays').value, end = $('#oEnd').value || '21:00', adv = +$('#oAdv').value, by = {}; P.cats.forEach(c => { if (oc.advBy[c]) by[c] = oc.advBy[c]; });
-  gopt = { courts: Math.max(1, +$('#courts').value || 10), startTime: $('#start').value || '09:00', firstCourt: Math.max(1, +$('#firstCourt').value || 1), levels: P.cats.slice(), scheduleOrder: P.cats.slice(), multiEntry: true, useSeeds: $('#oSeed').checked, tries: 8, days, normalEndTime: end, hardEndTime: end, koAfterAll: true, koNextDay: days > 1, advance: adv, advanceBy: by, openMode: true };
+  gopt = { slotMinutes: Math.max(10, Math.min(90, +$('#oLen').value || 20)), courts: Math.max(1, +$('#courts').value || 10), startTime: $('#start').value || '09:00', firstCourt: Math.max(1, +$('#firstCourt').value || 1), levels: P.cats.slice(), scheduleOrder: P.cats.slice(), multiEntry: true, useSeeds: $('#oSeed').checked, tries: 8, days, normalEndTime: end, hardEndTime: end, koAfterAll: true, koNextDay: days > 1, advance: adv, advanceBy: by, openMode: true };
   draw = createDraw(P.regs.map(r => ({ skill: r.skill, players: r.players, seed: r.seed })), gopt);
   locks.teams = locks.brackets = false; selP = selT = null;
   const w = draw.getState().warnings;
@@ -2204,7 +2205,7 @@ const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : '
 Sports.mount();
 const defaultSport = Sports.current;   // chosen on the Sports tab
 let tSport = Sports.current();      // the sport of the tournament that is open (each sport keeps its own files)
-const capture = () => ({ v: 1, sport: tSport, tmode, open: tmode === 'open' ? { levels: $('#oLevels').value, pairs: $('#pairs').value, men: $('#oMen').checked, women: $('#oWomen').checked, mixed: $('#oMixed').checked, ng: $('#oNg').value, days: $('#oDays').value, end: $('#oEnd').value, adv: $('#oAdv').value, seed: $('#oSeed').checked, advBy: oc.advBy } : null, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value, date: $('#eventDate').value, wd: [...WD],
+const capture = () => ({ v: 1, sport: tSport, tmode, open: tmode === 'open' ? { levels: $('#oLevels').value, pairs: $('#pairs').value, men: $('#oMen').checked, women: $('#oWomen').checked, mixed: $('#oMixed').checked, ng: $('#oNg').value, days: $('#oDays').value, len: $('#oLen').value, end: $('#oEnd').value, adv: $('#oAdv').value, seed: $('#oSeed').checked, advBy: oc.advBy } : null, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value, date: $('#eventDate').value, wd: [...WD],
   locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin });
 function describe(st) {
   let t = st.tmode === 'open' && st.open ? String(st.open.pairs || '').split('\n').filter(x => x.trim()).length + ' pairs (Open)' : parsePlayers(st.players || '').length + ' players';
@@ -2271,14 +2272,14 @@ function resetState() {
   draw = null; sched = null; results = {}; ko = null; koSched = null; koResults = {}; coin = {}; gopt = {}; selP = selT = null;
   locks = { add: false, teams: false, brackets: false };
   $('#drawSec').classList.add('hidden'); ['#schedSec', '#standSec', '#koSec'].forEach(x => $(x).classList.add('hidden'));
-  setLevels(FUN_LEVELS); setMode('fun', true); $('#pairs').value = ''; $('#oLevels').value = ''; oc.advBy = {}; delete $('#courts').dataset.o;
+  setLevels(FUN_LEVELS); setMode('fun', true); $('#pairs').value = ''; $('#oLevels').value = ''; $('#oLen').value = '20'; oc.advBy = {}; delete $('#courts').dataset.o;
   $('#loadMsg').textContent = ''; $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00'; $('#eventDate').value = ''; WD = new Set(); mnotes = {};
 }
 function applyState(st) {
   tSport = st.sport === 'pickleball' ? 'pickleball' : 'badminton';
   $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00'; $('#eventDate').value = st.date || ''; WD = new Set(st.wd || []); mnotes = {};
   gopt = st.gopt || {};
-  if (st.tmode === 'open' && st.open) { const o = st.open; $('#oLevels').value = o.levels || ''; $('#pairs').value = o.pairs || ''; $('#oMen').checked = o.men !== false; $('#oWomen').checked = o.women !== false; $('#oMixed').checked = o.mixed !== false; $('#oNg').value = o.ng || 'novice'; $('#oDays').value = o.days || '2'; $('#oEnd').value = o.end || '21:00'; $('#oAdv').value = o.adv || '2'; $('#oSeed').checked = o.seed !== false; oc.advBy = o.advBy || {}; $('#courts').dataset.o = 1; setMode('open', true); if (gopt.levels) setLevels(gopt.levels); }
+  if (st.tmode === 'open' && st.open) { const o = st.open; $('#oLevels').value = o.levels || ''; $('#pairs').value = o.pairs || ''; $('#oMen').checked = o.men !== false; $('#oWomen').checked = o.women !== false; $('#oMixed').checked = o.mixed !== false; $('#oNg').value = o.ng || 'novice'; $('#oDays').value = o.days || '2'; $('#oLen').value = o.len || '20'; $('#oEnd').value = o.end || '21:00'; $('#oAdv').value = o.adv || '2'; $('#oSeed').checked = o.seed !== false; oc.advBy = o.advBy || {}; $('#courts').dataset.o = 1; setMode('open', true); if (gopt.levels) setLevels(gopt.levels); }
   else { setLevels(FUN_LEVELS); setMode('fun', true); }
   locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
   if (st.draw) { draw = createDraw(tmode === 'open' ? parsePairs($('#pairs').value).regs.map(r => ({ skill: r.skill, players: r.players, seed: r.seed })) : parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
