@@ -77,6 +77,7 @@ tr.rest td{color:var(--mute);font-style:italic}
 .adv td{background:rgba(141,198,63,.18)}.win{font-weight:700;color:var(--ok)}
 .seg{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.seg button{flex:1 1 200px;text-align:left;padding:10px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:700;cursor:pointer;transition:border-color .2s,background .2s,box-shadow .2s}.seg button small{display:block;font-weight:500;font-size:12px;color:var(--mute);margin-top:2px}.seg button.on{border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,101,192,.14)}
 #openBox label{display:block;margin:10px 0 4px}#openBox .orow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}#openBox .orow input[type=text]{flex:1 1 280px;min-width:0}#openBox .ocfg{margin:10px 0}#openBox .ocfg label{margin:0;display:flex;gap:6px;align-items:center}#openBox .ocfg select,#openBox .ocfg input[type=time]{width:auto;min-height:36px}#openBox textarea{min-height:150px}
+#findOut{display:flex;flex-direction:column;gap:12px;margin-top:12px}#findOut .fp{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--card)}#findOut .fp h4{margin:0 0 6px;font-size:16px}#findOut .fe{font-size:13px;color:var(--mute);margin:2px 0}#findOut table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}#findOut th,#findOut td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}#findOut .wt{white-space:nowrap;font-variant-numeric:tabular-nums}#findOut .wb{color:var(--bad);font-weight:700}#findOut .ww{color:#9a6700;font-weight:700}#findOut .scr{overflow-x:auto}
 #oInfo{margin-top:10px;display:flex;flex-direction:column;gap:10px}#oInfo .oerr{color:var(--bad);font-size:13px;margin:2px 0}#oInfo .owarn{color:#9a6700;font-size:13px;margin:2px 0}#oInfo .osum{font-weight:700}#oInfo table{width:100%;border-collapse:collapse;font-size:13px}#oInfo th,#oInfo td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}#oInfo td.n,#oInfo th.n{text-align:right;font-variant-numeric:tabular-nums}#oInfo .tw{overflow-x:auto;max-height:340px;overflow-y:auto}#oInfo select{min-height:30px;padding:2px 6px}
 .lvl{font:800 22px/1.2 "Bricolage Grotesque",system-ui,sans-serif;margin:26px 0 12px;padding-left:12px;border-left:5px solid var(--lime)}
 .mh{display:grid;grid-template-columns:minmax(150px,1fr) auto auto auto minmax(150px,1fr);gap:8px;align-items:center}
@@ -403,12 +404,17 @@ summary:hover{background:#fff}
     <details id="pubDet" class="noprint"><summary>Preview what people will see</summary><div id="pubPreview" class="pubwrap"></div>
       <p class="hint">If the download does not work, copy this code into a file named game-schedule.html:</p><textarea id="pubCode" style="min-height:70px" readonly></textarea></details>
     <div id="summary"></div>
-<div class="tabs noprint" id="tabs"><button class="ghost" type="button" data-tab="sharePanel">Share</button><button class="ghost" type="button" data-tab="lateBox">Running late</button><button class="ghost" type="button" data-tab="fairBox">Fairness<span class="fl" id="fairHead"></span></button><button class="ghost" type="button" data-tab="brkPanel">Breaks</button><button id="editSched" class="ghost" type="button">Edit schedule</button></div>
+<div class="tabs noprint" id="tabs"><button class="ghost" type="button" data-tab="sharePanel">Share</button><button class="ghost" type="button" data-tab="lateBox">Running late</button><button class="ghost" type="button" data-tab="fairBox">Fairness<span class="fl" id="fairHead"></span></button><button class="ghost" type="button" data-tab="findBox">Find player</button><button class="ghost" type="button" data-tab="brkPanel">Breaks</button><button id="editSched" class="ghost" type="button">Edit schedule</button></div>
     <div id="toolPanels" class="noprint">
     <details id="lateBox" class="noprint tpanel hidden" open><summary><b>Running late?</b> Shift the game times</summary>
       <p class="hint">Pick the first game that should move and by how many minutes. Every game from then on (including the knockout round) moves with it. The shareable page and the court TVs follow.</p>
       <div class="lrow"><div><label for="lateFrom">From this game time</label><select id="lateFrom"></select></div><div><label for="lateMin">Minutes later (use a minus to move earlier)</label><input id="lateMin" type="number" value="15" min="-60" max="180" step="5"></div><button id="lateGo" class="go" type="button">Shift times</button></div>
       <div id="lateList"></div><p id="lateMsg" class="hint"></p>
+    </details>
+    <details id="findBox" class="fair noprint tpanel hidden" open><summary><b>Find a player</b> See every category and game for one person</summary>
+      <p class="hint">Type part of a name. Players in more than one category show all their entries, partners, game times and the waits between games.</p>
+      <input id="findQ" type="search" placeholder="Search a player name" autocomplete="off" aria-label="Search a player name" style="width:100%;box-sizing:border-box">
+      <div id="findOut"></div>
     </details>
     <details id="fairBox" class="fair noprint tpanel hidden" open><summary></summary>
       <p class="hint">How the games are spread across teams: how many each team plays, the break between games, and which courts they get. It updates after every move or shift.</p>
@@ -2955,10 +2961,37 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   let tabOn = null;
   const showTab = id => {
     tabOn = id && tabOn !== id ? id : null;
-    ['sharePanel', 'lateBox', 'fairBox', 'brkPanel'].forEach(t => { const el = $('#' + t); el.classList.toggle('hidden', t !== tabOn); if (t === tabOn && !REDUCED) { el.classList.remove('panelin'); void el.offsetWidth; el.classList.add('panelin'); } });
+    ['sharePanel', 'lateBox', 'findBox', 'fairBox', 'brkPanel'].forEach(t => { const el = $('#' + t); el.classList.toggle('hidden', t !== tabOn); if (t === tabOn && !REDUCED) { el.classList.remove('panelin'); void el.offsetWidth; el.classList.add('panelin'); } });
     document.querySelectorAll('#tabs [data-tab]').forEach(b => { const on = b.dataset.tab === tabOn; b.classList.toggle('go', on); b.classList.toggle('ghost', !on); });
     if (tabOn === 'fairBox') renderFair();
+    if (tabOn === 'findBox') { renderFind(); setTimeout(() => $('#findQ').focus({ preventScroll: true }), 60); }
   };
+  function renderFind() {
+    const out = $('#findOut'), q = nrm($('#findQ').value);
+    if (!draw) { out.innerHTML = ''; return; }
+    const teams = draw.getState().teams, all = new Map();
+    teams.forEach(t => t.players.forEach(n => { const k = nrm(n); if (!all.has(k)) all.set(k, n); }));
+    if (!q) { out.innerHTML = '<p class="hint" style="margin:0">' + all.size + ' players in ' + teams.length + ' ' + (tmode === 'open' ? 'pairs' : 'teams') + '. Type a name to see where they play.</p>'; return; }
+    const hit = [...all.entries()].filter(([k]) => k.includes(q)).sort((a, b) => a[0].localeCompare(b[0]));
+    if (!hit.length) { out.innerHTML = '<p class="hint" style="margin:0">No player matches "' + esc($('#findQ').value) + '". Check the spelling.</p>'; return; }
+    const ml = sched ? matchList() : [], L = slotLen(), brOf = {}; if (sched) sched.brackets.forEach(b => b.teams.forEach(t => { brOf[b.level + '|' + t.name] = b.name; }));
+    const has = (str, k) => String(str || '').split('/').some(x => nrm(x) === k);
+    out.innerHTML = hit.slice(0, 6).map(([k, name]) => {
+      const ent = teams.filter(t => t.players.some(n => nrm(n) === k));
+      const games = ml.filter(m => has(m.t1, k) || has(m.t2, k)).sort((a, b) => (a.day || 1) - (b.day || 1) || a.slot - b.slot);
+      let h = '<div class="fp"><h4>' + esc(name) + '</h4>' + ent.map(t => '<div class="fe"><b>' + esc(t.level) + '</b> &middot; with ' + esc(t.players.filter(n => nrm(n) !== k).join(' / ') || '-') + (brOf[t.level + '|' + t.name] ? ' &middot; ' + esc(brOf[t.level + '|' + t.name]) : '') + (t.seed ? ' &middot; seed ' + t.seed : '') + '</div>').join('');
+      if (ent.length > 1) h += '<div class="fe"><b>' + ent.length + ' entries</b></div>';
+      if (games.length) {
+        h += '<div class="scr"><table><tr><th>When</th><th>Court</th><th>Game</th><th>Against</th><th>Wait</th></tr>' + games.map((m, i) => {
+          const pv = games[i - 1], gap = pv && sameDay(pv.slot, m.slot) ? slotStartMin(m.slot) - (slotStartMin(pv.slot) + L) : null;
+          const me = has(m.t1, k) ? m.t1 : m.t2, opp = me === m.t1 ? m.t2 : m.t1;
+          return '<tr><td class="wt">' + (multiDay() ? 'Day ' + m.day + ', ' : '') + esc(m.time.split(' - ')[0]) + '</td><td class="wt">' + esc(m.court) + '</td><td>' + esc(m.level) + ' &middot; ' + esc(m.bracket) + '</td><td>' + esc(opp || 'To be decided') + (m.res ? ' <b>(' + (me === m.t1 ? m.res.a + '-' + m.res.b : m.res.b + '-' + m.res.a) + ')</b>' : '') + '</td><td class="wt ' + (gap !== null && gap <= 0 ? 'wb' : gap > 90 ? 'ww' : '') + '">' + (gap === null ? '' : gap <= 0 ? 'Back-to-back' : gap + ' min') + '</td></tr>';
+        }).join('') + '</table></div>';
+      } else h += '<div class="fe">No games scheduled yet.</div>';
+      return h + '</div>';
+    }).join('') + (hit.length > 6 ? '<p class="hint" style="margin:0">' + (hit.length - 6) + ' more players match. Type more of the name.</p>' : '');
+  }
+  $('#findQ').addEventListener('input', renderFind);
   $('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); };
   $('#editSched').addEventListener('click', () => { if (editMode && tabOn !== 'brkPanel') showTab('brkPanel'); });      // starting to edit switches the view to the Breaks tab
   $('#pubLink').addEventListener('click', () => setTimeout(() => { if (tabOn !== 'sharePanel') showTab('sharePanel'); }, 700));
