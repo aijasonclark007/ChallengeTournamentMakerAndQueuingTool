@@ -75,6 +75,9 @@ tr.rest td{color:var(--mute);font-style:italic}
 .sc{width:58px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;text-align:center}
 .mt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0}.mt span{flex:1}
 .adv td{background:rgba(141,198,63,.18)}.win{font-weight:700;color:var(--ok)}
+.seg{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.seg button{flex:1 1 200px;text-align:left;padding:10px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:700;cursor:pointer;transition:border-color .2s,background .2s,box-shadow .2s}.seg button small{display:block;font-weight:500;font-size:12px;color:var(--mute);margin-top:2px}.seg button.on{border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,101,192,.14)}
+#openBox label{display:block;margin:10px 0 4px}#openBox .orow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}#openBox .orow input[type=text]{flex:1 1 280px;min-width:0}#openBox .ocfg{margin:10px 0}#openBox .ocfg label{margin:0;display:flex;gap:6px;align-items:center}#openBox .ocfg select,#openBox .ocfg input[type=time]{width:auto;min-height:36px}#openBox textarea{min-height:150px}
+#oInfo{margin-top:10px;display:flex;flex-direction:column;gap:10px}#oInfo .oerr{color:var(--bad);font-size:13px;margin:2px 0}#oInfo .owarn{color:#9a6700;font-size:13px;margin:2px 0}#oInfo .osum{font-weight:700}#oInfo table{width:100%;border-collapse:collapse;font-size:13px}#oInfo th,#oInfo td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}#oInfo td.n,#oInfo th.n{text-align:right;font-variant-numeric:tabular-nums}#oInfo .tw{overflow-x:auto;max-height:340px;overflow-y:auto}#oInfo select{min-height:30px;padding:2px 6px}
 .lvl{font:800 22px/1.2 "Bricolage Grotesque",system-ui,sans-serif;margin:26px 0 12px;padding-left:12px;border-left:5px solid var(--lime)}
 .mh{display:grid;grid-template-columns:minmax(150px,1fr) auto auto auto minmax(150px,1fr);gap:8px;align-items:center}
 .mh .l{text-align:right}.mh i{color:var(--mute);font-style:normal;font-size:13px}
@@ -319,8 +322,31 @@ summary:hover{background:#fff}
   <section class="noprint" id="secAdd">
     <div class="bar"><h2>1. Add players</h2><button class="ghost lockbtn" data-lock="add" type="button">Save</button></div>
     <div class="card" style="margin-top:12px">
+      <div class="seg" id="tmSeg" role="tablist" aria-label="Tournament type"><button type="button" id="tmFun" class="on" role="tab" aria-selected="true">Fun Games<small>Blind-draw pairs · High / Mid / Low</small></button><button type="button" id="tmOpen" role="tab" aria-selected="false">Open Tournament<small>Ready-made pairs · Levels × Divisions</small></button></div>
+      <div id="funBox">
       <label for="players">One player per line: name, level (High, Mid or Low)</label>
       <textarea id="players" placeholder="Ana Reyes, High&#10;Ben Cruz, Mid"></textarea>
+      </div>
+      <div id="openBox" class="hidden">
+        <label for="oLevels">Levels, lowest to highest (separate with commas)</label>
+        <div class="orow"><input id="oLevels" type="text" autocomplete="off" spellcheck="false"><button type="button" class="ghost" id="oPreset">Reset to preset</button></div>
+        <div class="orow ocfg">
+          <label class="ck"><input type="checkbox" id="oMen" checked> Men&rsquo;s</label>
+          <label class="ck"><input type="checkbox" id="oWomen" checked> Women&rsquo;s</label>
+          <label class="ck"><input type="checkbox" id="oMixed" checked> Mixed</label>
+          <label class="sel">Non-gender <select id="oNg"><option value="novice">Lowest level only</option><option value="all">Every level</option><option value="off">Off</option></select></label>
+        </div>
+        <label for="pairs">Paste your pairs: Player 1, Player 2, Division, Level (straight from Google Sheets works). A Seed column is optional.</label>
+        <textarea id="pairs" placeholder="Ana Reyes, Ben Cruz, Mixed, Level G&#10;Carl Uy / Dan Lim, Men's, Level F"></textarea>
+        <div class="orow ocfg">
+          <label class="sel">Days <select id="oDays"><option value="1">1 day</option><option value="2" selected>2 days</option></select></label>
+          <label class="sel">Each day ends <input id="oEnd" type="time" value="21:00"></label>
+          <label class="sel">Advance <select id="oAdv"><option value="2">Top 2 of each pool</option><option value="1">Top 1 only</option></select></label>
+          <label class="ck"><input type="checkbox" id="oSeed" checked> Use seeds</label>
+          <button type="button" class="ghost" id="oSample">Load sample event (118 pairs)</button>
+        </div>
+        <div id="oInfo"></div>
+      </div>
       <div class="row">
         <div><label for="courts">Number of courts</label><input id="courts" type="number" min="1" max="12" value="4"></div>
         <div><label for="firstCourt">First court no.</label><input id="firstCourt" type="number" min="1" max="99" value="7"></div>
@@ -484,9 +510,12 @@ function createDraw(registrations, options) {
     if (!level) { skipped.push({ entry: reg, reason: 'Unknown skill level' }); return; }
     const names = Array.isArray(reg.players) && reg.players.length ? reg.players.map(String) : (reg.name ? [String(reg.name).trim()] : []);
     if (!names.length) { skipped.push({ entry: reg, reason: 'Missing name' }); return; }
-    names.forEach(n => { if (seen.has(keyOf(n))) warnings.push('Duplicate player name: ' + n + '. Names must be unique.'); seen.add(keyOf(n)); });
+    names.forEach(n => {
+      const sk = (opt.multiEntry ? level + '|' : '') + keyOf(n);                       // an Open Tournament player may enter several categories, but only once in each
+      if (seen.has(sk)) warnings.push(opt.multiEntry ? 'Duplicate entry: ' + n + ' is listed twice in ' + level + '.' : 'Duplicate player name: ' + n + '. Names must be unique.'); seen.add(sk);
+    });
     if (names.length > 1 || (Array.isArray(reg.players) && reg.players.length)) {
-      pools[level].teams.push({ name: reg.name || names.join(' / '), players: names, level, auto: !reg.name });
+      pools[level].teams.push({ name: reg.name || names.join(' / '), players: names, level, auto: !reg.name, seed: +reg.seed > 0 ? +reg.seed : 0 });
     } else {
       pools[level].singles.push({ name: names[0], level });
     }
@@ -503,7 +532,7 @@ function createDraw(registrations, options) {
         teams.push(newTeam([pool[i].name, pool[i + 1].name], level, null));
       }
       if (pool.length % 2) unpaired.push(pool[pool.length - 1]);
-      pools[level].teams.forEach(t => teams.push(newTeam(t.players.slice(), level, t.auto ? null : t.name)));
+      pools[level].teams.forEach(t => { const nt = newTeam(t.players.slice(), level, t.auto ? null : t.name); if (t.seed) nt.seed = t.seed; teams.push(nt); });
     });
   }
   function makeBrackets(only) {   // only = one level to redraw; the other levels keep their brackets as they are
@@ -514,11 +543,23 @@ function createDraw(registrations, options) {
       const n = levelTeams.length;
       if (!n) return;
       const count = Math.ceil(n / opt.bracketSize), base = Math.floor(n / count), extra = n % count;
-      let pos = 0;
+      const sizes = []; for (let b = 0; b < count; b++) sizes.push(base + (b < extra ? 1 : 0));
+      const groups = sizes.map(() => []);
+      let rest = levelTeams;
+      if (!opt.useSeeds) { let pos = 0; sizes.forEach((sz, i) => { groups[i] = levelTeams.slice(pos, pos + sz); pos += sz; }); rest = []; }
+      else {                                                       // seeded pairs go into different brackets, strongest first (1 to A, 2 to B ... then back again), the rest is drawn at random
+        const seeded = levelTeams.filter(t => t.seed).sort((a, b) => a.seed - b.seed);
+        rest = levelTeams.filter(t => !t.seed);
+        seeded.forEach((t, k) => {
+          const round = Math.floor(k / count), at = k % count; let g = round % 2 === 0 ? at : count - 1 - at;
+          for (let tries = 0; tries < count && groups[g].length >= sizes[g]; tries++) g = (g + 1) % count;
+          groups[g].push(t);
+        });
+      }
+      rest.forEach(t => { let g = -1; groups.forEach((x, i) => { if (x.length < sizes[i] && (g < 0 || x.length < groups[g].length)) g = i; }); groups[g].push(t); });
       for (let b = 0; b < count; b++) {
-        const size = base + (b < extra ? 1 : 0), letter = String.fromCharCode(65 + b);
-        brackets.push({ id: level + '-' + letter, name: level + ' Bracket ' + letter, level, teams: levelTeams.slice(pos, pos + size) });
-        pos += size;
+        const letter = String.fromCharCode(65 + b);
+        brackets.push({ id: level + '-' + letter, name: level + ' Bracket ' + letter, level, teams: groups[b] });
       }
     });
   }
@@ -721,7 +762,7 @@ function createDraw(registrations, options) {
     },
     /** Puts a snapshot() back exactly as it was. */
     restore(s) {
-      teams = s.teams.map(t => ({ id: t.id, name: t.name, custom: !!t.custom, players: t.players.slice(), level: t.level }));
+      teams = s.teams.map(t => { const c = { id: t.id, name: t.name, custom: !!t.custom, players: t.players.slice(), level: t.level }; if (t.seed) c.seed = t.seed; return c; });
       const byId = {}; teams.forEach(t => { byId[t.id] = t; });
       unpaired = s.unpaired.map(p => Object.assign({}, p));
       brackets = s.brackets.map(b => ({ id: b.id, name: b.name, level: b.level, teams: b.teams.map(t => byId[t.id]).filter(Boolean) }));
@@ -747,7 +788,7 @@ function createDraw(registrations, options) {
     unpaired.forEach(p => w.push(p.name + ' (' + p.level + ') has no partner. Pair them with another ' + p.level + ' player.'));
     return w;
   }
-  function copyTeam(t) { return { id: t.id, name: t.name, level: t.level, custom: !!t.custom, players: t.players.slice() }; }
+  function copyTeam(t) { const c = { id: t.id, name: t.name, level: t.level, custom: !!t.custom, players: t.players.slice() }; if (t.seed) c.seed = t.seed; return c; }
   return api;
 }
 
@@ -756,8 +797,108 @@ function generateSchedule(registrations, options) {
   return createDraw(registrations, options).generate();
 }
 
+/**
+ * Big-event layout: every bracket is placed as one block (its rounds a rest slot apart), so a pair plays all its bracket games close together
+ * instead of waiting hours between them. Two brackets share the same courts by taking odd and even slots. Players entered in more than one
+ * category are never double-booked, and a block is placed where their other games are nearest.
+ */
+function placeBlocks(pending, brackets, opt) {
+  const R = opt.restSlots, C = opt.courts, step = R + 1, used = {}, ofPlayer = {}, out = [], jr = makeRng((opt.jseed || 0) + 1);
+  const lvIdx = l => { const i = opt.scheduleOrder.indexOf(l); return i < 0 ? 99 : i; };
+  const rounds = {};
+  pending.forEach(m => { const r = (rounds[m.bracketId] = rounds[m.bracketId] || []); (r[m.round - 1] = r[m.round - 1] || []).push(m); });
+  const dense = b => (rounds[b.id] || []).reduce((n, r) => n + (r ? r.length : 0), 0);
+  const shared = {};                                                  // how many entries each player has: shared players are placed first, while there is room to space them out
+  brackets.forEach(b => b.teams.forEach(t => t.players.forEach(p => { shared[keyOf(p)] = (shared[keyOf(p)] || 0) + 1; })));
+  const crowd = b => b.teams.reduce((n, t) => n + t.players.filter(p => shared[keyOf(p)] > 1).length, 0);
+  const byLevelFirst = brackets.slice().sort(opt.crowdFirst ? (a, b) => crowd(b) - crowd(a) || lvIdx(a.level) - lvIdx(b.level) || dense(b) - dense(a) : (a, b) => lvIdx(a.level) - lvIdx(b.level) || crowd(b) - crowd(a) || dense(b) - dense(a));
+  const order = [];                                                    // brackets that share players are placed one after another, so those players' games land close together
+  { const left = byLevelFirst.slice(), seenP = {};
+    while (left.length) {
+      let bi = 0, bs = -1;
+      left.forEach((b, i) => { let sc = 0; b.teams.forEach(t => t.players.forEach(p => { if (seenP[keyOf(p)]) sc += 1; })); sc = sc * (opt.affinityW === undefined ? 10 : opt.affinityW) - i * (opt.levelW === undefined ? 0.01 : opt.levelW) + jr() * (opt.jitter || 0); if (sc > bs) { bs = sc; bi = i; } });
+      const b = left.splice(bi, 1)[0]; order.push(b); b.teams.forEach(t => t.players.forEach(p => { seenP[keyOf(p)] = 1; }));
+    } }
+  const free = (slot, n, players) => {
+    if ((used[slot] || 0) + n > C) return false;
+    for (const p of players) { const s = ofPlayer[p]; if (!s) continue; for (let d = -R; d <= R; d++) if (s.has(slot + d)) return false; }
+    return true;
+  };
+  const SLACK = opt.slack === undefined ? 3 : opt.slack;
+  const roundsOf = b => (rounds[b.id] || []).filter(Boolean);
+  const peopleOf = r => [].concat.apply([], r.map(m => m.players));
+  const lay = (rds, t) => {                                              // first round at t, each next round as soon as it fits (at most SLACK slots later than the ideal spacing)
+    const sl = [];
+    for (let i = 0; i < rds.length; i++) {
+      let s = i ? sl[i - 1] + step : t, ok = false;
+      for (let k = 0; k <= (i ? SLACK : 0); k++, s++) if (free(s, rds[i].length, peopleOf(rds[i]))) { ok = true; break; }
+      if (!ok) return null;
+      sl.push(s);
+    }
+    return sl;
+  };
+  const put = (b, rds, sl) => rds.forEach((r, i) => r.forEach(m => {
+    const s = sl[i]; used[s] = (used[s] || 0) + 1; m.slot = s; out.push(m);
+    m.players.forEach(p => { (ofPlayer[p] = ofPlayer[p] || new Set()).add(s); });
+  }));
+  const take = (b, rds) => rds.forEach(r => r.forEach(m => {
+    used[m.slot]--; m.players.forEach(p => ofPlayer[p].delete(m.slot)); out.splice(out.indexOf(m), 1); delete m.slot;
+  }));
+  order.forEach(b => {
+    const rds = roundsOf(b); if (!rds.length) return;
+    const people = [...new Set(peopleOf([].concat.apply([], rds)))];
+    let best = null, firstOk = -1;
+    for (let t = 0; t < 600; t++) {
+      const sl = lay(rds, t); if (!sl) continue;
+      if (firstOk < 0) firstOk = t;
+      if (t > firstOk + (opt.window || 6)) break;
+      let cost = (sl[sl.length - 1] - t) * 1 + t * (opt.earlyW === undefined ? 0.3 : opt.earlyW);
+      people.forEach(p => { const e = ofPlayer[p]; if (!e || !e.size) return; let g = 99; e.forEach(x => sl.forEach(s => { g = Math.min(g, Math.abs(s - x)); })); cost += Math.max(0, g - (R + 1)) * (opt.gapW === undefined ? 0.4 : opt.gapW); });
+      if (!best || cost < best.cost) best = { t, cost, sl };
+    }
+    if (best) put(b, rds, best.sl);
+  });
+  for (let pass = 0; pass < (opt.passes === undefined ? 3 : opt.passes); pass++) {      // squeeze: move any block to an earlier start if it now fits
+    let moved = 0;
+    order.slice().sort((x, y) => Math.max.apply(null, roundsOf(y).map(r => r[0].slot === undefined ? 0 : r[0].slot)) - Math.max.apply(null, roundsOf(x).map(r => r[0].slot === undefined ? 0 : r[0].slot))).forEach(b => {
+      const rds = roundsOf(b); if (!rds.length || rds[0][0].slot === undefined) return;
+      const cur = rds.map(r => r[0].slot), end = cur[cur.length - 1];
+      take(b, rds);
+      let done = null;
+      for (let t = 0; t < cur[0]; t++) { const sl = lay(rds, t); if (sl && sl[sl.length - 1] < end) { done = sl; break; } }
+      put(b, rds, done || cur); if (done) moved++;
+    });
+    if (!moved) break;
+  }
+  const bySlot = {}; out.forEach(m => { (bySlot[m.slot] = bySlot[m.slot] || []).push(m); });
+  Object.keys(bySlot).forEach(k => bySlot[k].sort((x, y) => lvIdx(x.level) - lvIdx(y.level) || String(x.bracketId).localeCompare(String(y.bracketId)) || x.round - y.round).forEach((m, i) => { m.court = i + 1; }));
+  return out;
+}
+
 /** Builds the schedule from brackets: [{ id, name, level, teams: [{ name, players: [a, b] }] }] */
+/** Clock time of a slot (0-based). With several days every day starts again at the first-game time and the day ends at normalEndTime. */
+function clockOf(opt, idx0) {
+  const sm = opt.slotMinutes, st = toMinutes(opt.startTime), days = opt.days || 1;
+  const spd = days > 1 ? Math.max(1, Math.floor((toMinutes(opt.normalEndTime) - st) / sm)) : 1e9, day = Math.floor(idx0 / spd) + 1, w = idx0 % spd;
+  return { day, spd, start: fmt(st + w * sm), end: fmt(st + (w + 1) * sm) };
+}
+const dayLabel = (opt, c) => ((opt.days || 1) > 1 ? 'Day ' + c.day + ', ' : '');
+function planCost(res, opt) {                                                      // lower is better: squared waits between a player's games, plus the length of the day
+  const by = {}; res.matches.forEach(m => m.team1.players.concat(m.team2.players).forEach(p => { (by[keyOf(p)] = by[keyOf(p)] || []).push(m.slot); }));
+  let sq = 0; Object.keys(by).forEach(p => { const a = by[p].sort((x, y) => x - y); for (let i = 1; i < a.length; i++) sq += (a[i] - a[i - 1]) * (a[i] - a[i - 1]); });
+  return sq + 40 * res.summary.slotsUsed;
+}
 function generateScheduleFromBrackets(brackets, options) {
+  if (options && options.tries > 1 && !options._inner) {                          // big events: try several layouts and keep the one with the shortest waits
+    const V = [{ layout: 'block' }, { layout: 'block', affinityW: 4, jseed: 1, jitter: 2 }, { layout: 'block', affinityW: 30, window: 10, jseed: 2, jitter: 3 }, { layout: 'block', levelW: 0.3, jseed: 3, jitter: 4 }, { fair: true }, { layout: 'block', affinityW: 15, jseed: 4, jitter: 5, slack: 5 }, { layout: 'block', slack: 1, jseed: 5, jitter: 2 }, { layout: 'block', affinityW: 6, window: 12, jseed: 6, jitter: 6 }];
+    let best = null;
+    V.slice(0, options.tries).forEach(v => {
+      const r = generateScheduleFromBrackets(brackets, Object.assign({}, options, v, { tries: 1, _inner: true }));
+      if (validateSchedule(r, options).length) return;
+      const c = planCost(r, options); if (!best || c < best.c) best = { r, c };
+    });
+    if (best) return best.r;
+  }
   const opt = withDefaults(options);
   const rand = makeRng(opt.seed);
   const warnings = [];
@@ -785,9 +926,15 @@ function generateScheduleFromBrackets(brackets, options) {
   const scheduled = [];
   let todo = pending.slice();
   let slot = 0;
+  if (opt.layout === 'block') { placeBlocks(pending, brackets, opt).forEach(m => scheduled.push(m)); todo = pending.filter(m => m.slot === undefined); }
   while (todo.length && slot < 1000) {
     // brackets with the most games left go first, so every bracket finishes at a similar time
     const lv = m => opt.scheduleOrder.indexOf(m.level);
+    if (opt.fair) {                                                  // big events: favour players who have waited longest, so nobody sits for hours (weights: idle time, games left in the bracket, level order)
+      const W = Object.assign({ idle: 3, rem: 1, lv: 0.5 }, opt.fair === true ? {} : opt.fair), nL = Math.max(1, opt.scheduleOrder.length);
+      todo.forEach(m => { let idle = 0; m.players.forEach(p => { const l = lastSlot[p]; idle = Math.max(idle, l === undefined ? 0 : slot - l); }); m._sc = W.idle * idle + W.rem * remainingIn[m.bracketId] - W.lv * lv(m) * (6 / nL); });
+      todo.sort((a, b) => b._sc - a._sc || a.round - b.round || a.tie - b.tie);
+    } else
     todo.sort((a, b) => lv(a) - lv(b) || remainingIn[b.bracketId] - remainingIn[a.bracketId] || a.round - b.round || a.tie - b.tie);
     const busy = new Set();
     const placed = [];
@@ -812,18 +959,19 @@ function generateScheduleFromBrackets(brackets, options) {
   const startMin = toMinutes(opt.startTime);
   const matches = scheduled.map((m, i) => ({
     id: i + 1, slot: m.slot + 1,
-    start: fmt(startMin + m.slot * opt.slotMinutes),
-    end: fmt(startMin + (m.slot + 1) * opt.slotMinutes),
+    start: clockOf(opt, m.slot).start, end: clockOf(opt, m.slot).end, day: clockOf(opt, m.slot).day,
     court: m.court, courtName: 'Court ' + (opt.firstCourt + m.court - 1), bracket: m.bracket, level: m.level, round: m.round, team1: m.team1, team2: m.team2
   })).sort((a, b) => a.slot - b.slot || a.court - b.court);
 
   const lastIdx = scheduled.length ? Math.max.apply(null, scheduled.map(m => m.slot)) : -1;
-  const endMin = startMin + (lastIdx + 1) * opt.slotMinutes;
+  const endMin = startMin + (lastIdx + 1) * opt.slotMinutes, multiDay = (opt.days || 1) > 1, lastClock = lastIdx >= 0 ? clockOf(opt, lastIdx) : null;
   const status = !scheduled.length ? 'NO_GAMES'
+    : multiDay ? (lastIdx < lastClock.spd * opt.days ? 'ON_TIME' : 'EXCEEDS_LIMIT')
     : endMin <= toMinutes(opt.normalEndTime) ? 'ON_TIME'
     : endMin <= toMinutes(opt.hardEndTime) ? 'NEEDS_EXTENSION' : 'EXCEEDS_LIMIT';
-  if (status === 'NEEDS_EXTENSION') warnings.push('Games finish at ' + fmt(endMin) + ', past ' + fmt(toMinutes(opt.normalEndTime)) + '. The extension is needed.');
-  if (status === 'EXCEEDS_LIMIT') warnings.push('Games would finish at ' + fmt(endMin) + ', past the ' + fmt(toMinutes(opt.hardEndTime)) + ' limit. Add courts or split the event across two days.');
+  if (multiDay && status === 'EXCEEDS_LIMIT') warnings.push('The games need more than the ' + opt.days + ' days you set (they would end ' + dayLabel(opt, lastClock) + lastClock.end + '). Add courts or another day.');
+  if (!multiDay && status === 'NEEDS_EXTENSION') warnings.push('Games finish at ' + fmt(endMin) + ', past ' + fmt(toMinutes(opt.normalEndTime)) + '. The extension is needed.');
+  if (!multiDay && status === 'EXCEEDS_LIMIT') warnings.push('Games would finish at ' + fmt(endMin) + ', past the ' + fmt(toMinutes(opt.hardEndTime)) + ' limit. Add courts or split the event across two days.');
 
   return {
     matches,
@@ -831,8 +979,8 @@ function generateScheduleFromBrackets(brackets, options) {
     unpaired: [], skipped: [], warnings,
     summary: {
       teams: brackets.reduce((n, b) => n + b.teams.length, 0), brackets: brackets.length, matches: matches.length,
-      slotsUsed: lastIdx + 1, finishesAt: lastIdx >= 0 ? fmt(endMin) : null, status,
-      levelStarts: opt.scheduleOrder.reduce((o, l) => { const s = matches.filter(m => m.level === l); if (s.length) o[l] = s[0].start; return o; }, {})
+      slotsUsed: lastIdx + 1, days: multiDay ? lastClock.day : 1, finishesAt: lastIdx >= 0 ? dayLabel(opt, lastClock) + lastClock.end : null, status,
+      levelStarts: opt.scheduleOrder.reduce((o, l) => { const s = matches.filter(m => m.level === l); if (s.length) o[l] = ((opt.days || 1) > 1 ? 'Day ' + s[0].day + ', ' : '') + s[0].start; return o; }, {})
     }
   };
 }
@@ -979,11 +1127,11 @@ function computeStandings(brackets, matches, results, options) {
  * field is not a power of 2, and teams from the same bracket are kept apart in the first round.
  */
 function buildKnockout(brackets, standings, options) {
-  const opt = withDefaults(options), adv = opt.advance || 2, matches = [], champions = [];
+  const opt = withDefaults(options), adv0 = opt.advance || 2, matches = [], champions = [];
   const coin = opt.coin || {}, ties = [];
   const better = (x, y) => y.row.won - x.row.won || y.row.pf - x.row.pf || y.row.pd - x.row.pd || (coin[y.row.team.name] || 0) - (coin[x.row.team.name] || 0);
   opt.levels.forEach(level => {
-    const bs = brackets.filter(b => b.level === level), entries = [];
+    const adv = (opt.advanceBy && opt.advanceBy[level]) || adv0, bs = brackets.filter(b => b.level === level), entries = [];
     for (let r = 0; r < adv; r++) {
       entries.push.apply(entries, bs.map(b => ({ row: standings[b.id].rows.filter(x => !x.out)[r], bracket: b.name })).filter(x => x.row).sort(better));      // a withdrawn team does not advance: the next team takes the place
     }
@@ -1057,27 +1205,33 @@ function scheduleKnockout(ko, groupLastSlot, options, poolMatches) {
   // each level's knockout can start once that level's own group games are done (and its players rested), using courts the other levels are not using
   const lvLast = {}, busy = {};
   (poolMatches || []).forEach(p => { lvLast[p.level] = Math.max(lvLast[p.level] || 0, p.slot); (busy[p.slot] = busy[p.slot] || new Set()).add(p.court - 1); });
-  const firstFor = lv => (poolMatches && lvLast[lv] ? lvLast[lv] : groupLastSlot) + 1 + opt.restSlots;
-  let todo = ko.matches.slice(), slot = Math.min.apply(null, ko.matches.map(m => firstFor(m.level)).concat([groupLastSlot + 1 + opt.restSlots]));
+  const spd = clockOf(opt, 0).spd, nextDay = Math.floor((groupLastSlot - 1) / spd) + 1, dayStart = (opt.days || 1) > 1 && opt.koNextDay ? nextDay * spd + 1 : 0;
+  const firstFor = lv => Math.max(opt.koAfterAll ? groupLastSlot + 1 + opt.restSlots : (poolMatches && lvLast[lv] ? lvLast[lv] : groupLastSlot) + 1 + opt.restSlots, dayStart);
+  let todo = ko.matches.slice(), slot = Math.min.apply(null, ko.matches.map(m => firstFor(m.level)).concat([Math.max(groupLastSlot + 1 + opt.restSlots, dayStart)]));
+  const playing = {};                                   // player -> slots (known first-round teams only)
+  const known = m => { const k = []; m.slots.forEach(r => { if (r.team) r.team.players.forEach(p => k.push(keyOf(p))); }); return k; };
+  const clash = (m, slot) => known(m).some(p => { const q = playing[p]; if (!q) return false; for (let d = -opt.restSlots; d <= opt.restSlots; d++) if (q.has(slot + d)) return true; return false; });
   while (todo.length && slot < 1000) {
     const taken = busy[slot] || new Set(), freeCourts = pref.filter(o => !taken.has(o));
     const ready = todo
       .filter(m => slot >= firstFor(m.level) && m.after.every(id => slotOf[id] !== undefined && slot - slotOf[id] > opt.restSlots))
-      .sort((a, b) => a.round - b.round || opt.scheduleOrder.indexOf(a.level) - opt.scheduleOrder.indexOf(b.level))
-      .slice(0, freeCourts.length);
-    ready.forEach((m, i) => {
+      .sort((a, b) => a.round - b.round || opt.scheduleOrder.indexOf(a.level) - opt.scheduleOrder.indexOf(b.level));
+    const pick = [];
+    for (const m of ready) { if (pick.length >= freeCourts.length) break; if (clash(m, slot)) continue; known(m).forEach(p => { (playing[p] = playing[p] || new Set()).add(slot); }); pick.push(m); }
+    pick.forEach((m, i) => {
       slotOf[m.id] = slot;
-      const off = freeCourts[i];
-      out.push(Object.assign({}, m, { slot, court: off + 1, courtName: 'Court ' + (opt.firstCourt + off), start: fmt(start + (slot - 1) * opt.slotMinutes), end: fmt(start + slot * opt.slotMinutes) }));
+      const off = freeCourts[i], c = clockOf(opt, slot - 1);
+      out.push(Object.assign({}, m, { slot, day: c.day, court: off + 1, courtName: 'Court ' + (opt.firstCourt + off), start: c.start, end: c.end }));
     });
-    todo = todo.filter(m => !ready.includes(m));
+    todo = todo.filter(m => !pick.includes(m));
     slot++;
   }
   const last = out.length ? Math.max.apply(null, out.map(m => m.slot)) : groupLastSlot;
-  const endMin = start + last * opt.slotMinutes;
-  const status = !out.length ? 'NO_GAMES' : endMin <= toMinutes(opt.normalEndTime) ? 'ON_TIME'
+  const endMin = start + last * opt.slotMinutes, multiDay = (opt.days || 1) > 1, lc = clockOf(opt, Math.max(0, last - 1));
+  const status = !out.length ? 'NO_GAMES' : multiDay ? (last <= lc.spd * opt.days ? 'ON_TIME' : 'EXCEEDS_LIMIT')
+    : endMin <= toMinutes(opt.normalEndTime) ? 'ON_TIME'
     : endMin <= toMinutes(opt.hardEndTime) ? 'NEEDS_EXTENSION' : 'EXCEEDS_LIMIT';
-  return { matches: out.sort((a, b) => a.slot - b.slot || a.court - b.court), summary: { finishesAt: out.length ? fmt(endMin) : null, status } };
+  return { matches: out.sort((a, b) => a.slot - b.slot || a.court - b.court), summary: { finishesAt: out.length ? dayLabel(opt, lc) + lc.end : null, status } };
 }
 
 
@@ -1088,9 +1242,12 @@ const $ = s => document.querySelector(s);
 const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let coin = {}, locks = { add: false, teams: false, brackets: false };
 let draw = null, gopt = {}, sched = null, results = {}, ko = null, koSched = null, koResults = {};
-const LEVELS = ['High', 'Mid', 'Low'];
+const FUN_LEVELS = ['High', 'Mid', 'Low'], LEVELS = FUN_LEVELS.slice();
+let tmode = 'fun';
+const LVW = () => tmode === 'open' ? 'Category' : 'Skill Level';
+const setLevels = a => { LEVELS.length = 0; a.forEach(x => LEVELS.push(x)); };
 const byLevel = (list, fn) => LEVELS.filter(l => list.some(b => b.level === l)).map(l =>
-  '<h3 class="lvl">Skill Level: ' + l + '</h3><div class="grid">' + list.filter(b => b.level === l).map(fn).join('') + '</div>').join('');
+  '<h3 class="lvl">' + LVW() + ': ' + l + '</h3><div class="grid">' + list.filter(b => b.level === l).map(fn).join('') + '</div>').join('');
 let mnotes = {}, WD = new Set();      // match notes (default / retired / withdrawn, with reasons) and the teams that withdrew
 const _cs0 = computeStandings;
 computeStandings = (b, m, r, o) => _cs0(b, m, r, Object.assign({ withdrawn: [...WD] }, o || {}));
@@ -1124,8 +1281,124 @@ $('#sample').onclick = () => {
   Object.keys(counts).forEach(l => { for (let i = 1; i <= counts[l]; i++) out.push(l + ' Player ' + i + ', ' + l); });
   $('#players').value = out.join('\n');
 };
+
+// ===== Open Tournament mode: ready-made pairs, Levels x Divisions =====
+const OPEN_PRESET = ['Novice', 'Level G', 'Level F', 'Level E', 'Level D', 'Advance', 'Open'], DIVS = ["Men's", "Women's", 'Mixed', 'Non-gender'];
+const oc = { advBy: {} };                        // per-category "Top 1 only" choices, kept by category name
+const nrm = x => String(x || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+const lvKey = x => nrm(x).replace(/^level /, '');
+function divOf(x) {
+  const n = nrm(x);
+  if (/^(men|mens|male|man|boys?)$/.test(n)) return "Men's";
+  if (/^(women|womens|woman|female|ladies|lady|girls?)$/.test(n)) return "Women's";
+  if (/^(mixed|mix|mixed doubles)$/.test(n)) return 'Mixed';
+  if (/^(non gender|nongender|no gender|any gender|open gender)$/.test(n)) return 'Non-gender';
+  return '';
+}
+function ocLevels() { const seen = new Set(); return $('#oLevels').value.split(',').map(x => x.trim()).filter(x => x && !seen.has(lvKey(x)) && seen.add(lvKey(x))); }
+function ocAllowed() { const a = []; if ($('#oMen').checked) a.push("Men's"); if ($('#oWomen').checked) a.push("Women's"); if ($('#oMixed').checked) a.push('Mixed'); if ($('#oNg').value !== 'off') a.push('Non-gender'); return a; }
+function lev1(a, b) { if (a === b) return 0; if (Math.abs(a.length - b.length) > 1) return 2; let i = 0; while (i < a.length && a[i] === b[i]) i++; if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1) ? 1 : 2; const [L, S] = a.length > b.length ? [a, b] : [b, a]; return L.slice(i + 1) === S.slice(i) ? 1 : 2; }
+function parsePairs(text) {
+  const levels = ocLevels(), lvMap = {}; levels.forEach((l, i) => { lvMap[lvKey(l)] = i; });
+  const allowed = ocAllowed(), ng = $('#oNg').value, out = { regs: [], errs: [], warns: [], cats: [], counts: {}, levels };
+  const canon = {}, keys = [];
+  const fixName = n => { n = n.replace(/\s+/g, ' ').trim(); const k = nrm(n); if (!canon[k]) { canon[k] = n; keys.push(k); } return canon[k]; };
+  text.split('\n').forEach((raw, i) => {
+    const line = raw.trim(); if (!line) return;
+    const f = line.split(/\t|,/).map(x => x.trim()).filter(Boolean);
+    if (/^(player ?1|name|pair|team)\b/i.test(f[0]) && /division|level/i.test(line)) return;       // header row from a sheet
+    let div = '', lv = -1, seed = 0, names = [];
+    f.forEach(x => {
+      if (/^\d{1,3}$/.test(x)) { seed = +x; return; }
+      const d = divOf(x); if (d && !div) { div = d; return; }
+      if (lvKey(x) in lvMap && lv < 0) { lv = lvMap[lvKey(x)]; return; }
+      const m = x.match(/^(.*\S)\s+([A-Za-z’' -]+)$/);
+      if (m && divOf(m[2]) && (lvKey(m[1]) in lvMap) && lv < 0 && !div) { div = divOf(m[2]); lv = lvMap[lvKey(m[1])]; return; }
+      names.push(x);
+    });
+    if (names.length === 1) names = names[0].split(/\s*(?:\/|&|\+|\band\b)\s*/i).filter(Boolean);
+    const at = 'Line ' + (i + 1) + ': ';
+    if (names.length !== 2) { out.errs.push(at + (names.length < 2 ? 'needs two player names.' : 'could not read "' + names.slice(2).join(', ') + '" as a level or division.') + ' (' + line.slice(0, 40) + ')'); return; }
+    if (!div) { out.errs.push(at + 'division missing or unknown (use Men\'s, Women\'s, Mixed or Non-gender). (' + line.slice(0, 40) + ')'); return; }
+    if (lv < 0) { out.errs.push(at + 'level missing or not in your level list. (' + line.slice(0, 40) + ')'); return; }
+    if (div === 'Non-gender' && ng === 'off') { out.errs.push(at + 'Non-gender is turned off. ' + names.join(' / ')); return; }
+    if (div === 'Non-gender' && ng === 'novice' && lv !== 0) { out.errs.push(at + 'Non-gender is only on for ' + levels[0] + '. Switch it to "Every level" if you want it here. ' + names.join(' / ')); return; }
+    if (!allowed.includes(div)) { out.errs.push(at + div + ' is turned off. ' + names.join(' / ')); return; }
+    const pn = names.map(fixName); if (nrm(pn[0]) === nrm(pn[1])) { out.errs.push(at + 'both players have the same name (' + pn[0] + ').'); return; }
+    const cat = levels[lv] + ' ' + div;
+    out.regs.push({ skill: cat, players: pn, seed, _lv: lv, _div: DIVS.indexOf(div) }); out.counts[cat] = (out.counts[cat] || 0) + 1;
+  });
+  for (let a = 0; a < keys.length; a++) for (let b = a + 1; b < keys.length; b++) if (keys[a].length >= 6 && keys[b].length >= 6 && lev1(keys[a], keys[b]) === 1) out.warns.push(canon[keys[a]] + ' and ' + canon[keys[b]] + ' look almost the same. They are treated as two different people.');
+  out.regs.sort((x, y) => x._lv - y._lv || x._div - y._div);
+  out.cats = [...new Set(out.regs.map(r => r.skill))];
+  return out;
+}
+function poolSizes(n, size) { if (n < 2) return []; const g = Math.max(1, Math.round(n / size) || 1), base = Math.floor(n / g), extra = n % g; return Array.from({ length: g }, (_, i) => base + (i < extra ? 1 : 0)); }
+function ocPlan(P) {
+  const adv0 = +$('#oAdv').value, rows = [];
+  let pool = 0, kog = 0;
+  P.cats.forEach(c => {
+    const n = P.counts[c], sz = poolSizes(n, 4), pg = sz.reduce((t, k) => t + k * (k - 1) / 2, 0), a = oc.advBy[c] || adv0, adv = sz.length * Math.min(a, 2), kg = sz.length ? (n === 2 ? 0 : Math.max(0, adv - 1)) : 0;
+    rows.push({ c, n, pools: sz.length, pg, kg, a }); pool += pg; kog += kg;
+  });
+  const courts = Math.max(1, +$('#courts').value || 10), days = +$('#oDays').value, sm = 20;
+  const st = toMinutes($('#start').value || '09:00'), perDay = Math.max(1, Math.floor((toMinutes($('#oEnd').value || '21:00') - st) / sm));
+  return { rows, pool, kog, slots: Math.ceil((pool + kog) / courts), perDay, days, fits: Math.ceil(pool / courts) <= perDay * days };
+}
+function renderOpenInfo() {
+  const P = parsePairs($('#pairs').value), box = $('#oInfo');
+  if (!$('#pairs').value.trim()) { box.innerHTML = '<div class="hint" style="min-height:0">Paste your pairs, one pair per line. Each category (level + division) is made from what you paste.</div>'; return P; }
+  const plan = ocPlan(P), shown = P.errs.slice(0, 6);
+  let h = '<div class="osum">' + P.regs.length + ' pairs in ' + P.cats.length + ' categories &middot; about ' + plan.pool + ' pool games + ' + plan.kog + ' knockout games</div>';
+  h += shown.map(e => '<div class="oerr">' + esc(e) + '</div>').join('') + (P.errs.length > 6 ? '<div class="oerr">…and ' + (P.errs.length - 6) + ' more lines to fix.</div>' : '');
+  h += P.warns.slice(0, 5).map(e => '<div class="owarn">' + esc(e) + '</div>').join('');
+  if (!plan.fits) h += '<div class="owarn">The pool games alone need about ' + Math.ceil(plan.pool / Math.max(1, +$('#courts').value || 10)) + ' game slots, but ' + plan.days + ' day' + (plan.days > 1 ? 's' : '') + ' only have ' + plan.perDay * plan.days + '. Add courts, days or hours.</div>';
+  if (plan.rows.length) h += '<div class="tw"><table><tr><th>Category</th><th class="n">Pairs</th><th class="n">Pools</th><th class="n">Games</th><th>Advance</th></tr>' + plan.rows.map(r => '<tr><td>' + esc(r.c) + '</td><td class="n">' + r.n + '</td><td class="n">' + r.pools + '</td><td class="n">' + (r.pg + r.kg) + '</td><td><select class="oadv" data-c="' + esc(r.c) + '" aria-label="Advance from ' + esc(r.c) + '"><option value="2"' + (r.a === 2 ? ' selected' : '') + '>Top 2</option><option value="1"' + (r.a === 1 ? ' selected' : '') + '>Top 1</option></select></td></tr>').join('') + '</table></div>';
+  if (box._h !== h) { box._h = h; const sel = document.activeElement && document.activeElement.classList.contains('oadv') ? document.activeElement.dataset.c : null; box.innerHTML = h; if (sel) { const n = box.querySelector('.oadv[data-c="' + sel.replace(/"/g, '\\"') + '"]'); if (n) n.focus(); } }
+  return P;
+}
+function setMode(m, instant) {
+  tmode = m;
+  $('#tmFun').classList.toggle('on', m === 'fun'); $('#tmOpen').classList.toggle('on', m === 'open');
+  $('#tmFun').setAttribute('aria-selected', m === 'fun'); $('#tmOpen').setAttribute('aria-selected', m === 'open');
+  if (instant) { $('#funBox').classList.toggle('hidden', m !== 'fun'); $('#openBox').classList.toggle('hidden', m !== 'open'); }
+  else { vis($('#funBox'), m === 'fun'); vis($('#openBox'), m === 'open'); }
+  $('#sample').classList.toggle('hidden', m !== 'fun'); $('#drawBtn').textContent = m === 'open' ? 'Create categories' : 'Pair players';
+  if (m === 'open') { if (!$('#oLevels').value) $('#oLevels').value = OPEN_PRESET.join(', '); if (!$('#courts').dataset.o) { $('#courts').dataset.o = 1; $('#courts').value = 10; $('#start').value = '09:00'; $('#firstCourt').value = 1; } renderOpenInfo(); }
+}
+const swMode = m => { if (draw && m !== tmode) { $('#loadMsg').textContent = 'This tournament is already started as ' + (tmode === 'open' ? 'an Open Tournament' : 'Fun Games') + '. Create a new tournament to use the other type.'; return; } setMode(m); };
+$('#tmFun').onclick = () => swMode('fun'); $('#tmOpen').onclick = () => swMode('open');
+$('#oPreset').onclick = () => { $('#oLevels').value = OPEN_PRESET.join(', '); renderOpenInfo(); };
+['#oLevels', '#pairs', '#oMen', '#oWomen', '#oMixed', '#oNg', '#oDays', '#oEnd', '#oAdv', '#courts', '#start'].forEach(i => $(i).addEventListener('input', () => { if (tmode === 'open') renderOpenInfo(); }));
+$('#oInfo').addEventListener('change', e => { const t = e.target.closest('.oadv'); if (!t) return; if (+t.value === +$('#oAdv').value) delete oc.advBy[t.dataset.c]; else oc.advBy[t.dataset.c] = +t.value; $('#oInfo')._h = null; renderOpenInfo(); });
+function openSampleText() {
+  const CATS = [['Novice', 'Non-gender', 32], ['Level G', "Men's", 12], ['Level G', "Women's", 6], ['Level G', 'Mixed', 6], ['Level F', "Men's", 6], ['Level F', "Women's", 4], ['Level F', 'Mixed', 6], ['Level E', "Men's", 8], ['Level D', 'Mixed', 16], ['Advance', "Men's", 20]];
+  let n = 0; const names = i => { const a = ['Ana', 'Bert', 'Carlo', 'Dante', 'Elias', 'Faye', 'Gio', 'Hector', 'Ivan', 'Joy', 'Kyle', 'Lara', 'Marco', 'Nico', 'Owen', 'Paolo', 'Quin', 'Rhea', 'Sofia', 'Tomas'], b = ['Reyes', 'Cruz', 'Lim', 'Uy', 'Tan', 'Santos', 'Garcia', 'Ramos', 'Diaz', 'Perez', 'Lopez', 'Go'], k = i * 7 + 3; return a[i % a.length] + ' ' + b[Math.floor(i / a.length) % b.length] + (i >= a.length * b.length ? ' ' + Math.floor(i / (a.length * b.length)) : ''); };
+  const out = [];
+  CATS.forEach(([l, d, c]) => { for (let i = 0; i < c; i++) { const a = n++, b = n++; out.push(names(a) + ', ' + names(b) + ', ' + d + ', ' + l); } });
+  out.push(names(0) + ', ' + names(5) + ', Mixed, Level F');                   // a few players enter more than one category
+  out.push(names(2) + ', ' + names(9) + ', Mixed, Level G');
+  return out.join('\n');
+}
+$('#oSample').onclick = () => { $('#oLevels').value = OPEN_PRESET.join(', '); $('#oNg').value = 'novice'; $('#pairs').value = openSampleText(); renderOpenInfo(); };
+function startOpenDraw() {
+  const P = renderOpenInfo();
+  if (!P.regs.length) { $('#loadMsg').textContent = 'Paste at least one pair first.'; return; }
+  if (P.errs.length) { $('#loadMsg').textContent = P.errs.length + ' line(s) need fixing first (see the red notes above). Fix or delete them, then try again.'; return; }
+  setLevels(P.cats);
+  const days = +$('#oDays').value, end = $('#oEnd').value || '21:00', adv = +$('#oAdv').value, by = {}; P.cats.forEach(c => { if (oc.advBy[c]) by[c] = oc.advBy[c]; });
+  gopt = { courts: Math.max(1, +$('#courts').value || 10), startTime: $('#start').value || '09:00', firstCourt: Math.max(1, +$('#firstCourt').value || 1), levels: P.cats.slice(), scheduleOrder: P.cats.slice(), multiEntry: true, useSeeds: $('#oSeed').checked, tries: 8, days, normalEndTime: end, hardEndTime: end, koAfterAll: true, koNextDay: days > 1, advance: adv, advanceBy: by, openMode: true };
+  draw = createDraw(P.regs.map(r => ({ skill: r.skill, players: r.players, seed: r.seed })), gopt);
+  locks.teams = locks.brackets = false; selP = selT = null;
+  const w = draw.getState().warnings;
+  $('#loadMsg').textContent = w.length ? w.slice(0, 3).join(' ') : '';
+  $('#drawSec').classList.remove('hidden'); hideResults(); applyLocks();
+  window.goStepNow && goStepNow('teams');
+}
 function startDraw() {
   if (blocked('#loadMsg')) return;
+  if (tmode === 'open') return startOpenDraw();
+  setLevels(FUN_LEVELS);
   const list = parsePlayers($('#players').value);
   if (!list.length) { $('#loadMsg').textContent = 'Add at least one player first.'; return; }
   gopt = { courts: Math.max(1, +$('#courts').value || 4), startTime: $('#start').value || '14:00', firstCourt: Math.max(1, +$('#firstCourt').value || 7) };
@@ -1153,7 +1426,7 @@ function renderTeams(msg, isErr) {
   const act = (manT() && selP) ? '<div class="row plact" style="margin:4px 0 12px;gap:8px;flex-wrap:wrap;align-items:center">' + (manT() && selP && rnOn ? '<input id="rnIn" type="text" maxlength="40" value="' + esc(selP.name) + '" style="flex:1;min-width:160px"><button type="button" class="go" data-rnsave>Save name</button><button type="button" class="ghost" data-rncancel>Cancel</button>'
     : manT() && selP ? '<button type="button" class="ghost" data-rnstart>Rename ' + esc(selP.name) + '</button> <button type="button" class="ghost" data-rmp style="color:var(--bad)">Remove ' + esc(selP.name) + '</button> <span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '') + '</div>' : '';   // Rename / Change level, shown right under the picked player's Skill Level heading
   $('#teams').innerHTML = LEVELS.filter(l => st.teams.some(t => t.level === l)).map(l =>
-    '<h3 class="lvl">Skill Level: ' + l + '</h3>' + (selP && !selP.waiting && selP.level === l ? act : '') + '<div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
+    '<h3 class="lvl">' + LVW() + ': ' + l + '</h3>' + (selP && !selP.waiting && selP.level === l ? act : '') + '<div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
       '<div class="team"><span class="n" style="color:var(--mute);font-size:12px">' + t.id + '</span>' + t.players.map(p => chip(p, l)).join('') + '</div>').join('') + '</div>').join('');
   $('#lateAdd').innerHTML = manT() ? '<div class="card" style="margin-bottom:12px"><b>Add late players</b><div class="hint" style="min-height:0;margin:4px 0 8px">Type or paste one or many names (one per line, straight from Google Sheets works). Add ", High" or a Level column to set a level per name; otherwise the level below is used. They wait below until you pair them; no current team or bracket changes.</div><textarea id="lateName" rows="3" placeholder="Player name&#10;Player name, Mid" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px"></textarea><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><label style="display:flex;gap:6px;align-items:center;color:var(--ink)">Level <select id="lateLvl" aria-label="Skill level" style="min-height:40px;padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit">' + LEVELS.map(l => '<option' + (l === lateLvl ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label><button type="button" class="go" data-lateadd>Add players</button></div></div>' : '';
   $('#unpaired').innerHTML = st.unpaired.length
@@ -1324,25 +1597,29 @@ $('#genBtn').onclick = () => {
 
 // ----- running late (shift times) and moving games -----
 const slotLen = () => gopt.slotMinutes || 20;
-const baseStart = s => toMinutes(gopt.startTime || '14:00') + (s - 1) * slotLen();
-const brkAt = s => (gopt.breaks || []).reduce((t, b) => t + (s >= b.from ? b.min : 0), 0);
+const multiDay = () => (gopt.days || 1) > 1;
+const dayOf = s => multiDay() ? clockOf(withDefaults(gopt), s - 1).day : 1;
+const dayTag = s => multiDay() ? 'Day ' + dayOf(s) + ', ' : '';
+const baseStart = s => { if (!multiDay()) return toMinutes(gopt.startTime || '14:00') + (s - 1) * slotLen(); const c = clockOf(withDefaults(gopt), s - 1); return (c.day - 1) * 1440 + toMinutes(gopt.startTime || '14:00') + ((s - 1) % c.spd) * slotLen(); };
+const sameDay = (a, b) => !multiDay() || dayOf(a) === dayOf(b);
+const brkAt = s => (gopt.breaks || []).reduce((t, b) => t + (s >= b.from && sameDay(s, b.from) ? b.min : 0), 0);
 const brkSpans = () => { const out = [], used = {}, tot = {}; (gopt.breaks || []).forEach(b => { tot[b.from] = (tot[b.from] || 0) + b.min; }); (gopt.breaks || []).forEach((b, i) => { const start = slotStartMin(b.from) - tot[b.from] + (used[b.from] || 0); out[i] = { start, end: start + b.min }; used[b.from] = (used[b.from] || 0) + b.min; }); return out; };      // breaks before the same game follow each other, never overlap
 const brkBetween = (a, b) => (gopt.breaks || []).reduce((t, x) => t + (x.from > a && x.from <= b ? x.min : 0), 0);      // planned break minutes between slot a and slot b
-const delayAt = s => (gopt.delays || []).reduce((t, d) => t + (s >= d.from ? d.min : 0), 0) + brkAt(s);
+const delayAt = s => (gopt.delays || []).reduce((t, d) => t + (s >= d.from && sameDay(s, d.from) ? d.min : 0), 0) + brkAt(s);
 const slotStartMin = s => baseStart(s) + delayAt(s);
-const slotLabel = s => fmt(slotStartMin(s)) + ' - ' + fmt(slotStartMin(s) + slotLen());
+const slotLabel = s => dayTag(s) + fmt(slotStartMin(s)) + ' - ' + fmt(slotStartMin(s) + slotLen());
 function retime() {                         // every game's clock time follows its slot, so shifts and moved games stay consistent everywhere
   if (!sched || !gopt.startTime) return;
-  const lim = withDefaults(gopt), stat = end => end <= toMinutes(lim.normalEndTime) ? 'ON_TIME' : end <= toMinutes(lim.hardEndTime) ? 'NEEDS_EXTENSION' : 'EXCEEDS_LIMIT';
-  [sched, koSched].forEach(sc => { if (sc) sc.matches.forEach(m => { m.start = fmt(slotStartMin(m.slot)); m.end = fmt(slotStartMin(m.slot) + slotLen()); }); });
+  const lim = withDefaults(gopt), stat = (end, last) => { const e = end - (dayOf(last) - 1) * 1440; return e <= toMinutes(lim.normalEndTime) ? 'ON_TIME' : e <= toMinutes(lim.hardEndTime) ? 'NEEDS_EXTENSION' : 'EXCEEDS_LIMIT'; };
+  [sched, koSched].forEach(sc => { if (sc) sc.matches.forEach(m => { m.start = fmt(slotStartMin(m.slot)); m.end = fmt(slotStartMin(m.slot) + slotLen()); m.day = dayOf(m.slot); }); });
   if (sched.matches.length) {
     const last = Math.max.apply(null, sched.matches.map(m => m.slot)), sm = sched.summary, end = slotStartMin(last) + slotLen();
-    sm.slotsUsed = last; sm.finishesAt = fmt(end); sm.status = stat(end);
+    sm.slotsUsed = last; sm.finishesAt = dayTag(last) + fmt(end); sm.status = stat(end, last);
     const ls = {}; Object.keys(sm.levelStarts || {}).forEach(l => { const f = sched.matches.filter(m => m.level === l).sort((a, b) => a.slot - b.slot)[0]; if (f) ls[l] = f.start; }); sm.levelStarts = ls;
     sched.warnings = (sched.warnings || []).filter(w => !/^Games (finish at|would finish at)/.test(w));
-    if (sm.status === 'NEEDS_EXTENSION') sched.warnings.push('Games finish at ' + fmt(end) + ', past ' + lim.normalEndTime + '. The extension is needed.');
+    if (sm.status === 'NEEDS_EXTENSION') sched.warnings.push('Games finish at ' + dayTag(last) + fmt(end) + ', past ' + lim.normalEndTime + '. The extension is needed.');
   }
-  if (koSched && koSched.matches.length) { const last = Math.max.apply(null, koSched.matches.map(m => m.slot)), end = slotStartMin(last) + slotLen(); koSched.summary.finishesAt = fmt(end); koSched.summary.status = stat(end); }
+  if (koSched && koSched.matches.length) { const last = Math.max.apply(null, koSched.matches.map(m => m.slot)), end = slotStartMin(last) + slotLen(); koSched.summary.finishesAt = dayTag(last) + fmt(end); koSched.summary.status = stat(end, last); }
 }
 let editMode = false;
 const lastSlot = () => Math.max.apply(null, [0].concat(sched ? sched.matches.map(m => m.slot) : [], koSched ? koSched.matches.map(m => m.slot) : []));
@@ -1441,7 +1718,7 @@ function fairRows() {
   sched.matches.forEach(m => [m.team1, m.team2].forEach(t => { if (!t) return; const e = T[t.name] = T[t.name] || { name: t.name, bracket: m.bracket, games: [] }; e.games.push({ slot: m.slot, court: m.court, cn: m.courtName }); }));
   const rows = Object.keys(T).map(k => {
     const e = T[k], g = e.games.sort((a, b) => a.slot - b.slot), gaps = [];
-    for (let i = 1; i < g.length; i++) gaps.push(slotStartMin(g[i].slot) - (slotStartMin(g[i - 1].slot) + L) - brkBetween(g[i - 1].slot, g[i].slot));      // planned breaks do not count as waiting
+    for (let i = 1; i < g.length; i++) if (sameDay(g[i].slot, g[i - 1].slot)) gaps.push(slotStartMin(g[i].slot) - (slotStartMin(g[i - 1].slot) + L) - brkBetween(g[i - 1].slot, g[i].slot));      // planned breaks do not count as waiting
     const cts = {}; g.forEach(x => { cts[x.cn] = (cts[x.cn] || 0) + 1; });
     const flags = [];
     if (gaps.length && Math.min.apply(null, gaps) <= 0) flags.push(['bad', 'Back-to-back']);
@@ -1559,15 +1836,18 @@ function renderFair() {
   $('#fairBody').innerHTML = h;
 }
 
+const dayDate = d => { const p = /^(\d{4})-(\d{2})-(\d{2})$/.exec($('#eventDate').value || ''); return p ? new Date(+p[1], +p[2] - 1, +p[3] + d - 1).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) : ''; };
+const dayISO = d => { const p = /^(\d{4})-(\d{2})-(\d{2})$/.exec($('#eventDate').value || ''); if (!p) return ''; const x = new Date(+p[1], +p[2] - 1, +p[3] + d - 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
 function renderSchedule() {
   retime();
   const s = sched.summary, n = gopt.courts;
-  $('#summary').innerHTML = '<p>' + tag(s.status) + ' &nbsp;' + s.matches + ' games, ' + s.teams + ' teams, last group game ends ' + (s.finishesAt || '-') + '</p>' +
+  $('#summary').innerHTML = '<p>' + tag(s.status) + ' &nbsp;' + s.matches + ' games, ' + s.teams + ' ' + (tmode === 'open' ? 'pairs' : 'teams') + ', last group game ends ' + (s.finishesAt || '-') + '</p>' +
     '<p class="hint">Level start times: ' + Object.keys(s.levelStarts).map(l => l + ' ' + s.levelStarts[l]).join(', ') + '</p>' +
     sched.warnings.map(w => '<p class="warn">' + esc(w) + '</p>').join('');
   let html = '<tr><th>Time</th><th>Court</th><th>Bracket</th><th>Match</th></tr>';
   for (let i = 1; i <= s.slotsUsed; i++) {
     const when = slotLabel(i);
+    if (multiDay() && (i === 1 || dayOf(i) !== dayOf(i - 1))) html += '<tr class="dayrow"><td colspan="4"><b>Day ' + dayOf(i) + '</b>' + (dayDate(dayOf(i)) ? ' &middot; ' + esc(dayDate(dayOf(i))) : '') + '</td></tr>';
     (gopt.breaks || []).forEach((b, bi) => { if (b.from !== i) return; const sp = brkSpans()[bi]; html += '<tr class="rest first"><td class="t">' + fmt(sp.start) + ' - ' + fmt(sp.end) + '</td><td colspan="3"><b>' + esc(b.name || 'Break') + '</b>, ' + b.min + ' min, no games</td></tr>'; });
     const ms = sched.matches.filter(m => m.slot === i);
     if (!ms.length) { html += '<tr class="rest first"><td class="t">' + when + '</td><td colspan="3">Rest slot, no games</td></tr>'; continue; }
@@ -1714,10 +1994,11 @@ $('#clearScores').onclick = e => {
   renderStandings();
 };
 
+const advOf = b => (gopt.advanceBy && gopt.advanceBy[b.level]) || gopt.advance || 2;
 function renderStandings() {
-  const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin }), adv = 2;
+  const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin });
   $('#standings').innerHTML = byLevel(sched.brackets, b => {
-    const x = st[b.id], elig = {}, er = x.rows.filter(r => !r.out); let kk = 0; x.rows.forEach(r => { elig[r.team.name] = r.out ? 0 : ++kk; });
+    const adv = advOf(b), x = st[b.id], elig = {}, er = x.rows.filter(r => !r.out); let kk = 0; x.rows.forEach(r => { elig[r.team.name] = r.out ? 0 : ++kk; });
     return '<div class="card"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + x.scored + '/' + x.total + ' games scored</span></div>' +
       '<div class="wrap" style="margin:0"><table style="min-width:0"><tr><th>#</th><th>Team</th><th class="nw">W-L</th><th class="nw">Pts</th><th class="nw" title="Points scored minus points against">+/-</th></tr>' +
       x.rows.map(r => '<tr class="' + (x.scored && elig[r.team.name] && elig[r.team.name] <= adv ? 'adv' : '') + '"><td>' + r.rank + '</td><td>' + esc(r.team.name) +
@@ -1891,7 +2172,7 @@ function renderKo() {
     (s.status === 'EXCEEDS_LIMIT' ? '<p class="warn">The whole event would run past the limit. Add courts, or play the knockout round on another day.</p>' : '');
   $('#champs').innerHTML = '';
   $('#koCharts').innerHTML = LEVELS.filter(l => rs.matches.some(m => m.level === l)).map(l =>
-    '<h3 class="lvl">Skill Level: ' + l + '</h3><div class="wrap kwrap">' + koChart(l, rs, sch, seedOf, rs) + '</div>').join('');
+    '<h3 class="lvl">' + LVW() + ': ' + l + '</h3><div class="wrap kwrap">' + koChart(l, rs, sch, seedOf, rs) + '</div>').join('');
   const nm = t => t ? esc(t.name) : 'To be decided';
   $('#koTable').innerHTML = '<tr><th>Time</th><th>Court</th><th>Round</th><th>Match</th></tr>' + koSched.matches.map(x => {
     const m = by[x.id], r = done[x.id];
@@ -1923,10 +2204,10 @@ const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : '
 Sports.mount();
 const defaultSport = Sports.current;   // chosen on the Sports tab
 let tSport = Sports.current();      // the sport of the tournament that is open (each sport keeps its own files)
-const capture = () => ({ v: 1, sport: tSport, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value, date: $('#eventDate').value, wd: [...WD],
+const capture = () => ({ v: 1, sport: tSport, tmode, open: tmode === 'open' ? { levels: $('#oLevels').value, pairs: $('#pairs').value, men: $('#oMen').checked, women: $('#oWomen').checked, mixed: $('#oMixed').checked, ng: $('#oNg').value, days: $('#oDays').value, end: $('#oEnd').value, adv: $('#oAdv').value, seed: $('#oSeed').checked, advBy: oc.advBy } : null, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value, date: $('#eventDate').value, wd: [...WD],
   locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin });
 function describe(st) {
-  let t = parsePlayers(st.players || '').length + ' players';
+  let t = st.tmode === 'open' && st.open ? String(st.open.pairs || '').split('\n').filter(x => x.trim()).length + ' pairs (Open)' : parsePlayers(st.players || '').length + ' players';
   if (st.sched) t += ', ' + st.sched.matches.length + ' games, ' + Object.keys(st.results || {}).filter(k => st.results[k].saved).length + ' scored';
   if (st.ko) t += ', knockout ' + Object.keys(st.koResults || {}).filter(k => st.koResults[k].saved).length + '/' + st.ko.matches.length + ' played';
   return t;
@@ -1990,13 +2271,17 @@ function resetState() {
   draw = null; sched = null; results = {}; ko = null; koSched = null; koResults = {}; coin = {}; gopt = {}; selP = selT = null;
   locks = { add: false, teams: false, brackets: false };
   $('#drawSec').classList.add('hidden'); ['#schedSec', '#standSec', '#koSec'].forEach(x => $(x).classList.add('hidden'));
+  setLevels(FUN_LEVELS); setMode('fun', true); $('#pairs').value = ''; $('#oLevels').value = ''; oc.advBy = {}; delete $('#courts').dataset.o;
   $('#loadMsg').textContent = ''; $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00'; $('#eventDate').value = ''; WD = new Set(); mnotes = {};
 }
 function applyState(st) {
   tSport = st.sport === 'pickleball' ? 'pickleball' : 'badminton';
   $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00'; $('#eventDate').value = st.date || ''; WD = new Set(st.wd || []); mnotes = {};
-  gopt = st.gopt || {}; locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
-  if (st.draw) { draw = createDraw(parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
+  gopt = st.gopt || {};
+  if (st.tmode === 'open' && st.open) { const o = st.open; $('#oLevels').value = o.levels || ''; $('#pairs').value = o.pairs || ''; $('#oMen').checked = o.men !== false; $('#oWomen').checked = o.women !== false; $('#oMixed').checked = o.mixed !== false; $('#oNg').value = o.ng || 'novice'; $('#oDays').value = o.days || '2'; $('#oEnd').value = o.end || '21:00'; $('#oAdv').value = o.adv || '2'; $('#oSeed').checked = o.seed !== false; oc.advBy = o.advBy || {}; $('#courts').dataset.o = 1; setMode('open', true); if (gopt.levels) setLevels(gopt.levels); }
+  else { setLevels(FUN_LEVELS); setMode('fun', true); }
+  locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
+  if (st.draw) { draw = createDraw(tmode === 'open' ? parsePairs($('#pairs').value).regs.map(r => ({ skill: r.skill, players: r.players, seed: r.seed })) : parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
   if (st.sched && draw) { sched = st.sched; renderSchedule(); }
 }
 async function openT(id) {
@@ -2225,7 +2510,7 @@ courts.sort(function(a,b){return String(a).localeCompare(String(b),undefined,{nu
 var nLive=M.filter(function(x){return x.live;}).length,nDone=M.filter(function(x){return x.fin;}).length,nLeft=M.length-nDone-nLive;
 var parts=function(n){return String(n||'').split('/').map(function(p){return p.trim();}).filter(Boolean);};
 var names=function(n){return n?parts(n).map(function(p){return '<div>'+E(p)+'</div>';}).join(''):'<div class="tbd">To be decided</div>';};
-var lvl=function(l){return '<span class="lv lv-'+E(l)+'">'+E(l)+'</span>';};
+var lvl=function(l){var c=(window.LVC||{})[l];return '<span class="lv'+(c?'" style="background:'+c:' lv-'+E(l))+'">'+E(l)+'</span>';};
 var tx=function(x){return E(((x.m.t1||'')+' '+(x.m.t2||'')+' '+x.m.b+' '+x.c).toLowerCase());};
 if(!M.length){el.innerHTML='<p class="npempty">The games will show up here once the schedule is ready.</p>';return 0;}
 var html='<div class="npsum"><span class="npp npp-l"><b>'+nLive+'</b> live now</span><span class="npp"><b>'+nDone+'</b> played</span><span class="npp"><b>'+nLeft+'</b> to go</span></div><div class="npg">';
@@ -2291,13 +2576,14 @@ function pubStandings(data, live) {
   return html || '<p class="upd">Standings will appear once games are played.</p>';
 }
 function stdData() {
-  const done = committed(results), adv = (gopt && gopt.advance) || 2, ms = sched.matches.slice().sort((a, b) => a.slot - b.slot);
-  return sched.brackets.map(b => ({ id: b.id, name: b.name, level: b.level, adv, wd: b.teams.filter(t => WD.has(t.name)).map(t => t.name), teams: b.teams.map(t => ({ n: t.name, p: t.players || [] })),
+  const done = committed(results), ms = sched.matches.slice().sort((a, b) => a.slot - b.slot);
+  return sched.brackets.map(b => ({ id: b.id, name: b.name, level: b.level, adv: advOf(b), wd: b.teams.filter(t => WD.has(t.name)).map(t => t.name), teams: b.teams.map(t => ({ n: t.name, p: t.players || [] })),
     games: ms.filter(m => m.bracket === b.name).map(m => ({ id: 'g:' + m.id, a: m.team1.name, b: m.team2.name, r: done[m.id] ? [done[m.id].a, done[m.id].b] : null })) }));
 }
+const lvCol = l => { const i = Math.max(0, LEVELS.indexOf(l)), n = Math.max(1, LEVELS.length); return 'hsl(' + Math.round(150 - 150 * (n > 1 ? i / (n - 1) : 0)) + ',62%,38%)'; };      // low levels green, high levels red
 function pubBody(web) {
   const name = $('#tname').value.trim() || 'Tournament', done = committed(results);
-  const lvl = l => '<span class="lv lv-' + l + '">' + l + '</span>';
+  const lvl = l => '<span class="lv' + (tmode === 'open' ? '" style="background:' + lvCol(l) : ' lv-' + l) + '">' + esc(l) + '</span>';
   const row = (m, court, r, mid) => '<div class="game" data-mid="' + esc(mid || '') + '" data-level="' + m.level + '">' +
     '<span class="ct">' + court + '</span><div class="info"><small>' + lvl(m.level) + esc(m.bracket) + '</small><div class="teams"><span class="tm">' + (m.team1 ? esc(m.team1.name) : 'To be decided') +
     '</span><span class="vs">vs</span><span class="tm">' + (m.team2 ? esc(m.team2.name) : 'To be decided') + '</span></div></div>' + '<span class="res">' + (r ? r.a + ' - ' + r.b : '') + (r && mid && mnotes[mid] ? '<small class="nt">' + esc(NOTE_KIND[mnotes[mid].kind] || '') + '</small>' : '') + '</span></div>';
@@ -2306,11 +2592,12 @@ function pubBody(web) {
   let h = '<div class="pub"><h1>' + esc(name) + '</h1><p class="sub">' + (dlab ? esc(dlab) + ' &middot; ' : '') + 'Game schedule</p><p class="upd">Updated ' +
     new Date().toLocaleString([], { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</p>';
   if (web) h += '<div class="tabs"><button class="on" data-v="sch" type="button">Schedule</button><button data-v="now" type="button">Now Playing</button><button data-v="std" type="button">Standings</button></div>';
-  if (web) h += '<div class="tools"><input id="q" type="search" placeholder="Search your name or team" aria-label="Search"><button class="on" data-lv="All">All</button><button data-lv="Low">Low</button><button data-lv="Mid">Mid</button><button data-lv="High">High</button></div>';
+  if (web) h += '<div class="tools"><input id="q" type="search" placeholder="Search your name or team" aria-label="Search"><button class="on" data-lv="All">All</button>' + (tmode === 'open' ? LEVELS.map(l => '<button data-lv="' + esc(l) + '">' + esc(l) + '</button>').join('') : '<button data-lv="Low">Low</button><button data-lv="Mid">Mid</button><button data-lv="High">High</button>') + '</div>';
   h += '<div id="viewSch"><h2>Games</h2>';
   for (let i = 1; i <= sched.summary.slotsUsed; i++) {
     const ms = sched.matches.filter(m => m.slot === i);
     h += brkRow(i, i - 1);
+    if (ms.length && multiDay() && (i === 1 || dayOf(i) !== dayOf(i - 1))) h += '<h2>Day ' + dayOf(i) + (dayDate(dayOf(i)) ? ' &middot; ' + esc(dayDate(dayOf(i))) : '') + '</h2>';
     if (ms.length) h += '<div class="slot"><h3>' + ms[0].start + ' - ' + ms[0].end + '</h3>' + ms.map(m => row(m, m.courtName, done[m.id], 'g:' + m.id)).join('') + '</div>';
   }
   h += '<h2>Brackets</h2>';
@@ -2325,9 +2612,10 @@ function pubBody(web) {
     rs.matches.forEach(m => { by[m.id] = fk.real.has(m.level) ? m : Object.assign({}, m, { team1: null, team2: null }); });
     ks.matches.forEach(x => { (slots[x.slot] = slots[x.slot] || []).push(x); });
     h += '<h2>Knockout round</h2>' + (allReal ? '' : '<p class="upd">Teams show up here as soon as a level\'s group games are finished. The times and courts below are already set.</p>');
-    let prevN = sched.summary.slotsUsed;
+    let prevN = sched.summary.slotsUsed, prevDay = 0;
     Object.keys(slots).sort((a, b) => a - b).forEach(n => {
       h += brkRow(+n, prevN); prevN = +n;
+      if (multiDay() && (prevDay !== dayOf(+n))) { prevDay = dayOf(+n); h += '<h2>Day ' + prevDay + ' knockout' + (dayDate(prevDay) ? ' &middot; ' + esc(dayDate(prevDay)) : '') + '</h2>'; }
       h += '<div class="slot"><h3>' + slots[n][0].start + ' - ' + slots[n][0].end + '</h3>' +
         slots[n].map(x => row(Object.assign({}, by[x.id], { bracket: by[x.id].roundName }), x.courtName, kd[x.id], 'k:' + x.id)).join('') + '</div>';
     });
@@ -2344,7 +2632,7 @@ function pubDocument() {
     '<title>' + esc(name) + ' - Game Schedule</title>' +
     '<meta property="og:title" content="' + esc(name) + ' - Game Schedule"><meta property="og:type" content="website">' +
     '<meta property="og:description" content="' + esc(name) + ': games, courts and times. Search your name to find your game.">' +
-    '<style>body{margin:0;background:#F2F2F7}' + PUB_CSS + '</style></head><body>' + pubBody(true) + '<script>var STD=' + JSON.stringify(stdData()).replace(/</g, '\\u003c') + ';' + pubStandings.toString() + '<\/script><script>' + NOW_JS + '<\/script><script>' + FILTER_JS + '<\/script></body></html>';
+    '<style>body{margin:0;background:#F2F2F7}' + PUB_CSS + '</style></head><body>' + pubBody(true) + '<script>var STD=' + JSON.stringify(stdData()).replace(/</g, '\\u003c') + ';var LVC=' + JSON.stringify(tmode === 'open' ? Object.fromEntries(LEVELS.map(l => [l, lvCol(l)])) : {}).replace(/</g, '\\u003c') + ';' + pubStandings.toString() + '<\/script><script>' + NOW_JS + '<\/script><script>' + FILTER_JS + '<\/script></body></html>';
 }
 function refreshPub() { if (sched && $('#pubDet').open) { $('#pubPreview').innerHTML = pubBody(false); $('#pubCode').value = pubDocument(); } }
 $('#pubDet').addEventListener('toggle', refreshPub);
@@ -2443,12 +2731,12 @@ const tvUrl = (court, rows) => location.href.replace(/[^/]*$/, '').replace(/\/?$
 const umpUrl = court => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 'u.html?s=' + pubSlug + '&k=' + pubKey + '&c=' + encodeURIComponent(court);
 function matchList() {
   const done = committed(results), out = [], nm = t => (t ? t.name : '');
-  sched.matches.forEach(m => { const r = done[m.id]; out.push({ mid: 'g:' + m.id, court: m.courtName, slot: m.slot, time: m.start + ' - ' + m.end, level: m.level, bracket: m.bracket, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
+  sched.matches.forEach(m => { const r = done[m.id]; out.push({ mid: 'g:' + m.id, court: m.courtName, slot: m.slot, time: m.start + ' - ' + m.end, day: dayOf(m.slot), level: m.level, bracket: m.bracket, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   if (ko && koSched) {
     const kd = committed(koResults), by = {}; resolveKnockout(ko, kd).matches.forEach(m => { by[m.id] = m; });
-    koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, level: m.level, bracket: m.roundName, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
+    koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, day: dayOf(x.slot), level: m.level, bracket: m.roundName, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   }
-  const sp = tSport, dt = $('#eventDate').value || ''; return out.map(x => Object.assign(x, { sport: sp, date: dt }));      // the umpire page scores by this sport's rules
+  const sp = tSport, dt = $('#eventDate').value || ''; return out.map(x => Object.assign(x, { sport: sp, date: multiDay() ? (dayISO(x.day) || dt) : dt }));      // the umpire page scores by this sport's rules
 }
 function showUmp() {
   const box = $('#umpBox'), want = !!(pubSlug && pubKey && sched), fresh = want && box.classList.contains('hidden'); if (!want) { vis(box, false); return; }      // the box opens only after its rows are filled in, so it grows to its real height in one smooth move
