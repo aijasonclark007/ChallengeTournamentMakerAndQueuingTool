@@ -23,6 +23,7 @@ h2{font-size:13px;color:var(--mute);font-weight:600;margin:20px 4px 8px}
 .btn.ghost{background:var(--fill);color:var(--blue)}.btn.danger{background:rgba(255,59,48,.12);color:var(--red)}.btn.green{background:var(--green)}
 .btn:disabled{opacity:.45;cursor:default}.btn.sm{padding:6px 11px;font-size:13px;border-radius:10px}
 input[type=text],input[type=number],select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:.5px solid var(--line);background:#F7F7FA;outline:none}
+@media (hover:none) and (pointer:coarse){input[type=text],input[type=number],input[type=search],select,textarea{font-size:16px}}   /* iPhone Safari zooms the page when you tap a field smaller than 16px, and it stays zoomed */
 input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.15);background:#fff}
 .sportbadge{border:0;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s,background .15s}.sportbadge:active{transform:scale(.95);background:#DDE1EA}.sportbadge{display:inline-block;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;background:var(--fill);color:var(--mute);font-size:12px;font-weight:700}
 .seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px}
@@ -1079,6 +1080,19 @@ setInterval(() => { if (!liveCode && tab === 'courts' && !(document.activeElemen
   if (!cloud) return startGuest();
   await P.whenReady();
   P.onAuth(user => { if (user) startCloud(); else startGuest(); });
+})();
+// If the page ends up zoomed in (a field tap or a stray double-tap), snap back to normal when the keyboard closes
+(function () {
+  const vv = window.visualViewport, meta = document.querySelector('meta[name=viewport]');
+  if (!vv || !meta) return;
+  const base = meta.getAttribute('content');
+  let t = 0;
+  const snap = () => {
+    if (vv.scale <= 1.02) return;
+    meta.setAttribute('content', base + ', maximum-scale=1');
+    clearTimeout(t); t = setTimeout(() => meta.setAttribute('content', base), 350);
+  };
+  document.addEventListener('focusout', () => setTimeout(snap, 120));
 })();
 </script>
 </body>
