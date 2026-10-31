@@ -35,6 +35,9 @@ button:focus-visible,.pl:focus-visible,input:focus-visible,textarea:focus-visibl
 .bh{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
 .bh .n{color:var(--mute);font-size:14px;margin-right:auto}
 .mv{padding:5px 12px;font-size:13px;background:var(--sun);color:#0B1B33}
+#brackets .tm{overflow:hidden;white-space:nowrap;max-width:170px;transition:max-width .36s cubic-bezier(.2,.8,.2,1),opacity .26s ease,padding .36s ease,margin .36s ease,background .2s ease,transform .15s ease,visibility 0s}
+#brackets:not(.man) .tm{max-width:0;opacity:0;padding-left:0;padding-right:0;margin-right:-10px;border-width:0;visibility:hidden;pointer-events:none;transition:max-width .36s cubic-bezier(.2,.8,.2,1),opacity .2s ease,padding .36s ease,margin .36s ease,visibility 0s linear .36s}
+@media (prefers-reduced-motion:reduce){#brackets .tm,#brackets:not(.man) .tm{transition:none}}
 .bh .mv{background:var(--navy,#007AFF);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(0,122,255,.35);animation:mvIn .35s cubic-bezier(.22,.61,.36,1) both}
 .bh .mv:active{transform:scale(.94)}
 .bh .mv{white-space:nowrap;flex:none}
@@ -1173,11 +1176,12 @@ function renderTeams(msg, isErr) {
 function renderBrackets(msg, isErr) {
   const st = draw.getState(), m = manB();
   vis($('#balanceBrackets'), m);   // Balance brackets only shows while you are re-organizing brackets
+  $('#brackets').classList.toggle('man', m);   // the swap buttons are always there and slide in or out (see .tm in the styles)
   $('#brackets').innerHTML = byLevel(st.brackets, b =>
     '<div class="card' + (m && selT && selT.level === b.level ? ' tgt' : '') + '"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + b.teams.length + ' teams</span>' +
     (m && selT && selT.level === b.level ? '<button class="mv" data-b="' + b.id + '">\u2192 Move here</button>' : '') + '</div>' +
     b.teams.map(t => '<div class="team' + (selT && selT.id === t.id ? ' on' : '') + '">' +
-      (m ? '<button class="tm" data-t="' + t.id + '" data-l="' + t.level + '"' + (selT && selT.id !== t.id && selT.level !== t.level ? ' disabled' : '') + '>' + (!selT ? 'Swap team' : selT.id === t.id ? 'Picked \u2713' : selT.level === t.level ? 'Swap with this' : 'Other level') + '</button>' : '') + '<span class="tn" title="' + esc(t.name) + '"><b>' + esc(t.custom ? t.name : (t.players[0] || t.name)) + '</b><small>' + esc(t.custom ? t.players.join(' & ') : t.players.slice(1).join(' & ')) + '</small></span></div>').join('') + '</div>');
+      '<button class="tm" data-t="' + t.id + '" data-l="' + t.level + '"' + (selT && selT.id !== t.id && selT.level !== t.level ? ' disabled' : '') + (m ? '' : ' tabindex="-1" aria-hidden="true"') + '>' + (!selT ? 'Swap team' : selT.id === t.id ? 'Picked \u2713' : selT.level === t.level ? 'Swap with this' : 'Other level') + '</button><span class="tn" title="' + esc(t.name) + '"><b>' + esc(t.custom ? t.name : (t.players[0] || t.name)) + '</b><small>' + esc(t.custom ? t.players.join(' & ') : t.players.slice(1).join(' & ')) + '</small></span></div>').join('') + '</div>');
   const h = msg || (m ? (!selT ? 'Tap "Swap team" on a team, then "Swap with this" on another team of the same level to trade places, or the blue "Move here" button on a bracket to move it there. The teams themselves do not change.'
     : 'Team picked. Tap "Swap with this" on another ' + selT.level + ' team to trade places, or the blue "Move here" button on a bracket to move it there.') : '');
   $('#hintB').textContent = h; $('#hintB').className = 'hint' + (isErr ? ' err' : '');
@@ -1185,7 +1189,12 @@ function renderBrackets(msg, isErr) {
 const renderDraw = () => { renderTeams(); renderBrackets(); };
 
 $('#manualTeams').onchange = () => { selP = null; renderTeams(); };
-$('#manualBrackets').onchange = () => { selT = null; renderBrackets(); };
+$('#manualBrackets').onchange = () => {
+  const had = !!selT; selT = null;
+  if (had) { renderBrackets(); return; }       // a team was picked: its Move here buttons have to go too
+  const m = manB(); $('#brackets').classList.toggle('man', m); vis($('#balanceBrackets'), m);   // otherwise just slide the buttons, no re-draw
+  $('#hintB').className = 'hint'; $('#hintB').textContent = m ? 'Tap "Swap team" on a team, then "Swap with this" on another team of the same level to trade places, or the blue "Move here" button on a bracket to move it there. The teams themselves do not change.' : '';
+};
 $('#shuffleTeams').onclick = () => {   // choose which level to pair again, or all of them
   if (blocked('#hintT')) return;
   const lv = LEVELS.filter(l => draw.getState().teams.some(t => t.level === l) || draw.getState().unpaired.some(p => p.level === l));
