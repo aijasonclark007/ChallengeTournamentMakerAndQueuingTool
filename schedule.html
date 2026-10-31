@@ -359,7 +359,7 @@ summary:hover{background:#fff}
         <div class="tools"><button class="ghost lockbtn" data-lock="brackets" type="button">Save</button>
           <label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input id="manualBrackets" type="checkbox"> Re-organize brackets manually</label>
           <button id="shuffleBrackets" class="ghost" type="button">Shuffle brackets</button>
-          <button id="balanceBrackets" class="ghost" type="button">Balance brackets</button>
+          <button id="balanceBrackets" class="ghost hidden" type="button">Balance brackets</button>
           <button id="genBtn" class="go" type="button">Build schedule</button>
         </div></div>
       <p id="hintB" class="hint"></p>
@@ -1172,6 +1172,7 @@ function renderTeams(msg, isErr) {
 }
 function renderBrackets(msg, isErr) {
   const st = draw.getState(), m = manB();
+  vis($('#balanceBrackets'), m);   // Balance brackets only shows while you are re-organizing brackets
   $('#brackets').innerHTML = byLevel(st.brackets, b =>
     '<div class="card' + (m && selT && selT.level === b.level ? ' tgt' : '') + '"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + b.teams.length + ' teams</span>' +
     (m && selT && selT.level === b.level ? '<button class="mv" data-b="' + b.id + '">\u2192 Move here</button>' : '') + '</div>' +
