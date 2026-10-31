@@ -35,6 +35,10 @@ button:focus-visible,.pl:focus-visible,input:focus-visible,textarea:focus-visibl
 .bh{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
 .bh .n{color:var(--mute);font-size:14px;margin-right:auto}
 .mv{padding:5px 12px;font-size:13px;background:var(--sun);color:#0B1B33}
+#secBrackets .tools .balbtn{overflow:hidden;white-space:nowrap;max-width:220px;transition:max-width .4s cubic-bezier(.2,.8,.2,1),opacity .28s ease,padding .4s ease,margin .4s ease,background-color .22s,color .22s,transform .14s cubic-bezier(.2,.8,.2,1),visibility 0s}
+#secBrackets .tools .balbtn.off{max-width:0;opacity:0;padding-left:0;padding-right:0;margin-left:-10px;border-width:0;visibility:hidden;pointer-events:none;transition:max-width .4s cubic-bezier(.2,.8,.2,1),opacity .2s ease,padding .4s ease,margin .4s ease,visibility 0s linear .4s}
+#secBrackets .tools button,#secBrackets .tools label{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .22s,color .22s,box-shadow .22s}
+@media (prefers-reduced-motion:reduce){#secBrackets .tools .balbtn,#secBrackets .tools .balbtn.off{transition:none}}
 #brackets .tm{overflow:hidden;white-space:nowrap;max-width:170px;transition:max-width .36s cubic-bezier(.2,.8,.2,1),opacity .26s ease,padding .36s ease,margin .36s ease,background .2s ease,transform .15s ease,visibility 0s}
 #brackets:not(.man) .tm{max-width:0;opacity:0;padding-left:0;padding-right:0;margin-right:-10px;border-width:0;visibility:hidden;pointer-events:none;transition:max-width .36s cubic-bezier(.2,.8,.2,1),opacity .2s ease,padding .36s ease,margin .36s ease,visibility 0s linear .36s}
 @media (prefers-reduced-motion:reduce){#brackets .tm,#brackets:not(.man) .tm{transition:none}}
@@ -362,7 +366,7 @@ summary:hover{background:#fff}
         <div class="tools"><button class="ghost lockbtn" data-lock="brackets" type="button">Save</button>
           <label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input id="manualBrackets" type="checkbox"> Re-organize brackets manually</label>
           <button id="shuffleBrackets" class="ghost" type="button">Shuffle brackets</button>
-          <button id="balanceBrackets" class="ghost hidden" type="button">Balance brackets</button>
+          <button id="balanceBrackets" class="ghost balbtn off" type="button" tabindex="-1" aria-hidden="true">Balance brackets</button>
           <button id="genBtn" class="go" type="button">Build schedule</button>
         </div></div>
       <p id="hintB" class="hint"></p>
@@ -1173,9 +1177,13 @@ function renderTeams(msg, isErr) {
   const h = msg || (manT() ? (!selP ? 'Tap a player to pick them. Then tap another player of the same level to swap partners (or to pair two waiting players), or change their level.' : 'Picked ' + selP.name + '. Tap another ' + selP.level + ' player ' + (selP.waiting ? 'to pair them or swap' : 'to swap') + '. Rename or change level with the buttons ' + (selP.waiting ? 'in the Waiting box below.' : 'under Skill Level: ' + selP.level + '.')) : '');
   $('#hintT').textContent = h; $('#hintT').className = 'hint' + (isErr ? ' err' : '');
 }
+function setBal(on) {   // slide the Balance brackets button in or out so the buttons next to it glide instead of jumping
+  const b = $('#balanceBrackets'); if (!b) return;
+  b.classList.toggle('off', !on); b.tabIndex = on ? 0 : -1; b.setAttribute('aria-hidden', on ? 'false' : 'true');
+}
 function renderBrackets(msg, isErr) {
   const st = draw.getState(), m = manB();
-  vis($('#balanceBrackets'), m);   // Balance brackets only shows while you are re-organizing brackets
+  setBal(m);   // Balance brackets only shows while you are re-organizing brackets
   $('#brackets').classList.toggle('man', m);   // the swap buttons are always there and slide in or out (see .tm in the styles)
   $('#brackets').innerHTML = byLevel(st.brackets, b =>
     '<div class="card' + (m && selT && selT.level === b.level ? ' tgt' : '') + '"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + b.teams.length + ' teams</span>' +
@@ -1192,7 +1200,7 @@ $('#manualTeams').onchange = () => { selP = null; renderTeams(); };
 $('#manualBrackets').onchange = () => {
   const had = !!selT; selT = null;
   if (had) { renderBrackets(); return; }       // a team was picked: its Move here buttons have to go too
-  const m = manB(); $('#brackets').classList.toggle('man', m); vis($('#balanceBrackets'), m);   // otherwise just slide the buttons, no re-draw
+  const m = manB(); $('#brackets').classList.toggle('man', m); setBal(m);   // otherwise just slide the buttons, no re-draw
   $('#hintB').className = 'hint'; $('#hintB').textContent = m ? 'Tap "Swap team" on a team, then "Swap with this" on another team of the same level to trade places, or the blue "Move here" button on a bracket to move it there. The teams themselves do not change.' : '';
 };
 $('#shuffleTeams').onclick = () => {   // choose which level to pair again, or all of them
