@@ -35,6 +35,12 @@ button:focus-visible,.pl:focus-visible,input:focus-visible,textarea:focus-visibl
 .bh{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
 .bh .n{color:var(--mute);font-size:14px;margin-right:auto}
 .mv{padding:5px 12px;font-size:13px;background:var(--sun);color:#0B1B33}
+.bh .mv{background:var(--navy,#007AFF);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(0,122,255,.35);animation:mvIn .35s cubic-bezier(.22,.61,.36,1) both}
+.bh .mv:active{transform:scale(.94)}
+.bh .mv{white-space:nowrap;flex:none}
+.card.tgt{outline:2px dashed rgba(0,122,255,.55);outline-offset:-2px;transition:outline-color .25s ease}
+@keyframes mvIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.bh .mv{animation:none}}
 .team{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px;border:1px solid var(--line);border-radius:12px;margin-top:8px}
 .team.on{border-color:var(--sun);box-shadow:0 0 0 2px var(--sun)}
 .pl{background:var(--chip);border-radius:999px;padding:4px 12px;font-size:14px}
@@ -182,7 +188,7 @@ button.go,.lockbtn{background:var(--blue)!important;color:#fff!important}
 button.ghost{background:var(--chip);color:var(--blue);border:0}
 button.cxl{background:rgba(255,59,48,.12)!important;color:#C4001A!important}
 .lockbtn.ed{background:var(--chip)!important;color:var(--blue)!important;border:0!important}
-.sv,.mv{border-radius:10px;min-height:36px;padding:5px 14px}.sv{background:var(--green,#34C759);color:#fff}.sv.ed{background:var(--chip);color:var(--blue);border:0}.mv{background:var(--chip);color:var(--blue)}
+.sv,.mv{border-radius:10px;min-height:36px;padding:5px 14px}.sv{background:var(--green,#34C759);color:#fff}.sv.ed{background:var(--chip);color:var(--blue);border:0}.mv{background:var(--chip);color:var(--blue)}.bh .mv{background:var(--navy,#007AFF);color:#fff}
 th{background:#F2F2F7;color:var(--mute);font-size:13px;font-weight:700;letter-spacing:.02em}
 th,td{font-size:15px;padding:10px 12px}
 input[type=number],input[type=time],input[type=date],input[type=text],textarea,select{border-radius:12px;font-size:16px;border-color:var(--line)}
@@ -353,6 +359,7 @@ summary:hover{background:#fff}
         <div class="tools"><button class="ghost lockbtn" data-lock="brackets" type="button">Save</button>
           <label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input id="manualBrackets" type="checkbox"> Re-organize brackets manually</label>
           <button id="shuffleBrackets" class="ghost" type="button">Shuffle brackets</button>
+          <button id="balanceBrackets" class="ghost" type="button">Balance brackets</button>
           <button id="genBtn" class="go" type="button">Build schedule</button>
         </div></div>
       <p id="hintB" class="hint"></p>
@@ -1166,12 +1173,12 @@ function renderTeams(msg, isErr) {
 function renderBrackets(msg, isErr) {
   const st = draw.getState(), m = manB();
   $('#brackets').innerHTML = byLevel(st.brackets, b =>
-    '<div class="card"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + b.teams.length + ' teams</span>' +
-    (m && selT && selT.level === b.level ? '<button class="mv" data-b="' + b.id + '">Move here</button>' : '') + '</div>' +
+    '<div class="card' + (m && selT && selT.level === b.level ? ' tgt' : '') + '"><div class="bh"><b>' + esc(b.name) + '</b><span class="n">' + b.teams.length + ' teams</span>' +
+    (m && selT && selT.level === b.level ? '<button class="mv" data-b="' + b.id + '">\u2192 Move here</button>' : '') + '</div>' +
     b.teams.map(t => '<div class="team' + (selT && selT.id === t.id ? ' on' : '') + '">' +
-      (m ? '<button class="tm" data-t="' + t.id + '" data-l="' + t.level + '"' + (selT && selT.id !== t.id && selT.level !== t.level ? ' disabled' : '') + '>' + (!selT ? 'Swap team' : selT.id === t.id ? 'Picked \u2713' : selT.level === t.level ? 'Swap here' : 'Other level') + '</button>' : '') + '<span class="tn" title="' + esc(t.name) + '"><b>' + esc(t.custom ? t.name : (t.players[0] || t.name)) + '</b><small>' + esc(t.custom ? t.players.join(' & ') : t.players.slice(1).join(' & ')) + '</small></span></div>').join('') + '</div>');
-  const h = msg || (m ? (!selT ? 'Tap "Swap team" on a team, then "Swap team" on another team of the same level, or "Move here" on a bracket. The teams themselves do not change.'
-    : 'Team picked. Tap "Swap team" on another ' + selT.level + ' team, or "Move here" on a bracket.') : '');
+      (m ? '<button class="tm" data-t="' + t.id + '" data-l="' + t.level + '"' + (selT && selT.id !== t.id && selT.level !== t.level ? ' disabled' : '') + '>' + (!selT ? 'Swap team' : selT.id === t.id ? 'Picked \u2713' : selT.level === t.level ? 'Swap with this' : 'Other level') + '</button>' : '') + '<span class="tn" title="' + esc(t.name) + '"><b>' + esc(t.custom ? t.name : (t.players[0] || t.name)) + '</b><small>' + esc(t.custom ? t.players.join(' & ') : t.players.slice(1).join(' & ')) + '</small></span></div>').join('') + '</div>');
+  const h = msg || (m ? (!selT ? 'Tap "Swap team" on a team, then "Swap with this" on another team of the same level to trade places, or the blue "Move here" button on a bracket to move it there. The teams themselves do not change.'
+    : 'Team picked. Tap "Swap with this" on another ' + selT.level + ' team to trade places, or the blue "Move here" button on a bracket to move it there.') : '');
   $('#hintB').textContent = h; $('#hintB').className = 'hint' + (isErr ? ' err' : '');
 }
 const renderDraw = () => { renderTeams(); renderBrackets(); };
@@ -1196,6 +1203,25 @@ document.addEventListener('click', e => {
   const o = e.target.closest && e.target.closest('.shufoptT'); if (o && draw) { doShuffleT(o.dataset.lv); return; }
   if (e.target.closest && e.target.closest('[data-shufxT]')) vis($('#shufPickT'), false);
 });
+$('#balanceBrackets').onclick = () => {   // even out the bracket sizes inside each level (4, 3, 3 instead of 4, 4, 2) without reshuffling
+  if (!draw || blocked('#hintB')) return;
+  try {
+    let moved = 0, guard = 300;
+    for (;;) {
+      if (--guard < 0) break;
+      const byL = {};
+      draw.getState().brackets.forEach(b => (byL[b.level] = byL[b.level] || []).push(b));
+      let did = false;
+      for (const lv in byL) {
+        const bs = byL[lv].slice().sort((a, b) => a.teams.length - b.teams.length), small = bs[0], big = bs[bs.length - 1];
+        if (big.teams.length - small.teams.length >= 2) { draw.moveTeam(big.teams[big.teams.length - 1].id, small.id); moved++; did = true; }
+      }
+      if (!did) break;
+    }
+    selT = null; hideResults();
+    renderBrackets(moved ? 'Brackets balanced: ' + moved + ' team' + (moved === 1 ? ' was' : 's were') + ' moved. Press "Build schedule" again when you are done changing the draw.' : 'The brackets are already as even as they can be.');
+  } catch (err) { selT = null; renderBrackets(err.message, true); }
+};
 $('#shuffleBrackets').onclick = () => {   // choose which level to redraw, or all of them
   if (blocked('#hintB')) return;
   const lv = LEVELS.filter(l => draw.getState().brackets.some(b => b.level === l));
@@ -2730,7 +2756,7 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
   let utimer = null, usnap = null;
   function offer(msg, snap) { usnap = snap; $('#utxt').textContent = msg; toast.classList.add('on'); clearTimeout(utimer); utimer = setTimeout(() => toast.classList.remove('on'), 9000); }
   $('#uundo').onclick = () => { if (!usnap) return; const st = JSON.parse(usnap); usnap = null; toast.classList.remove('on'); resetState(); applyState(st); applyLocks(); prev = { draw: false, sched: false }; refresh(); queueSave(); };
-  const UNDO = { '#shuffleTeams': 'Teams reshuffled', '#shuffleBrackets': 'Brackets redrawn', '#clearScores': 'Scores cleared', '#drawBtn': 'Players paired again' };
+  const UNDO = { '#shuffleTeams': 'Teams reshuffled', '#shuffleBrackets': 'Brackets redrawn', '#balanceBrackets': 'Brackets balanced', '#clearScores': 'Scores cleared', '#drawBtn': 'Players paired again' };
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest(Object.keys(UNDO).join(',') + ',.shufopt,.shufoptT'); if (!b) return;
     const snap = JSON.stringify(capture()), msg = UNDO['#' + b.id] || (b.classList.contains('shufoptT') ? 'Teams reshuffled' : 'Brackets redrawn');
