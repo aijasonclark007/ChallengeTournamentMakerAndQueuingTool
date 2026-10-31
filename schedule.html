@@ -138,6 +138,17 @@ summary b{font-weight:800}
 .fair table{min-width:560px}.fair td,.fair th{font-size:13px;padding:6px 8px;text-align:left;vertical-align:top}
 .fair .tg{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px}.tg.bad{background:rgba(255,59,48,.14);color:#B3261E}.tg.warn{background:rgba(255,149,0,.18);color:#8A5200}
 .mvb{margin-left:8px;padding:5px 10px;font-size:12px;border-radius:9px}
+input[type=checkbox]{accent-color:var(--navy,#007AFF);cursor:pointer;transition:transform .16s cubic-bezier(.2,.8,.2,1)}
+input[type=checkbox]:active{transform:scale(.84)}
+input[type=checkbox]:checked{animation:tickpop .32s cubic-bezier(.2,.8,.2,1)}
+@keyframes tickpop{0%{transform:scale(.8)}55%{transform:scale(1.2)}100%{transform:scale(1)}}
+label:has(>input[type=checkbox]){cursor:pointer}
+.pl{transition:background-color .22s ease,color .22s ease,box-shadow .22s ease,transform .14s cubic-bezier(.2,.8,.2,1)}
+.pl.ed:active{transform:scale(.95)}
+#editSched,.sv{transition:background-color .25s ease,color .25s ease,border-color .25s ease,transform .14s cubic-bezier(.2,.8,.2,1)}
+#table .mvb{overflow:hidden;white-space:nowrap;max-width:90px;transition:max-width .36s cubic-bezier(.2,.8,.2,1),opacity .26s ease,padding .36s ease,margin .36s ease,visibility 0s}
+#table:not(.med) .mvb{max-width:0;opacity:0;padding-left:0;padding-right:0;margin-left:0;border-width:0;visibility:hidden;pointer-events:none;transition:max-width .36s cubic-bezier(.2,.8,.2,1),opacity .2s ease,padding .36s ease,margin .36s ease,visibility 0s linear .36s}
+@media (prefers-reduced-motion:reduce){input[type=checkbox]:checked{animation:none}#table .mvb,#table:not(.med) .mvb,.pl,#editSched,.sv{transition:none}}
 #lateBox{margin:6px 0 10px}.lrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}.lrow>div{flex:1 1 150px}.lrow select,.lrow input{width:100%}.lrow label{display:block;margin-bottom:4px}
 .ntag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#FFE4E1;color:#B3261E;font-size:11px;font-weight:700;white-space:nowrap}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.tabs button{border-radius:999px;padding:9px 16px;font-weight:700}.tabs .fl{margin-left:6px;font-size:12px}.tabs button.go .fl{color:#fff}
@@ -357,7 +368,7 @@ summary:hover{background:#fff}
         </div></div>
       <p id="hintT" class="hint"></p>
       <div id="shufPickT" class="hidden"></div>
-      <div id="lateAdd"></div>
+      <div id="lateAdd" class="hidden"></div>
       <div id="unpaired"></div>
       <div id="teams"></div>
     </section>
@@ -1170,7 +1181,8 @@ function renderTeams(msg, isErr) {
   $('#teams').innerHTML = LEVELS.filter(l => st.teams.some(t => t.level === l)).map(l =>
     '<h3 class="lvl">Skill Level: ' + l + '</h3>' + (selP && !selP.waiting && selP.level === l ? act : '') + '<div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
       '<div class="team"><span class="n" style="color:var(--mute);font-size:12px">' + t.id + '</span>' + t.players.map(p => chip(p, l)).join('') + '</div>').join('') + '</div>').join('');
-  $('#lateAdd').innerHTML = manT() ? '<div class="card" style="margin-bottom:12px"><b>Add late players</b><div class="hint" style="min-height:0;margin:4px 0 8px">Type or paste one or many names (one per line, straight from Google Sheets works). Add ", High" or a Level column to set a level per name; otherwise the level below is used. They wait below until you pair them; no current team or bracket changes.</div><textarea id="lateName" rows="3" placeholder="Player name&#10;Player name, Mid" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px"></textarea><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><label style="display:flex;gap:6px;align-items:center;color:var(--ink)">Level <select id="lateLvl" aria-label="Skill level" style="min-height:40px;padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit">' + LEVELS.map(l => '<option' + (l === lateLvl ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label><button type="button" class="go" data-lateadd>Add players</button></div></div>' : '';
+  if (manT() || !$('#lateAdd').firstChild) $('#lateAdd').innerHTML = '<div class="card" style="margin-bottom:12px"><b>Add late players</b><div class="hint" style="min-height:0;margin:4px 0 8px">Type or paste one or many names (one per line, straight from Google Sheets works). Add ", High" or a Level column to set a level per name; otherwise the level below is used. They wait below until you pair them; no current team or bracket changes.</div><textarea id="lateName" rows="3" placeholder="Player name&#10;Player name, Mid" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:8px"></textarea><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><label style="display:flex;gap:6px;align-items:center;color:var(--ink)">Level <select id="lateLvl" aria-label="Skill level" style="min-height:40px;padding:6px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit">' + LEVELS.map(l => '<option' + (l === lateLvl ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label><button type="button" class="go" data-lateadd>Add players</button></div></div>';   // always in the page (hidden), so ticking the box can slide it in
+  vis($('#lateAdd'), manT());
   $('#unpaired').innerHTML = st.unpaired.length
     ? '<div class="card" style="margin-bottom:12px"><b>Waiting for a partner</b><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">' +
       st.unpaired.map(p => chip(p.name, p.level, true)).join('') + '</div>' + (selP && selP.waiting ? '<div style="margin-top:10px">' + act + '</div>' : '') + '</div>' : '';
@@ -1196,7 +1208,14 @@ function renderBrackets(msg, isErr) {
 }
 const renderDraw = () => { renderTeams(); renderBrackets(); };
 
-$('#manualTeams').onchange = () => { selP = null; renderTeams(); };
+$('#manualTeams').onchange = () => {
+  const had = !!selP; selP = null;
+  if (had) { renderTeams(); return; }                   // a player was picked: its rename / level buttons have to go too
+  const m = manT();                                      // otherwise only change how the chips look and slide the Add late players box
+  document.querySelectorAll('#teams .pl, #unpaired .pl').forEach(c => { c.classList.toggle('ed', m); if (m) { c.tabIndex = 0; c.setAttribute('role', 'button'); } else { c.removeAttribute('tabindex'); c.removeAttribute('role'); } });
+  vis($('#lateAdd'), m);
+  $('#hintT').className = 'hint'; $('#hintT').textContent = m ? 'Tap a player to pick them. Then tap another player of the same level to swap partners (or to pair two waiting players), or change their level.' : '';
+};
 $('#manualBrackets').onchange = () => {
   const had = !!selT; selT = null;
   if (had) { renderBrackets(); return; }       // a team was picked: its Move here buttons have to go too
@@ -1437,7 +1456,7 @@ $('#brkGo').onclick = () => {
 };
 $('#brkList').onclick = e => { const b = e.target.closest('[data-brkundo]'); if (!b) return; gopt.breaks.splice(+b.dataset.brkundo, 1); afterTimeChange(''); say('#brkMsg', 'Break removed.'); };
 $('#lateList').onclick = e => { const b = e.target.closest('[data-undo]'); if (!b) return; gopt.delays.splice(+b.dataset.undo, 1); afterTimeChange('Shift removed.'); };
-$('#editSched').onclick = () => { editMode = !editMode; $('#editSched').textContent = editMode ? 'Done editing' : 'Edit schedule'; $('#editSched').classList.toggle('go', editMode); $('#editSched').classList.toggle('ghost', !editMode); if (sched) renderSchedule(); };
+$('#editSched').onclick = () => { editMode = !editMode; $('#editSched').textContent = editMode ? 'Done editing' : 'Edit schedule'; $('#editSched').classList.toggle('go', editMode); $('#editSched').classList.toggle('ghost', !editMode); $('#table').classList.toggle('med', editMode); document.querySelectorAll('#table .mvb').forEach(b => { b.tabIndex = editMode ? 0 : -1; b.setAttribute('aria-hidden', editMode ? 'false' : 'true'); }); };
 
 let mvId = null;
 const courtNameOf = c => 'Court ' + ((gopt.firstCourt || 1) + c - 1);
@@ -1618,10 +1637,10 @@ function renderSchedule() {
     if (!ms.length) { html += '<tr class="rest first"><td class="t">' + when + '</td><td colspan="3">Rest slot, no games</td></tr>'; continue; }
     ms.forEach((m, j) => {
       html += '<tr class="' + (j === 0 ? 'first' : '') + '"><td class="t">' + (j === 0 ? when : '') + '</td><td>' + m.courtName + '</td><td>' + esc(m.bracket) +
-        '</td><td>' + matchCell(m.id, 'g', m.team1, m.team2, results[m.id], false, null) + (editMode && !scored('g', m.id) ? '<button class="ghost mvb" data-mv="' + m.id + '" type="button">Move</button>' : '') + '</td></tr>';
+        '</td><td>' + matchCell(m.id, 'g', m.team1, m.team2, results[m.id], false, null) + (!scored('g', m.id) ? '<button class="ghost mvb" data-mv="' + m.id + '" type="button"' + (editMode ? '' : ' tabindex="-1" aria-hidden="true"') + '>Move</button>' : '') + '</td></tr>';
     });
   }
-  $('#table').innerHTML = html; renderLate(); renderFair();
+  $('#table').innerHTML = html; $('#table').classList.toggle('med', editMode); renderLate(); renderFair();
   $('#schedSec').classList.remove('hidden'); $('#standSec').classList.remove('hidden');
   renderStandings();
   if (ko) { $('#koSec').classList.remove('hidden'); renderKo(); } else $('#koSec').classList.add('hidden');
