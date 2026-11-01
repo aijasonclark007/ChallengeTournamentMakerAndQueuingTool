@@ -675,6 +675,16 @@ function createDraw(registrations, options) {
       }
       return api;
     },
+    /** Break up a team: both players go to the waiting list of their level so they can be paired again (with anyone). Nobody else is touched. */
+    unpair(name) {
+      const P = locatePlayer(name);
+      if (!P.team) throw new Error(P.name + ' is already waiting for a partner');
+      const t = P.team, b = bracketOf(t);
+      if (b) { b.teams.splice(b.teams.indexOf(t), 1); if (!b.teams.length) brackets.splice(brackets.indexOf(b), 1); }
+      teams.splice(teams.indexOf(t), 1);
+      t.players.forEach(p => unpaired.push({ name: p, level: t.level }));
+      return api;
+    },
     /** Take a player out (late cancellation). Their partner is left waiting for a new partner; nobody else is touched. */
     removePlayer(name) {
       const P = locatePlayer(name), gone = P.name;
@@ -1178,7 +1188,7 @@ function chip(name, level, waiting) {
 function renderTeams(msg, isErr) {
   const st = draw.getState();
   const act = (manT() && selP) ? '<div class="row plact" style="margin:4px 0 12px;gap:8px;flex-wrap:wrap;align-items:center">' + (manT() && selP && rnOn ? '<input id="rnIn" type="text" maxlength="40" value="' + esc(selP.name) + '" style="flex:1;min-width:160px"><button type="button" class="go" data-rnsave>Save name</button><button type="button" class="ghost" data-rncancel>Cancel</button>'
-    : manT() && selP ? '<button type="button" class="ghost" data-rnstart>Rename ' + esc(selP.name) + '</button> <button type="button" class="ghost" data-rmp style="color:var(--bad)">Remove ' + esc(selP.name) + '</button> <span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '') + '</div>' : '';   // Rename / Change level, shown right under the picked player's Skill Level heading
+    : manT() && selP ? '<button type="button" class="ghost" data-rnstart>Rename ' + esc(selP.name) + '</button> <button type="button" class="ghost" data-rmp style="color:var(--bad)">Remove ' + esc(selP.name) + '</button>' + (selP.waiting ? '' : ' <button type="button" class="ghost" data-unp>Send ' + esc(selP.name) + ' and partner to waiting</button>') + ' <span class="hint" style="min-height:0">Change level:</span> ' + LEVELS.filter(l => l !== selP.level).map(l => '<button type="button" class="ghost" data-chlv="' + l + '">Move ' + esc(selP.name) + ' to ' + l + '</button>').join(' ') : '') + '</div>' : '';   // Rename / Change level, shown right under the picked player's Skill Level heading
   $('#teams').innerHTML = LEVELS.filter(l => st.teams.some(t => t.level === l)).map(l =>
     '<h3 class="lvl">Skill Level: ' + l + '</h3>' + (selP && !selP.waiting && selP.level === l ? act : '') + '<div class="grid">' + st.teams.filter(t => t.level === l).map(t =>
       '<div class="team"><span class="n" style="color:var(--mute);font-size:12px">' + t.id + '</span>' + t.players.map(p => chip(p, l)).join('') + '</div>').join('') + '</div>').join('');
@@ -1325,6 +1335,16 @@ document.addEventListener('click', e => {                 // Change level: move 
     $('#players').value = $('#players').value.split('\n').map(l => { const q = l.split(/[,\t]/); return (q[0] || '').trim().toLowerCase() === name.toLowerCase() ? (q[0].trim() + ', ' + lvl) : l; }).join('\n');
     renderDraw();
     renderTeams(name + ' moved to ' + lvl + ' and is waiting for a partner.' + (partner ? ' ' + partner + ' stays in ' + from + ' waiting for a partner.' : '') + ' Tap two waiting players of the same level to pair them.');
+  } catch (err) { selP = null; renderTeams(err.message, true); }
+});
+document.addEventListener('click', e => {                 // Break up the picked player's team: both go to "Waiting for a partner"
+  if (!(e.target.closest && e.target.closest('[data-unp]')) || !draw || !selP) return;
+  if (blocked('#hintT')) return;
+  const name = selP.name, lvl = selP.level;
+  try {
+    const tm = draw.getState().teams.find(t => t.players.includes(name)), both = tm ? tm.players.slice() : [name];
+    draw.unpair(name); selP = null; rnOn = false; hideResults();
+    renderDraw(); renderTeams(both.join(' and ') + ' are now waiting for a partner in ' + lvl + '. Tap two waiting players to pair them again. Press "Build schedule" when you are done.');
   } catch (err) { selP = null; renderTeams(err.message, true); }
 });
 document.addEventListener('click', e => {                 // Remove the picked player (late cancellation)
