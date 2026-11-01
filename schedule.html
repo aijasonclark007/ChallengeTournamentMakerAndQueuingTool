@@ -620,7 +620,8 @@ function createDraw(registrations, options) {
       if (to.level !== t.level) throw new Error('A team can only move inside its own skill level');
       const from = bracketOf(t);
       if (from === to) return api;
-      if (to.teams.length >= opt.bracketSize) throw new Error(to.name + ' is already full (' + opt.bracketSize + ' teams)');
+      const cap = Math.max(opt.bracketSize, 5);   // by hand a bracket can hold 5 teams (5 teams play a full round robin, one team rests each round)
+      if (to.teams.length >= cap) throw new Error(to.name + ' is already full (' + cap + ' teams)');
       from.teams.splice(from.teams.indexOf(t), 1);
       to.teams.push(t);
       if (!from.teams.length) brackets.splice(brackets.indexOf(from), 1);
