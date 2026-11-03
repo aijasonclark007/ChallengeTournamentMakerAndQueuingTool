@@ -3,9 +3,10 @@
 (function () {
   var C = window.THANKS_CONFIG || {}, links = (C.links || []).filter(function (l) { return l && l.url && l.label; });
   var has = !!(C.qr || links.length);
-  var css = '.thx-btn{display:inline-flex;align-items:center;gap:7px;border:0;cursor:pointer;font:inherit;font-size:14px;font-weight:700;color:#007AFF;background:rgba(0,122,255,.1);padding:9px 16px;border-radius:999px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;transition:background-color .2s ease,transform .16s cubic-bezier(.2,.8,.2,1)}' +
-    '.thx-btn:active{transform:scale(.95)}@media (hover:hover){.thx-btn:hover{background:rgba(0,122,255,.17)}}' +
-    '.thx-btn .h{display:inline-block;animation:thxbeat 2.6s ease-in-out infinite}@keyframes thxbeat{0%,70%,100%{transform:none}80%{transform:scale(1.25)}90%{transform:scale(.95)}}' +
+  var css = '.thx-btn{display:inline-flex;align-items:center;gap:6px;border:0;cursor:pointer;font:inherit;font-size:13px;font-weight:500;letter-spacing:.01em;color:#8E8E93;background:transparent;padding:7px 12px;border-radius:999px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;outline:none;box-shadow:none;transition:color .25s ease,background-color .25s ease,transform .16s cubic-bezier(.2,.8,.2,1)}' +
+    '.thx-btn:active{transform:scale(.96)}.thx-btn:focus-visible{outline:none;background:rgba(120,120,128,.12);color:#5F5F66}@media (hover:hover){.thx-btn:hover{color:#5F5F66;background:rgba(120,120,128,.1)}}' +
+    '.thx-btn .h{display:inline-block;font-size:12px;opacity:.75;filter:saturate(.7);animation:thxbeat 4.5s ease-in-out infinite}@keyframes thxbeat{0%,82%,100%{transform:none}90%{transform:scale(1.18)}95%{transform:scale(.97)}}' +
+    '@media (prefers-color-scheme:dark){.thx-btn{color:#98989F}.thx-btn:focus-visible,.thx-btn:hover{color:#C7C7CC}}' +
     '#thx{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);visibility:hidden;transition:background-color .28s ease,visibility 0s linear .32s;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}' +
     '#thx.on{background:rgba(0,0,0,.42);visibility:visible;transition:background-color .28s ease}' +
     '#thx .sh{width:100%;max-width:440px;max-height:92vh;overflow:auto;box-sizing:border-box;background:#fff;color:#1C1C1E;border-radius:22px 22px 0 0;padding:10px 20px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.9,.25,1);box-shadow:0 -10px 40px rgba(0,0,0,.2)}' +
