@@ -201,11 +201,14 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 
   function draw() {
     const st = $('#stage'); if (!data) { return; }
-    const ms = mine(); let h = ''; idleNow = false;
+    const ms = mine(); let h = '';
     const live = ms.find(m => state(m) === 'live');
     const bm = fresh() ? ms.find(m => m.mid === bc.mid) : null;
     const cur = live || (bm && state(bm) !== 'done' ? bm : null);
-    if (!ms.length) h = header(null) + '<div class="idle"><div class="big">' + esc(court || 'No court selected') + '<i>No matches found for this court.</i></div></div>';
+    const finalOn = !!(finalShow && finalShow.until > Date.now() && ms.find(m => m.mid === finalShow.mid));
+    idleNow = !!ms.length && !live && !finalOn;                              // standby = nothing is live: the sponsors play (one full round), then pause, then play again. Only a live game stops them.
+    if (idleNow && spIdx >= 0 && SP.length) h = header(cur || ms.find(m => state(m) === 'up') || null) + sponsorSlide();
+    else if (!ms.length) h = header(null) + '<div class="idle"><div class="big">' + esc(court || 'No court selected') + '<i>No matches found for this court.</i></div></div>';
     else if (cur) {
       const s = sc(cur) || { s1: 0, s2: 0 }, use = fresh() && bc.mid === cur.mid;
       const checking = use && bc.here && !bc.allHere && (bc.s1 || 0) + (bc.s2 || 0) === 0 && !bc.srv;     // the umpire opened the match and players are still arriving
@@ -216,9 +219,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
       h = header(m) + '<div class="idle"><div class="lab">Final</div><div class="big">' + esc(w) + '<i>wins</i></div><div class="final">' + s.s1 + ' &ndash; ' + s.s2 + '</div><div class="sub">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div></div>';
     } else {
       const up = ms.filter(m => state(m) === 'up'), nx = up[0], then = up.slice(1, 3);
-      idleNow = true;
-      if (spIdx >= 0 && SP.length) h = header(nx || null) + sponsorSlide();
-      else if (!nx) h = header(null) + '<div class="idle"><div class="lab">All done</div><div class="big">All matches on ' + esc(court) + ' are finished<i>Thank you for playing!</i></div></div>';
+      if (!nx) h = header(null) + '<div class="idle"><div class="lab">All done</div><div class="big">All matches on ' + esc(court) + ' are finished<i>Thank you for playing!</i></div></div>';
       else {
         const nb = fresh() && bc.mid === nx.mid;
         h = header(nx) + '<div class="idle"><div class="lab">' + (ready(nx) ? 'Up next' : 'Next match') + '</div>' +

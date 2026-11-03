@@ -4,7 +4,7 @@
 window.SPONSORS_CONFIG = {
   title: 'Thank you to our sponsors',
   seconds: 6,            // how long each sponsor stays on screen
-  gap: 12,               // seconds of the normal "Up next" screen between rounds of sponsors
+  gap: 30,               // seconds of the normal screen (Up next / attendance) before the sponsors play again
   list: [
     // { name: 'Sponsor one', line: 'Official partner' },
   ]
