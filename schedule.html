@@ -157,6 +157,7 @@ label:has(>input[type=checkbox]){cursor:pointer}
 #hideChips label:active{transform:scale(.95)}
 #hideChips label.on{background:rgba(255,149,0,.18);color:#A64B00}
 #hideNote{flex-basis:100%;transition:opacity .25s ease}
+#koDone{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 12px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(255,204,0,.2),rgba(52,199,89,.16));color:var(--ink)}#koDone span{flex:1 1 240px;color:var(--mute);font-size:14px}
 #table tr.fresh td{animation:freshrow 2.4s ease both}
 @keyframes freshrow{0%{background:rgba(52,199,89,.35)}100%{background:transparent}}
 @media (prefers-reduced-motion:reduce){#table tr.fresh td{animation:none}}
@@ -447,6 +448,7 @@ summary:hover{background:#fff}
   </section>
 
   <section id="koSec" class="hidden">
+    <div id="koDone" class="noprint hidden"><b>Tournament complete! 🎉</b><span>Congratulations to every champion. If Challenge Match Day helped you run it, you can say thank you.</span><button data-thanks></button></div>
     <div class="bar noprint"><h2>6. Knockout round</h2>
       <div class="tools"><button id="resExport" class="ghost" type="button">Export</button><button id="randKo" class="ghost test" type="button">Fill random knockout scores (test)</button></div></div>
     <div id="resPick" class="tools noprint hidden" style="margin:0 0 8px"><button id="resPrint" class="ghost" type="button">Print / PDF</button><button id="resDl" class="ghost" type="button">Results page</button><button id="resCsv" class="ghost" type="button">CSV (Excel / Sheets)</button></div>
@@ -464,11 +466,14 @@ summary:hover{background:#fff}
   <div class="row"><div><label for="mvSlot">Time</label><select id="mvSlot"></select></div><div><label for="mvCourt">Court</label><select id="mvCourt"></select></div></div>
   <div id="mvNote"></div><div class="row"><button id="mvGo" class="go" type="button">Move game</button><button id="mvNo" class="ghost" type="button">Cancel</button></div></div></div>
 </main>
+<div class="noprint" style="text-align:center;padding:10px 16px 34px"><button data-thanks></button></div>
 <div id="printView"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="sports/badminton/rules.js"></script>
 <script src="sports/pickleball/rules.js"></script>
+<script src="thanks-config.js"></script>
+<script src="thanks.js"></script>
 <script src="haptics.js"></script>
 <script src="sports/sports.js"></script>
 <script src="platform-config.js"></script>
@@ -2067,6 +2072,7 @@ function renderKo() {
     (ko.ties || []).map((t, i) => '<p class="warn">Tie for a BYE in ' + esc(t.level) + ': ' + t.teams.map(esc).join(', ') + ' are equal on wins, points and point difference. <button class="mv coinko" data-i="' + i + '">Coin toss</button></p>').join('') +
     (s.status === 'EXCEEDS_LIMIT' ? '<p class="warn">The whole event would run past the limit. Add courts, or play the knockout round on another day.</p>' : '');
   $('#champs').innerHTML = '';
+  { const lv = LEVELS.filter(l => rs.matches.some(m => m.level === l)), fin = lv.length && lv.every(l => rs.champions.some(c => c.level === l && c.team)); if (window.Thanks && Thanks.enabled) { vis($('#koDone'), !!fin); Thanks.paint(); } }
   $('#koCharts').innerHTML = LEVELS.filter(l => rs.matches.some(m => m.level === l)).map(l =>
     '<h3 class="lvl">Skill Level: ' + l + '</h3><div class="wrap kwrap">' + koChart(l, rs, sch, seedOf, rs) + '</div>').join('');
   const nm = t => t ? esc(t.name) : 'To be decided';
