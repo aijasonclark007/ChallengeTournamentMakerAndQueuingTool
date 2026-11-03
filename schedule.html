@@ -2050,9 +2050,9 @@ function koChart(level, rs, sch, seedOf, result) {
       '<button type="button" class="sv' + (locked ? ' ed' : '') + '" data-k="k" data-m="' + m.id + '"' + (ready ? '' : ' disabled') + '>' + (locked ? 'Edit' : 'Save') + '</button></div>';
   });
   const fin = ms.filter(m => m.round === R)[0], fe = at[fin.id], champ = result.champions.filter(c => c.level === level)[0];
-  const second = fin.winner ? (fin.winner === fin.team1 ? fin.team2 : fin.team1) : null, cn = champ && champ.team;
+  const cn = champ && champ.team;
   html += '<div class="champ' + (cn ? ' done' : '') + '" style="left:' + (R * (BW + GAP) - GAP + 20) + 'px;top:' + (fe.ym - 28) + 'px"><span class="n" style="color:var(--mute);font-size:12px">' + (cn ? medalTag('\u{1F947}', 'Champion', level, cn) + ' ' : '') + 'Champion</span><br><b>' +
-    (cn ? esc(cn.name) : 'To be decided') + '</b>' + (second ? '<div class="n" style="margin-top:6px;font-size:12px;color:var(--mute)">' + medalTag('\u{1F948}', 'Runner-up', level, second) + ' ' + esc(second.name) + '</div>' : '') + '</div>';
+    (cn ? esc(cn.name) : 'To be decided') + '</b>' + '</div>';
   return '<div class="kchart" style="width:' + W + 'px;height:' + H + 'px"><svg width="' + W + '" height="' + H + '" style="position:absolute;left:0;top:0" aria-hidden="true">' + svg + '</svg>' + html + '</div>';
 }
 
