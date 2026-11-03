@@ -2679,7 +2679,7 @@ function matchList() {
   sched.matches.forEach(m => { const r = done[m.id]; out.push({ mid: 'g:' + m.id, court: m.courtName, slot: m.slot, time: m.start + ' - ' + m.end, level: m.level, bracket: m.bracket, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   if (ko && koSched) {
     const kd = committed(koResults), by = {}; resolveKnockout(ko, kd).matches.forEach(m => { by[m.id] = m; });
-    koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, level: m.level, bracket: m.roundName, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
+    koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, level: m.level, bracket: m.roundName, round: m.round, from: m.slots.map(sl => (sl.winnerOf ? 'k:' + sl.winnerOf : null)), t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   }
   const sp = tSport, dt = $('#eventDate').value || ''; return out.map(x => Object.assign(x, { sport: sp, date: dt }));      // the umpire page scores by this sport's rules
 }

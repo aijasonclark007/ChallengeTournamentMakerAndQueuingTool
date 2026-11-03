@@ -59,6 +59,14 @@ button:disabled{opacity:.4;cursor:default}
 .tbw{padding-bottom:0!important;display:none}.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .tb input{flex:1 1 220px;min-width:0;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px}
 .tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
+.kbr{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}.kcol{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-width:176px;flex:none}
+.kcol h4{margin:0 0 2px;font-size:12px;color:var(--mute);text-align:center}.kcard{background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}.kcard.a{animation:kin .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 40ms)}
+.kcard .kh{padding:3px 8px;font-size:11px;color:var(--mute);background:var(--chip)}.kcard .kr{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line)}.kcard .kh+.kr{border-top:0}
+.kcard .kr span.n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kcard .kr b.s{font-variant-numeric:tabular-nums}.kcard .kr.w{color:#1C7C3A;font-weight:700}.kcard .kr.tbd span.n{color:var(--mute)}
+.kchamp{align-self:center;min-width:150px;padding:10px 12px;border:2px solid var(--green);border-radius:12px;background:var(--card);flex:none}.kchamp.a{animation:kin .5s cubic-bezier(.2,.8,.2,1) both}.kchamp small{display:block;color:var(--mute);font-size:12px}
+.kmd.new{display:inline-block;animation:kpop .55s cubic-bezier(.2,.8,.2,1) both}@keyframes kpop{0%{transform:scale(0) rotate(-25deg);opacity:0}60%{transform:scale(1.35) rotate(8deg);opacity:1}100%{transform:none}}
+@keyframes kin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.kcard.a,.kchamp.a,.kmd.new{animation:none}}
+.klv{margin:14px 0 6px;font-size:15px;font-weight:800}.klv:first-of-type{margin-top:2px}
 #panel{margin-top:10px}.pn{background:var(--card);box-shadow:var(--shadow);border-radius:18px;padding:14px 16px;animation:slidedown .28s ease both}
 .pn h3{margin:0 0 8px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
 .pn textarea{width:100%;min-height:74px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);font:inherit;font-size:16px;background:var(--bg);color:var(--ink);resize:vertical}
@@ -97,7 +105,7 @@ details>summary{transition:color .2s ease}
 </head>
 <body>
 <div class="top"><h1 id="ttl">Match Control<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
-<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" id="bCallAll" class="hidden" title="Call every court whose next game has not started">Call all waiting courts</button><button type="button" data-p="voice">Speaker</button><button type="button" id="bMore" aria-expanded="false" aria-controls="moreRow">More<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M2 4.2 6 8l4-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="moreRow" class="tb morerow" inert><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
+<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" id="bCallAll" class="hidden" title="Call every court whose next game has not started">Call all waiting courts</button><button type="button" data-p="voice">Speaker</button><button type="button" id="bMore" aria-expanded="false" aria-controls="moreRow">More<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M2 4.2 6 8l4-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="moreRow" class="tb morerow" inert><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="bracket">Bracket</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
 <div class="wrap" id="app"><div class="msg">Loading...</div></div>
 <div class="sh" id="es"><div><h2 style="margin:0 0 2px;font-size:19px">Fix the score</h2><p class="meta" id="esMsg" style="margin:0"></p><div class="sc"><b id="esT1"></b><input id="esA" type="number" inputmode="numeric" min="0" max="99"><b id="esT2"></b><input id="esB" type="number" inputmode="numeric" min="0" max="99"></div><div class="btns"><button class="go" id="esSave">Save score</button><button id="esCancel">Cancel</button></div></div></div>
 <div id="toast"></div>
@@ -251,6 +259,36 @@ details>summary{transition:color .2s ease}
   const sTag = m => { const s = score(m), st = state(m); return st === 'done' && s ? '<span class="chipx done">Final ' + s.s1 + ' - ' + s.s2 + '</span>' + (noteOf(m) ? '<span class="chipx" style="margin-left:4px">' + esc(noteOf(m)) + '</span>' : '') : st === 'live' ? '<span class="chipx live">LIVE' + (s ? ' ' + s.s1 + ' - ' + s.s2 : '') + '</span>' : '<span class="chipx">' + (ready(m) ? 'Upcoming' : 'Waiting') + '</span>'; };
   const t0 = m => esc(String(m.time).split(/\s+-\s+/)[0]);
   const bySlot = (a, b) => (a.slot - b.slot) || String(a.court).localeCompare(String(b.court), undefined, { numeric: true });
+  const kSeen = new Set();
+  function bracketHtml(all) {
+    const ko = all.filter(m => String(m.mid).indexOf('k:') === 0);
+    if (!ko.length) return '<div class="pn"><h3>Bracket</h3><div class="meta">The knockout round has not been built yet.</div></div>';
+    if (!ko.some(m => m.from)) return '<div class="pn"><h3>Bracket</h3><div class="meta">Ask the organizer to press "Update with latest scores" on the schedule page once. Then the bracket shows here.</div></div>';
+    const by = {}; ko.forEach(m => { by[m.mid] = m; });
+    const done = m => state(m) === 'done' && !!score(m);
+    const win = m => { const s = score(m); return done(m) ? (s.s1 > s.s2 ? 1 : 2) : 0; };
+    const team = (m, k) => { if (m['t' + k]) return m['t' + k]; const f = m.from && m.from[k - 1] && by[m.from[k - 1]]; return f && win(f) ? team(f, win(f)) : ''; };
+    const anim = shownKind !== 'bracket';
+    const medal = (ch, lbl, lv, name) => { const key = lv + '|' + ch + '|' + name, fresh = !kSeen.has(key); kSeen.add(key); return '<span class="kmd' + (fresh ? ' new' : '') + '" role="img" aria-label="' + lbl + '">' + ch + '</span> '; };
+    const order = ['Low', 'Mid', 'High'], lvls = order.filter(l => ko.some(m => m.level === l)).concat([...new Set(ko.map(m => m.level))].filter(l => order.indexOf(l) < 0));
+    let h = '<div class="pn"><h3>Bracket (view only)</h3>', n = 0;
+    lvls.forEach(lv => {
+      const ms = ko.filter(m => m.level === lv), R = Math.max.apply(null, ms.map(m => m.round || 1));
+      h += '<div class="klv">Skill Level: ' + esc(lv) + '</div><div class="kbr">';
+      for (let r = 1; r <= R; r++) {
+        const col = ms.filter(m => (m.round || 1) === r).sort(bySlot);
+        h += '<div class="kcol"><h4>' + esc((col[0] && col[0].bracket) || '') + '</h4>' + col.map(m => {
+          const w = win(m), isFin = m.bracket === 'Finals', isSemi = m.bracket === 'Semifinals';
+          const row = k => { const nm = team(m, k), mine = w === k, md = !w || !nm ? '' : mine ? (isFin ? medal('\u{1F947}', 'Champion', lv, nm) : '') : isFin ? medal('\u{1F948}', 'Runner-up', lv, nm) : isSemi ? medal('\u{1F949}', '3rd place', lv, nm) : '';
+            const sc = score(m); return '<div class="kr' + (mine ? ' w' : '') + (nm ? '' : ' tbd') + '"><span class="n">' + md + esc(nm || 'To be decided') + '</span>' + (done(m) ? '<b class="s">' + (k === 1 ? sc.s1 : sc.s2) + '</b>' : '') + '</div>'; };
+          return '<div class="kcard' + (anim ? ' a' : '') + '" style="--i:' + (n++) + '"><div class="kh">' + esc(m.court) + ' &middot; ' + t0(m) + '</div>' + row(1) + row(2) + '</div>';
+        }).join('') + '</div>';
+      }
+      const fin = ms.filter(m => m.bracket === 'Finals')[0], cn = fin && win(fin) ? team(fin, win(fin)) : '';
+      h += '<div class="kchamp' + (anim ? ' a' : '') + '"><small>' + (cn ? medal('\u{1F947}', 'Champion', lv, cn) : '') + 'Champion</small><b>' + esc(cn || 'To be decided') + '</b></div></div>';
+    });
+    return h + '</div>';
+  }
   function panelHtml(kind) {
     const all = (data && data.matches) || [];
     if (kind === 'find') {
@@ -264,6 +302,7 @@ details>summary{transition:color .2s ease}
       left.forEach(m => { const tk = String(m.time); if (tk !== last) { last = tk; h += '<div style="margin:10px 0 2px;font-weight:800">' + esc(tk) + '</div>'; } h += '<div class="pr"><span class="t">' + esc(m.court) + '</span><span class="t">' + esc(m.bracket) + '</span><div>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '</div>' + sTag(m) + '</div>'; });
       return h + '</div>';
     }
+    if (kind === 'bracket') return bracketHtml(all);
     if (kind === 'log') {
       if (logRows == null) return '<div class="pn"><h3>Activity log</h3><div class="meta">Loading...</div></div>';
       return '<div class="pn"><h3>Activity log</h3>' + (logRows.length ? logRows.map(r => '<div class="lg"><span>' + esc(new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '</span><div>' + esc(r.body) + '</div></div>').join('') : '<div class="meta">Nothing yet. Moves, defaults, score fixes and announcements are listed here.</div>') + '</div>';
@@ -279,7 +318,7 @@ details>summary{transition:color .2s ease}
   async function openPanel(kind, keep) {
     if (!keep && panelKind === kind) { panelKind = ''; } else panelKind = kind;
     document.querySelectorAll('#tbw [data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === panelKind));
-    $('#bMore').classList.toggle('on', ['wd', 'sched', 'log'].includes(panelKind));
+    $('#bMore').classList.toggle('on', ['wd', 'sched', 'log', 'bracket'].includes(panelKind));
     if (panelKind === 'log') { renderPanel(); try { logRows = await P.getLog(slug, key); } catch (e) { logRows = []; } }
     renderPanel();
   }
