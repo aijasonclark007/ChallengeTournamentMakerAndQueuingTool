@@ -72,6 +72,12 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .annb.same .ab{animation:none}
 .al{font-size:3.4vh;font-weight:800;letter-spacing:.35em;opacity:.7;margin-bottom:3vh}
 .at{font-weight:900;line-height:1.12;text-wrap:balance;overflow-wrap:anywhere;font-size:12vh}.at.m{font-size:9vh}.at.l{font-size:7vh}.at.xl{font-size:5.4vh}
+.sp{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:3vh;min-height:0;animation:spin .8s cubic-bezier(.2,.8,.2,1)}
+.sp .lab{font-size:3.6vh;font-weight:800;color:var(--lime);letter-spacing:.2em;text-transform:uppercase}
+.sp .nm{font-size:12vh;font-weight:900;line-height:1.1;text-wrap:balance;max-width:90vw}.sp .nm.l{font-size:8vh}
+.sp .ln{font-size:4.6vh;color:var(--mute);font-weight:700}
+.spd{display:flex;gap:1.2vh;margin-top:3vh}.spd i{width:1.4vh;height:1.4vh;border-radius:50%;background:rgba(255,255,255,.22)}.spd i.on{background:var(--lime)}
+@keyframes spin{from{opacity:0;transform:translateY(3vh) scale(.97)}to{opacity:1;transform:none}}
 @keyframes annfade{from{opacity:0}to{opacity:1}}@keyframes annpop{from{opacity:0;transform:scale(.9) translateY(4vh)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -82,6 +88,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 <div class="hint" id="hint">Press OK for full screen &middot; left/right arrows change the layout</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
+<script src="sponsors-config.js"></script>
 <script src="platform.js"></script>
 <script>
 (() => {
@@ -93,6 +100,20 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   const P = window.Platform;
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   let layout = q.get('layout') || (function () { try { return localStorage.getItem('tvlayout'); } catch (e) { return null; } })() || 'panels';
+  const SP = (window.SPONSORS_CONFIG && window.SPONSORS_CONFIG.list || []).filter(x => x && x.name), SPC = window.SPONSORS_CONFIG || {};
+  let spIdx = -1, spAt = Date.now(), lastH = null;                           // spIdx -1 = normal screen, 0.. = which sponsor is showing
+  function sponsorSlide() {
+    const x = SP[spIdx]; if (!x) return '';
+    return '<div class="sp" key="' + spIdx + '"><div class="lab">' + esc(SPC.title || 'Thank you to our sponsors') + '</div><div class="nm' + (x.name.length > 22 ? ' l' : '') + '">' + esc(x.name) + '</div>' + (x.line ? '<div class="ln">' + esc(x.line) + '</div>' : '') +
+      '<div class="spd">' + SP.map((_, i) => '<i' + (i === spIdx ? ' class="on"' : '') + '></i>').join('') + '</div></div>';
+  }
+  function spStep() {                                                        // normal screen for "gap" seconds, then each sponsor for "seconds" each, then back
+    if (!SP.length || !idleNow) { if (spIdx !== -1) { spIdx = -1; draw(); } return; }
+    const el = (Date.now() - spAt) / 1000;
+    if (spIdx === -1) { if (el >= (SPC.gap || 12)) { spIdx = 0; spAt = Date.now(); draw(); } }
+    else if (el >= (SPC.seconds || 6)) { spIdx = spIdx + 1 >= SP.length ? -1 : spIdx + 1; spAt = Date.now(); draw(); }
+  }
+  let idleNow = false;
   let data = null, scores = {}, bc = null, netErr = null, lastOk = 0, finalShow = null, prevLive = {};
 
   const mine = () => ((data && data.matches) || []).filter(m => m.court === court).sort((a, b) => (a.slot - b.slot) || String(a.time).localeCompare(String(b.time)));
@@ -178,7 +199,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 
   function draw() {
     const st = $('#stage'); if (!data) { return; }
-    const ms = mine(); let h = '';
+    const ms = mine(); let h = ''; idleNow = false;
     const live = ms.find(m => state(m) === 'live');
     const bm = fresh() ? ms.find(m => m.mid === bc.mid) : null;
     const cur = live || (bm && state(bm) !== 'done' ? bm : null);
@@ -193,7 +214,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
       h = header(m) + '<div class="idle"><div class="lab">Final</div><div class="big">' + esc(w) + '<i>wins</i></div><div class="final">' + s.s1 + ' &ndash; ' + s.s2 + '</div><div class="sub">' + esc(m.t1) + ' vs ' + esc(m.t2) + '</div></div>';
     } else {
       const up = ms.filter(m => state(m) === 'up'), nx = up[0], then = up.slice(1, 3);
-      if (!nx) h = header(null) + '<div class="idle"><div class="lab">All done</div><div class="big">All matches on ' + esc(court) + ' are finished<i>Thank you for playing!</i></div></div>';
+      idleNow = true;
+      if (spIdx >= 0 && SP.length) h = header(nx || null) + sponsorSlide();
+      else if (!nx) h = header(null) + '<div class="idle"><div class="lab">All done</div><div class="big">All matches on ' + esc(court) + ' are finished<i>Thank you for playing!</i></div></div>';
       else {
         const nb = fresh() && bc.mid === nx.mid;
         h = header(nx) + '<div class="idle"><div class="lab">' + (ready(nx) ? 'Up next' : 'Next match') + '</div>' +
@@ -202,7 +225,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
           (then.length ? '<div class="then">Then: ' + then.map(m => '<b>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '</b> (' + esc(String(m.time).split(' - ')[0]) + ')').join(' &middot; ') + '</div>' : '') + '</div>';
       }
     }
-    st.innerHTML = h; tick();
+    if (!idleNow && spIdx !== -1) spIdx = -1;
+    if (h === lastH) { tick(); return; }                                      // nothing changed: do not redraw, so animations do not restart
+    lastH = h; st.innerHTML = h; tick();
   }
   function tick() {
     const c = $('#clock'); if (c) c.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -223,7 +248,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   try { P.liveChannel('slive-' + slug, () => load()); } catch (e) {}      // a score was saved: fetch it right away
   load(); setInterval(load, 15000);
   setInterval(() => {                                                        // every second: countdowns, the clock, and expiring screens, without redrawing the whole page
-    tick();
+    tick(); spStep();
     document.querySelectorAll('[data-cd]').forEach(el => { const l = left(el.dataset.cd); if (l != null) { el.textContent = mmss(l); if (l <= 0) draw(); } });
     if (finalShow && finalShow.until <= Date.now()) { finalShow = null; draw(); }
     if (bc && !fresh()) { bc = null; draw(); }
