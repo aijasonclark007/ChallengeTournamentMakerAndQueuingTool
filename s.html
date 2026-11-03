@@ -7,15 +7,21 @@
 <style>html{-webkit-text-size-adjust:100%;text-size-adjust:100%}   /* stop iPhone Safari from enlarging text after a rotation */
 html,body{margin:0;height:100%;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
 iframe{border:0;width:100%;height:100%;display:block}
+body.hasbar iframe{height:calc(100% - 46px)}
+#thxbar{position:fixed;left:0;right:0;bottom:0;height:46px;display:none;align-items:center;justify-content:center;background:#F2F2F7;border-top:1px solid rgba(60,60,67,.14);padding-bottom:env(safe-area-inset-bottom)}body.hasbar #thxbar{display:flex}
 .msg{padding:40px 20px;text-align:center;color:#555}
 #ann{position:fixed;left:10px;right:10px;top:10px;z-index:9;background:#FF9500;color:#1b1200;border-radius:14px;padding:11px 14px;font-weight:800;font-size:15px;box-shadow:0 8px 24px rgba(0,0,0,.22);display:none}</style>
 </head>
 <body>
+<div id="thxbar"><button data-thanks></button></div>
 <div id="ann" onclick="this.style.display='none'"></div>
 <div id="m" class="msg">Loading the schedule...</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
 <script src="platform.js"></script>
+<script src="thanks-config.js"></script>
+<script src="thanks.js"></script>
+<script>if (window.Thanks && Thanks.enabled) document.body.classList.add("hasbar");</script>
 <script>
 (async () => {
   const slug = new URLSearchParams(location.search).get('s'), m = document.getElementById('m');
