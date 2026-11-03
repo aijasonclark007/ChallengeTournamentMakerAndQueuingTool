@@ -158,8 +158,8 @@ label:has(>input[type=checkbox]){cursor:pointer}
 #hideChips label.on{background:rgba(255,149,0,.18);color:#A64B00}
 #hideNote{flex-basis:100%;transition:opacity .25s ease}
 #koDone{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 12px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(255,204,0,.2),rgba(52,199,89,.16));color:var(--ink)}#koDone span{flex:1 1 240px;color:var(--mute);font-size:14px}
-#standings .grid{align-items:start}#standings .card{padding:14px}
-#standings .wrap{box-shadow:none;background:transparent;border-radius:0;overflow:visible;margin-top:2px}
+#standings .grid{align-items:stretch}#standings .card{padding:14px;display:flex;flex-direction:column}
+#standings .wrap{box-shadow:none;background:transparent;border-radius:0;overflow:visible;margin-top:2px;flex:1 1 auto;display:flex;flex-direction:column}#standings .wrap table{flex:1 1 auto;height:100%}
 #standings table{min-width:0}#standings th,#standings td{padding:8px 5px}#standings th{border-radius:0}#standings th:first-child{border-radius:10px 0 0 10px;padding-left:8px}#standings th:last-child{border-radius:0 10px 10px 0}
 #standings td:first-child{padding-left:8px;width:22px}#standings td.nw,#standings th.nw{font-size:13px;white-space:nowrap;padding-left:4px;padding-right:4px}
 #table tr.fresh td{animation:freshrow 2.4s ease both}
