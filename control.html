@@ -59,11 +59,11 @@ button:disabled{opacity:.4;cursor:default}
 .tbw{padding-bottom:0!important;display:none}.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .tb input{flex:1 1 220px;min-width:0;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px}
 .tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
-.kbr{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}.kcol{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-width:176px;flex:none}
+.kbr{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}.kcol{display:flex;flex-direction:column;width:190px;flex:none}.kbody{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px}.kcol h4{height:20px;line-height:20px;margin:0 0 6px}
 .kcol h4{margin:0 0 2px;font-size:12px;color:var(--mute);text-align:center}.kcard{background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}.kcard.a{animation:kin .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 40ms)}
 .kcard .kh{padding:3px 8px;font-size:11px;color:var(--mute);background:var(--chip)}.kcard .kr{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line)}.kcard .kh+.kr{border-top:0}
 .kcard .kr span.n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kcard .kr b.s{font-variant-numeric:tabular-nums}.kcard .kr.w{color:#1C7C3A;font-weight:700}.kcard .kr.tbd span.n{color:var(--mute)}
-.kchamp{align-self:center;min-width:150px;padding:10px 12px;border:2px solid var(--green);border-radius:12px;background:var(--card);flex:none}.kchamp.a{animation:kin .5s cubic-bezier(.2,.8,.2,1) both}.kchamp small{display:block;color:var(--mute);font-size:12px}
+.kcol.kch{width:170px}.kchamp{min-width:150px;padding:10px 12px;border:2px solid var(--green);border-radius:12px;background:var(--card);flex:none}.kchamp.a{animation:kin .5s cubic-bezier(.2,.8,.2,1) both}.kchamp small{display:block;color:var(--mute);font-size:12px}
 .kmd.new{display:inline-block;animation:kpop .55s cubic-bezier(.2,.8,.2,1) both}@keyframes kpop{0%{transform:scale(0) rotate(-25deg);opacity:0}60%{transform:scale(1.35) rotate(8deg);opacity:1}100%{transform:none}}
 @keyframes kin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.kcard.a,.kchamp.a,.kmd.new{animation:none}}
 .klv{margin:14px 0 6px;font-size:15px;font-weight:800}.klv:first-of-type{margin-top:2px}
@@ -277,15 +277,15 @@ details>summary{transition:color .2s ease}
       h += '<div class="klv">Skill Level: ' + esc(lv) + '</div><div class="kbr">';
       for (let r = 1; r <= R; r++) {
         const col = ms.filter(m => (m.round || 1) === r).sort(bySlot);
-        h += '<div class="kcol"><h4>' + esc((col[0] && col[0].bracket) || '') + '</h4>' + col.map(m => {
+        h += '<div class="kcol"><h4>' + esc((col[0] && col[0].bracket) || '') + '</h4><div class="kbody">' + col.map(m => {
           const w = win(m), isFin = m.bracket === 'Finals', isSemi = m.bracket === 'Semifinals';
           const row = k => { const nm = team(m, k), mine = w === k, md = !w || !nm ? '' : mine ? (isFin ? medal('\u{1F947}', 'Champion', lv, nm) : '') : isFin ? medal('\u{1F948}', 'Runner-up', lv, nm) : isSemi ? medal('\u{1F949}', '3rd place', lv, nm) : '';
             const sc = score(m); return '<div class="kr' + (mine ? ' w' : '') + (nm ? '' : ' tbd') + '"><span class="n">' + md + esc(nm || 'To be decided') + '</span>' + (done(m) ? '<b class="s">' + (k === 1 ? sc.s1 : sc.s2) + '</b>' : '') + '</div>'; };
           return '<div class="kcard' + (anim ? ' a' : '') + '" style="--i:' + (n++) + '"><div class="kh">' + esc(m.court) + ' &middot; ' + t0(m) + '</div>' + row(1) + row(2) + '</div>';
-        }).join('') + '</div>';
+        }).join('') + '</div></div>';
       }
       const fin = ms.filter(m => m.bracket === 'Finals')[0], cn = fin && win(fin) ? team(fin, win(fin)) : '';
-      h += '<div class="kchamp' + (anim ? ' a' : '') + '"><small>' + (cn ? medal('\u{1F947}', 'Champion', lv, cn) : '') + 'Champion</small><b>' + esc(cn || 'To be decided') + '</b></div></div>';
+      h += '<div class="kcol kch"><h4>&nbsp;</h4><div class="kbody"><div class="kchamp' + (anim ? ' a' : '') + '"><small>' + (cn ? medal('\u{1F947}', 'Champion', lv, cn) : '') + 'Champion</small><b>' + esc(cn || 'To be decided') + '</b></div></div></div></div>';
     });
     return h + '</div>';
   }
