@@ -115,6 +115,10 @@ tr.first td{border-top:2px solid var(--line)}
 .kr em{font-style:normal;font-size:10px;font-weight:700;background:var(--sun);color:#0B1B33;border-radius:6px;padding:0 5px;margin-left:4px}
 .kr.win .nm{font-weight:700}.kr.win .sc{background:#F08A3C;border-color:#F08A3C;color:#0B1B33;font-weight:700}
 .kb .sv{display:block;width:100%;border-radius:0;padding:4px;font-size:12px}
+.kr .md{display:inline-block;margin-right:4px}.champ .md{margin-right:2px}
+.md.new{animation:medalpop .55s cubic-bezier(.2,.8,.2,1) both}@keyframes medalpop{0%{transform:scale(0) rotate(-25deg);opacity:0}60%{transform:scale(1.35) rotate(8deg);opacity:1}100%{transform:none}}
+.champ.done{animation:champin .5s cubic-bezier(.2,.8,.2,1);box-shadow:0 0 0 3px rgba(255,204,0,.28)}@keyframes champin{from{transform:scale(.92);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.md.new,.champ.done{animation:none}}
 .champ{position:absolute;width:150px;padding:8px 10px;border:2px solid var(--lime);border-radius:10px;background:var(--card);color:var(--ink);font-size:13px}
 .lockbtn{background:var(--lime)!important;color:#0B1B33!important;border:0!important}
 .lockbtn.ed{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important}
@@ -1993,6 +1997,17 @@ $('#koBtn').onclick = () => {
   window.goStepNow && goStepNow('knockout');
 };
 
+const medalSeen = new Set();   // so a medal only pops in the first time it shows
+function medalOf(m, t, level) {
+  if (!t || !m.winner || m.winner === t) { if (t && m.winner === t && m.roundName === 'Finals') return medalTag('\u{1F947}', 'Champion', level, t); return ''; }
+  if (m.roundName === 'Finals') return medalTag('\u{1F948}', 'Runner-up', level, t);
+  if (m.roundName === 'Semifinals') return medalTag('\u{1F949}', '3rd place', level, t);
+  return '';
+}
+function medalTag(ch, label, level, t) {
+  const k = level + '|' + ch + '|' + t.name, fresh = !medalSeen.has(k); medalSeen.add(k);
+  return '<span class="md' + (fresh ? ' new' : '') + '" title="' + label + '" role="img" aria-label="' + label + '">' + ch + '</span>';
+}
 function koChart(level, rs, sch, seedOf, result) {
   const ms = rs.matches.filter(m => m.level === level);
   if (!ms.length) return '<p class="hint">Not enough teams for a knockout round.</p>';
@@ -2029,14 +2044,15 @@ function koChart(level, rs, sch, seedOf, result) {
       const t = m['team' + k], key = k === 1 ? 'a' : 'b', bye = t && m.slots[k - 1].team && m.round > 1, mv = t && m.slots[k - 1].team && !locked;
       const pk = koPick && koPick.m === m.id && koPick.k === k - 1;
       return '<div class="kr' + (m.winner && m.winner === t ? ' win' : '') + (mv ? ' kd' : '') + (pk ? ' pick' : '') + '"' + (mv ? ' draggable="true" data-km="' + m.id + '" data-ks="' + (k - 1) + '"' : '') + '><span class="sd">' + ((t && seedOf[t.name]) || '') + '</span><span class="nm" title="' + (t ? esc(t.name) : '') + '">' +
-        (t ? esc(t.name) : 'To be decided') + '</span>' + (bye ? '<em>BYE</em>' : '') + scoreBox(m.id, key, 'k', r[key], locked || !ready) + '</div>';
+        (t ? medalOf(m, t, level) + esc(t.name) : 'To be decided') + '</span>' + (bye ? '<em>BYE</em>' : '') + scoreBox(m.id, key, 'k', r[key], locked || !ready) + '</div>';
     };
     html += '<div class="kb" style="left:' + me.x + 'px;top:' + (me.ym - YM) + 'px"><div class="kh">' + (x ? esc(x.courtName) + ' · ' + x.start : '') + noteTag('k:' + m.id, true) + '</div>' + row(1) + row(2) +
       '<button type="button" class="sv' + (locked ? ' ed' : '') + '" data-k="k" data-m="' + m.id + '"' + (ready ? '' : ' disabled') + '>' + (locked ? 'Edit' : 'Save') + '</button></div>';
   });
   const fin = ms.filter(m => m.round === R)[0], fe = at[fin.id], champ = result.champions.filter(c => c.level === level)[0];
-  html += '<div class="champ" style="left:' + (R * (BW + GAP) - GAP + 20) + 'px;top:' + (fe.ym - 28) + 'px"><span class="n" style="color:var(--mute);font-size:12px">Champion</span><br><b>' +
-    (champ && champ.team ? esc(champ.team.name) : 'To be decided') + '</b></div>';
+  const second = fin.winner ? (fin.winner === fin.team1 ? fin.team2 : fin.team1) : null, cn = champ && champ.team;
+  html += '<div class="champ' + (cn ? ' done' : '') + '" style="left:' + (R * (BW + GAP) - GAP + 20) + 'px;top:' + (fe.ym - 28) + 'px"><span class="n" style="color:var(--mute);font-size:12px">' + (cn ? medalTag('\u{1F947}', 'Champion', level, cn) + ' ' : '') + 'Champion</span><br><b>' +
+    (cn ? esc(cn.name) : 'To be decided') + '</b>' + (second ? '<div class="n" style="margin-top:6px;font-size:12px;color:var(--mute)">' + medalTag('\u{1F948}', 'Runner-up', level, second) + ' ' + esc(second.name) + '</div>' : '') + '</div>';
   return '<div class="kchart" style="width:' + W + 'px;height:' + H + 'px"><svg width="' + W + '" height="' + H + '" style="position:absolute;left:0;top:0" aria-hidden="true">' + svg + '</svg>' + html + '</div>';
 }
 
@@ -2574,7 +2590,8 @@ function resultsData() {
   const per = lv.map(l => {
     const km = rs ? rs.matches.filter(m => m.level === l) : [], ch = rs ? rs.champions.filter(c => c.level === l)[0] : null;
     const third = km.filter(m => m.roundName === 'Semifinals' && m.winner).map(m => m.winner === m.team1 ? m.team2 : m.team1).filter(Boolean);
-    return { level: l, champ: ch && ch.team ? ch.team.name : '', third: third.map(t => t.name), km, brackets: sched.brackets.filter(b => b.level === l) };
+    const fm = km.filter(m => m.roundName === 'Finals')[0], sec = fm && fm.winner ? (fm.winner === fm.team1 ? fm.team2 : fm.team1) : null;
+    return { level: l, champ: ch && ch.team ? ch.team.name : '', second: sec ? sec.name : '', third: third.map(t => t.name), km, brackets: sched.brackets.filter(b => b.level === l) };
   });
   return { done, kd, st, rs, per };
 }
@@ -2582,7 +2599,7 @@ function resultsDoc() {
   const R = resultsData(), name = $('#tname').value.trim() || 'Tournament', dl = evDateLabel(), nm = t => t ? esc(t.name) : 'To be decided';
   const games = sched.matches.length, scoredN = Object.keys(R.done).length, final = R.per.length && R.per.every(p => p.champ);
   let h = '<h1>' + esc(name) + '</h1>' + (dl ? '<p class="sub">' + esc(dl) + '</p>' : '') + '<p class="sub">' + (final ? 'Final results' : 'Results so far') + ' &middot; ' + scoredN + ' of ' + games + ' group games played</p>';
-  h += '<h2>Champions</h2><table class="c">' + R.per.map(p => '<tr><th>' + esc(p.level) + '</th><td><b>' + (p.champ ? esc(p.champ) : 'To be decided') + '</b>' + (p.third.length ? '<div class="m">3rd place: ' + p.third.map(esc).join(' and ') + '</div>' : '') + '</td></tr>').join('') + '</table>';
+  h += '<h2>Champions</h2><table class="c">' + R.per.map(p => '<tr><th>' + esc(p.level) + '</th><td><b>' + (p.champ ? '&#x1F947; ' + esc(p.champ) : 'To be decided') + '</b>' + (p.second ? '<div class="m">&#x1F948; Runner-up: ' + esc(p.second) + '</div>' : '') + (p.third.length ? '<div class="m">&#x1F949; 3rd place: ' + p.third.map(esc).join(' and ') + '</div>' : '') + '</td></tr>').join('') + '</table>';
   R.per.forEach(p => {
     h += '<h2>' + esc(p.level) + '</h2>';
     if (p.km.length) h += '<h3>Knockout</h3><table><tr><th>Round</th><th>Match</th><th>Score</th></tr>' + p.km.map(m => { const r = R.kd[m.id]; return '<tr><td>' + esc(m.roundName) + '</td><td>' + (m.winner === m.team1 && m.team1 ? '<b>' + nm(m.team1) + '</b>' : nm(m.team1)) + ' vs ' + (m.winner === m.team2 && m.team2 ? '<b>' + nm(m.team2) + '</b>' : nm(m.team2)) + '</td><td>' + (r ? r.a + ' - ' + r.b : '-') + '</td></tr>'; }).join('') + '</table>';
@@ -2594,8 +2611,8 @@ function resultsDoc() {
 }
 function resultsCsv() {
   const R = resultsData(), q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', row = a => a.map(q).join(','), out = [];
-  out.push(row(['CHAMPIONS'])); out.push(row(['Level', 'Champion', '3rd place']));
-  R.per.forEach(p => out.push(row([p.level, p.champ, p.third.join(' and ')])));
+  out.push(row(['CHAMPIONS'])); out.push(row(['Level', 'Champion', 'Runner-up', '3rd place']));
+  R.per.forEach(p => out.push(row([p.level, p.champ, p.second, p.third.join(' and ')])));
   out.push(''); out.push(row(['STANDINGS'])); out.push(row(['Level', 'Bracket', 'Rank', 'Team', 'Won', 'Lost', 'Points for', 'Points against', 'Difference', 'Status']));
   R.per.forEach(p => p.brackets.forEach(b => R.st[b.id].rows.forEach(r => out.push(row([p.level, b.name, r.rank, r.team.name, r.won, r.lost, r.pf, r.pa, r.pd, r.out ? 'Withdrew' : ''])))));
   out.push(''); out.push(row(['KNOCKOUT'])); out.push(row(['Level', 'Round', 'Team 1', 'Team 2', 'Score 1', 'Score 2', 'Winner']));
