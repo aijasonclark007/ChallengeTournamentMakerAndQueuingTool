@@ -73,10 +73,10 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .al{font-size:3.4vh;font-weight:800;letter-spacing:.35em;opacity:.7;margin-bottom:3vh}
 .at{font-weight:900;line-height:1.12;text-wrap:balance;overflow-wrap:anywhere;font-size:12vh}.at.m{font-size:9vh}.at.l{font-size:7vh}.at.xl{font-size:5.4vh}
 .sp{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:3vh;min-height:0;animation:spin .8s cubic-bezier(.2,.8,.2,1)}
-.sp .lab{font-size:3.6vh;font-weight:800;color:var(--lime);letter-spacing:.2em;text-transform:uppercase}
-.sp .nm{font-size:12vh;font-weight:900;line-height:1.1;text-wrap:balance;max-width:90vw}.sp .nm.l{font-size:8vh}
-.sp .ln{font-size:4.6vh;color:var(--mute);font-weight:700}
-.spd{display:flex;gap:1.2vh;margin-top:3vh}.spd i{width:1.4vh;height:1.4vh;border-radius:50%;background:rgba(255,255,255,.22)}.spd i.on{background:var(--lime)}
+.sp .lab{font-size:5.4vh;font-weight:800;color:var(--lime);letter-spacing:.2em;text-transform:uppercase}
+.sp .nm{font-size:22vh;font-weight:900;line-height:1.05;text-wrap:balance;max-width:94vw;overflow-wrap:anywhere}.sp .nm.m{font-size:15vh}.sp .nm.l{font-size:10.5vh}
+.sp .ln{font-size:7.4vh;text-wrap:balance;max-width:90vw;color:var(--mute);font-weight:700}
+.spd{display:flex;gap:1.2vh;margin-top:3vh}.spd i{width:2vh;height:2vh;border-radius:50%;background:rgba(255,255,255,.22)}.spd i.on{background:var(--lime)}
 @keyframes spin{from{opacity:0;transform:translateY(3vh) scale(.97)}to{opacity:1;transform:none}}
 @keyframes annfade{from{opacity:0}to{opacity:1}}@keyframes annpop{from{opacity:0;transform:scale(.9) translateY(4vh)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -105,7 +105,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   let spCloud = false, spIdx = -1, spAt = Date.now(), lastH = null;                           // spIdx -1 = normal screen, 0.. = which sponsor is showing
   function sponsorSlide() {
     const x = SP[spIdx]; if (!x) return '';
-    return '<div class="sp" key="' + spIdx + '"><div class="lab">' + esc(SPC.title || 'Thank you to our sponsors') + '</div><div class="nm' + (x.name.length > 22 ? ' l' : '') + '">' + esc(x.name) + '</div>' + (x.line ? '<div class="ln">' + esc(x.line) + '</div>' : '') +
+    return '<div class="sp" key="' + spIdx + '"><div class="lab">' + esc(SPC.title || 'Thank you to our sponsors') + '</div><div class="nm' + (x.name.length > 30 ? ' l' : x.name.length > 14 ? ' m' : '') + '">' + esc(x.name) + '</div>' + (x.line ? '<div class="ln">' + esc(x.line) + '</div>' : '') +
       '<div class="spd">' + SP.map((_, i) => '<i' + (i === spIdx ? ' class="on"' : '') + '></i>').join('') + '</div></div>';
   }
   function spStep() {                                                        // normal screen for "gap" seconds, then each sponsor for "seconds" each, then back
