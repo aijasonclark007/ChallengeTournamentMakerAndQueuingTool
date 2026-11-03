@@ -13,7 +13,7 @@
     '#thx .gr{width:38px;height:5px;border-radius:3px;background:rgba(60,60,67,.25);margin:0 auto 12px}' +
     '#thx h2{color:inherit;margin:0 0 6px;font-size:22px;letter-spacing:-.01em;text-align:center}#thx p{margin:0 0 14px;color:#5F5F66;font-size:15px;line-height:1.45;text-align:center}' +
     '#thx .qr{display:block;margin:0 auto 14px;text-align:center;opacity:0;transform:translateY(8px);transition:opacity .4s ease .12s,transform .4s cubic-bezier(.2,.8,.2,1) .12s}#thx.on .qr{opacity:1;transform:none}' +
-    '#thx .qr img{width:210px;max-width:70%;height:auto;border-radius:16px;border:1px solid rgba(60,60,67,.18);background:#fff;padding:8px;box-sizing:border-box}#thx .qr small{display:block;margin-top:6px;color:#5F5F66;font-size:13px;font-weight:600}' +
+    '#thx .qr img{width:250px;max-width:80%;height:auto;border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.18);display:block;margin:0 auto}#thx .qr a{display:block;-webkit-tap-highlight-color:transparent;transition:transform .16s cubic-bezier(.2,.8,.2,1)}#thx .qr a:active{transform:scale(.97)}#thx .qr small{display:block;margin-top:6px;color:#5F5F66;font-size:13px;font-weight:600}' +
     '#thx a.lk{display:flex;justify-content:center;align-items:center;gap:8px;margin:8px 0;padding:14px;border-radius:14px;background:#007AFF;color:#fff;font-weight:700;font-size:16px;text-decoration:none;opacity:0;transform:translateY(8px);transition:opacity .35s ease,transform .35s cubic-bezier(.2,.8,.2,1),filter .15s}#thx.on a.lk{opacity:1;transform:none}' +
     '#thx a.lk:nth-of-type(2){transition-delay:.18s}#thx a.lk:nth-of-type(3){transition-delay:.24s}#thx a.lk:active{transform:scale(.97);filter:brightness(.92)}' +
     '#thx button.cl{display:block;width:100%;margin-top:6px;padding:13px;border:0;border-radius:14px;background:rgba(118,118,128,.12);color:#1C1C1E;font:inherit;font-weight:700;font-size:16px;cursor:pointer;transition:transform .15s ease,background-color .2s}#thx button.cl:active{transform:scale(.97)}' +
@@ -26,7 +26,7 @@
   function build() {
     box = document.createElement('div'); box.id = 'thx'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Say thank you to the developer');
     var h = '<div class="sh" tabindex="-1"><div class="gr"></div><h2>Say thank you 💙</h2><p>Challenge Match Day is free to use. If it made your tournament easier, you can send a small thank-you. It is completely optional.</p>';
-    if (C.qr) h += '<div class="qr"><img src="' + esc(C.qr) + '" alt="' + esc(C.qrLabel || 'QR code') + '" onerror="this.parentNode.style.display=\'none\'"><small>Scan with ' + esc(C.qrLabel || 'your app') + '</small></div>';
+    if (C.qr) h += '<div class="qr"><a href="' + esc(C.qr) + '" target="_blank" rel="noopener"><img src="' + esc(C.qr) + '" alt="' + esc(C.qrLabel || 'QR code') + '" onerror="this.parentNode.parentNode.style.display=\'none\'"></a><small>Scan with ' + esc(C.qrLabel || 'your app') + '. Tap the picture to open it bigger.</small></div>';
     links.forEach(function (l) { h += '<a class="lk" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' + esc(l.label) + '</a>'; });
     h += '<button type="button" class="cl">Close</button><p class="fine">Thank you for using it. — ' + esc(C.name || 'Jason Clark') + '</p></div>';
     box.innerHTML = h; document.body.appendChild(box);
