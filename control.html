@@ -120,7 +120,7 @@ details>summary{transition:color .2s ease}
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
-  window.__cmdToast = toast; if (window.Announcer) Announcer.init(slug);
+  window.__cmdToast = toast; if (window.Announcer) Announcer.init(slug, key);
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const P = window.Platform;
   const openMore = {};

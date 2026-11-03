@@ -4,7 +4,7 @@
    One ordered list of items (sponsors, messages, recordings), each with its own repeat time. Court calls are spoken on request and never overlap the timer. */
 (function () {
   'use strict';
-  var slug = '', S = null, timer = null, playing = false, calling = false, stopFlag = false, hold = 0, wake = null, curAudio = null, recState = null, callQ = [];
+  var slug = '', ukey = '', pushT = null, lastPush = '', S = null, timer = null, playing = false, calling = false, stopFlag = false, hold = 0, wake = null, curAudio = null, recState = null, callQ = [];
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var $ = function (s) { return document.querySelector(s); };
   var EVERY = [0, 10, 15, 20, 30, 40, 45, 60, 90, 120];       // 0 = follow the main "Repeat every" setting
@@ -44,7 +44,17 @@
     return o;
   }
   function load() { try { S = Object.assign({}, DEF, migrate(JSON.parse(localStorage.getItem(key()) || '{}'))); } catch (e) { S = Object.assign({}, DEF); } S.on = false; S.items.forEach(function (i) { i._due = null; }); }
-  function save() { try { localStorage.setItem(key(), JSON.stringify(S, function (k, v) { return k === '_due' ? undefined : v; })); } catch (e) {} }
+  function pushSpons() {                                                    // copy the sponsor names to the cloud (a moment after typing stops) so the court TVs can show them
+    clearTimeout(pushT); pushT = setTimeout(function () {
+      try {
+        if (!window.Platform || !Platform.configured || !Platform.setSponsors || !slug || !ukey) return;
+        var list = (S.spons || []).map(function (x) { return { name: String(x.name || '').trim().slice(0, 80) }; }).filter(function (x) { return x.name; }), j = JSON.stringify(list);
+        if (j === lastPush) return; lastPush = j;
+        Platform.setSponsors(slug, ukey, list).catch(function () { lastPush = ''; });
+      } catch (e) {}
+    }, 1500);
+  }
+  function save() { pushSpons(); try { localStorage.setItem(key(), JSON.stringify(S, function (k, v) { return k === '_due' ? undefined : v; })); } catch (e) {} }
 
   // ----- recordings are kept in IndexedDB (they are too big for localStorage) -----
   function db() {
@@ -390,7 +400,7 @@
   }
   window.Announcer = {
     pron: function (info) { pronSheet(info); },
-    init: function (s) { if (slug !== s) { slug = s; load(); } },
+    init: function (s, k) { ukey = k || ukey; if (slug !== s) { slug = s; load(); } pushSpons(); },
     html: function (link) { return html(link); },
     bind: function (link) { bind(null, link); },
     call: function (info) { return callCourt(info); },

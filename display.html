@@ -100,8 +100,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   const P = window.Platform;
   const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   let layout = q.get('layout') || (function () { try { return localStorage.getItem('tvlayout'); } catch (e) { return null; } })() || 'panels';
-  const SP = (window.SPONSORS_CONFIG && window.SPONSORS_CONFIG.list || []).filter(x => x && x.name), SPC = window.SPONSORS_CONFIG || {};
-  let spIdx = -1, spAt = Date.now(), lastH = null;                           // spIdx -1 = normal screen, 0.. = which sponsor is showing
+  const SPC = window.SPONSORS_CONFIG || {};
+  let SP = (SPC.list || []).filter(x => x && x.name);                        // the Speaker list from Match Control wins; the file is only a fallback
+  let spCloud = false, spIdx = -1, spAt = Date.now(), lastH = null;                           // spIdx -1 = normal screen, 0.. = which sponsor is showing
   function sponsorSlide() {
     const x = SP[spIdx]; if (!x) return '';
     return '<div class="sp" key="' + spIdx + '"><div class="lab">' + esc(SPC.title || 'Thank you to our sponsors') + '</div><div class="nm' + (x.name.length > 22 ? ' l' : '') + '">' + esc(x.name) + '</div>' + (x.line ? '<div class="ln">' + esc(x.line) + '</div>' : '') +
@@ -135,6 +136,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     try {
       const d = await P.umpireGet(slug, key);
       try { showAnn(await P.getAnnouncement(slug)); } catch (e) {}
+      try { const l = (await P.getSponsors(slug)).filter(x => x && x.name); if (l.length || spCloud) { SP = l.length ? l : (SPC.list || []).filter(x => x && x.name); spCloud = true; if (spIdx >= SP.length) spIdx = -1; } } catch (e) {}
       data = d; const nsc = {}; (d.scores || []).forEach(x => { nsc[x.id] = x; });
       mine().forEach(m => { if (prevLive[m.mid] && nsc[m.mid] && nsc[m.mid].status === 'done') finalShow = { mid: m.mid, until: Date.now() + 60000 }; });   // a match just finished: show its result for a minute
       scores = nsc; prevLive = {}; mine().forEach(m => { if (scores[m.mid] && scores[m.mid].status === 'live') prevLive[m.mid] = 1; });
