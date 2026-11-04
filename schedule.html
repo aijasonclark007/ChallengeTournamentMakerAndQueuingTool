@@ -20,7 +20,16 @@ h1{font-size:clamp(28px,6vw,44px);line-height:1.05}
 h2{font-size:22px}
 .sub{color:var(--mute);margin:6px 0 0;max-width:60ch}
 section{margin-top:28px}
-.replcard{margin:12px 0}
+.replcard{margin:12px 0;overflow:visible}.rform{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}.rform>input{flex:1;min-width:170px;height:46px;box-sizing:border-box}.rform>.go{height:46px}
+.rsel{position:relative;flex:2;min-width:240px}.rselb{width:100%;height:46px;box-sizing:border-box;display:flex;align-items:center;gap:8px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 12px;font:inherit;color:var(--ink);cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.rselb:hover{border-color:#aab6c9}.rsel.open .rselb{border-color:var(--blue,#007aff);box-shadow:0 0 0 3px rgba(0,122,255,.16)}
+.rselb .rn,.rseli .rn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}.rselb .rs,.rseli .rs{font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0}
+.rselb .chev{flex:none;margin-left:auto;color:var(--mute);transition:transform .25s cubic-bezier(.2,.8,.2,1)}.rsel.open .chev{transform:rotate(180deg)}
+.rselp{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(10,37,71,.18);padding:8px;opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top;pointer-events:none;visibility:hidden;transition:opacity .2s ease,transform .22s cubic-bezier(.2,.8,.2,1),visibility 0s .22s}
+.rsel.open .rselp{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .2s ease,transform .22s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.rselp input[type=search]{width:100%;box-sizing:border-box;height:40px;border-radius:10px;margin-bottom:6px}
+.rsl{max-height:260px;overflow-y:auto;overscroll-behavior:contain}.rseli{display:flex;align-items:baseline;gap:8px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:9px 10px;font:inherit;color:var(--ink);cursor:pointer;transition:background .15s}.rseli:hover,.rseli:focus-visible{background:rgba(120,120,128,.12);outline:none}.rseli.on{background:rgba(0,122,255,.12)}.rseli.hid{display:none}.rsn{display:none;padding:12px;color:var(--mute);text-align:center;font-size:14px}
+@media (prefers-reduced-motion:reduce){.rselp,.rsel .chev{transition:none}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
 textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg);color:var(--ink);font:15px/1.5 ui-monospace,Menlo,monospace}
 label{font-size:14px;color:var(--mute)}
@@ -1247,25 +1256,42 @@ function replGames(name) {                                               // [gam
   if (ko && koSched) { const by = {}; resolveKnockout(ko, kd).matches.forEach(m => { by[m.id] = m; }); koSched.matches.forEach(x => { const m = by[x.id]; if (m && m.slots && m.slots.some(sl => has(sl.team))) { all++; if (kd[x.id]) fin++; } }); }
   return [all, fin];
 }
+let replSel = '', replOpen = false;
 function renderRepl() {
   const box = $('#replBox'); if (!box) return;
   if (!sched || !draw) { box.innerHTML = ''; vis(box, false); return; }
-  const keep = box.querySelector('#replOld') ? box.querySelector('#replOld').value : '', keepNew = box.querySelector('#replNew') ? box.querySelector('#replNew').value : '';
-  const opts = draw.getState().teams.map(t => t.players.map(pl => '<option value="' + esc(pl) + '">' + esc(pl) + '  (' + esc(t.id) + ', with ' + esc(t.players.filter(x => x !== pl).join(' / ')) + ')</option>').join('')).join('');
-  box.innerHTML = '<div class="card replcard"><b>Replace a player</b><div class="hint" style="min-height:0;margin:4px 0 10px">Someone cancelled? Pick who is leaving and type who takes their place. The schedule, courts, times and saved scores stay exactly as they are; only the name changes, here, in Match Control, on the TVs and on the shared page.</div>' +
-    '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><select id="replOld" style="flex:2;min-width:220px">' + opts + '</select><input id="replNew" type="text" maxlength="40" placeholder="Replacement\'s name" autocomplete="off" style="flex:1;min-width:160px"><button type="button" class="go" id="replGo">Replace</button></div><div class="hint" id="replMsg" style="min-height:0;margin-top:8px"></div></div>';
-  if (keep) box.querySelector('#replOld').value = keep; if (keepNew) box.querySelector('#replNew').value = keepNew;
-  vis(box, true);
+  const people = []; draw.getState().teams.forEach(t => t.players.forEach(pl => people.push({ name: pl, team: t.id, level: t.level, mate: t.players.filter(x => x !== pl).join(' / ') })));
+  if (!people.some(x => x.name === replSel)) replSel = people.length ? people[0].name : '';
+  const sig = people.map(x => x.name + x.team + x.mate).join('|') + '#' + replSel + '#' + replOpen;
+  if (box.dataset.sig === sig && box.firstChild) { vis(box, manT()); return; }      // nothing changed: leave the box alone so typing and focus are not interrupted
+  box.dataset.sig = sig;
+  const keepNew = box.querySelector('#replNew') ? box.querySelector('#replNew').value : '';
+  const cur = people.find(x => x.name === replSel);
+  const row = x => '<button type="button" class="rseli' + (x.name === replSel ? ' on' : '') + '" data-rn="' + esc(x.name) + '"><span class="rn">' + esc(x.name) + '</span><span class="rs">' + esc(x.team) + ' &middot; ' + esc(x.level) + (x.mate ? ' &middot; with ' + esc(x.mate) : '') + '</span></button>';
+  box.innerHTML = '<div class="card replcard"><b>Replace a player</b><div class="hint" style="min-height:0;margin:4px 0 12px">Someone cancelled? Pick who is leaving and type who takes their place. The schedule, courts, times and saved scores stay exactly as they are; only the name changes, here, in Match Control, on the TVs and on the shared page.</div>' +
+    '<div class="rform"><div class="rsel' + (replOpen ? ' open' : '') + '"><button type="button" class="rselb" id="replBtn" aria-haspopup="listbox" aria-expanded="' + replOpen + '">' + (cur ? '<span class="rn">' + esc(cur.name) + '</span><span class="rs">' + esc(cur.team) + ' &middot; ' + esc(cur.level) + (cur.mate ? ' &middot; with ' + esc(cur.mate) : '') + '</span>' : '<span class="rs">Pick a player</span>') + '<svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+    '<div class="rselp" role="listbox"><input type="search" id="replFind" placeholder="Search a player" autocomplete="off" aria-label="Search a player"><div class="rsl" id="replList">' + people.map(row).join('') + '</div><div class="rsn" id="replNone">No player found</div></div></div>' +
+    '<input id="replNew" type="text" maxlength="40" placeholder="Replacement\'s name" autocomplete="off"><button type="button" class="go" id="replGo">Replace</button></div><div class="hint" id="replMsg" style="min-height:0;margin-top:8px"></div></div>';
+  if (keepNew) $('#replNew').value = keepNew;
+  vis(box, manT());
+  const sel = box.querySelector('.rsel'), find = $('#replFind'), list = $('#replList');
+  const filt = () => { const q = find.value.trim().toLowerCase(); let n = 0; list.querySelectorAll('.rseli').forEach(b => { const hit = !q || (b.dataset.rn + ' ' + b.querySelector('.rs').textContent).toLowerCase().indexOf(q) > -1; b.classList.toggle('hid', !hit); if (hit) n++; }); $('#replNone').style.display = n ? 'none' : 'block'; };
+  const setOpen = o => { replOpen = o; sel.classList.toggle('open', o); $('#replBtn').setAttribute('aria-expanded', o); if (o) { find.value = ''; filt(); const on = list.querySelector('.rseli.on'); setTimeout(() => { if (on) on.scrollIntoView({ block: 'nearest' }); if (window.matchMedia && matchMedia('(hover:hover)').matches) find.focus(); }, 30); } };
+  $('#replBtn').onclick = () => setOpen(!replOpen);
+  find.oninput = filt;
+  find.onkeydown = e => { if (e.key === 'Escape') { setOpen(false); $('#replBtn').focus(); } if (e.key === 'Enter') { e.preventDefault(); const f = list.querySelector('.rseli:not(.hid)'); if (f) f.click(); } };
+  list.onclick = e => { const b = e.target.closest('.rseli'); if (!b) return; replSel = b.dataset.rn; replOpen = false; renderRepl(); const n = $('#replNew'); if (n) n.focus(); };
+  if (!box.dataset.outside) { box.dataset.outside = '1'; document.addEventListener('pointerdown', e => { if (replOpen && !e.target.closest('.rsel')) { replOpen = false; const s2 = document.querySelector('#replBox .rsel'); if (s2) { s2.classList.remove('open'); const bt = document.querySelector('#replBtn'); if (bt) bt.setAttribute('aria-expanded', 'false'); } } }); }
   $('#replNew').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#replGo').click(); } });
   $('#replGo').onclick = async () => {
-    const old = $('#replOld').value, nu = ($('#replNew').value || '').trim().replace(/\s+/g, ' '), msg = t => { $('#replMsg').textContent = t; };
+    const old = replSel, nu = ($('#replNew').value || '').trim().replace(/\s+/g, ' '), msg = t => { $('#replMsg').textContent = t; };
     if (!old) { msg('Pick the player who is leaving.'); return; }
     if (!nu) { msg('Type the replacement\'s name.'); $('#replNew').focus(); return; }
     const [all, fin] = replGames(old);
     try { draw.renamePlayer(old, nu); } catch (e) { msg(e.message); return; }
     swapNames(sched, old, nu); if (ko) swapNames(ko, old, nu); if (koSched) swapNames(koSched, old, nu);
     $('#players').value = $('#players').value.split('\n').map(l => { const q = l.split(/[,\t]/); return (q[0] || '').trim().toLowerCase() === old.toLowerCase() ? (nu + l.slice(l.indexOf(q[0]) + q[0].length)) : l; }).join('\n');
-    selP = null; renderTeams(); renderBrackets(); try { renderSchedule(); renderStandings(); if (ko) renderKo(); } catch (e) {}
+    selP = null; replSel = nu; renderTeams(); renderBrackets(); try { renderSchedule(); renderStandings(); if (ko) renderKo(); } catch (e) {}
     queueSave();
     let pubd = '';
     if (pubSlug && tid && Platform.user && !preview) { try { await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); pubSig = pubSigNow(); pubLast = Date.now(); pubd = ' The shared page, Match Control and the TVs have it too.'; } catch (e) { pubd = ' Could not update the shared page yet: press "Update with latest scores" on the Schedule step.'; } }
@@ -1350,7 +1376,7 @@ $('#manualTeams').onchange = () => {
   if (had) { renderTeams(); return; }                   // a player was picked: its rename / level buttons have to go too
   const m = manT();                                      // otherwise only change how the chips look and slide the Add late players box
   document.querySelectorAll('#teams .pl, #unpaired .pl').forEach(c => { c.classList.toggle('ed', m); if (m) { c.tabIndex = 0; c.setAttribute('role', 'button'); } else { c.removeAttribute('tabindex'); c.removeAttribute('role'); } });
-  vis($('#lateAdd'), m);
+  vis($('#lateAdd'), m); vis($('#replBox'), m && !!sched);
   $('#hintT').className = 'hint'; $('#hintT').textContent = m ? 'Tap a player to pick them. Then tap another player of the same level to swap partners (or to pair two waiting players), or change their level.' : '';
 };
 $('#manualBrackets').onchange = () => {
