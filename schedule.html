@@ -2935,9 +2935,11 @@ $('#print').onclick = () => { if (!sched) return; $('#printView').innerHTML = pu
     const h1 = sec.offsetHeight;
     if (REDUCED || !h0 || h0 === h1) return;
     const tok = sec._ft = {};
-    sec.style.transition = 'none'; sec.style.overflow = 'hidden'; sec.style.height = h0 + 'px'; void sec.offsetHeight;
+    // overflow:hidden also cut off the soft shadows around the cards, which then popped back when the animation ended (a blink). Clip with a widened box instead: wide on the sides and top,
+    // and 24px at the bottom (less than the 28px gap between steps, so the next step is never overlapped).
+    sec.style.transition = 'none'; sec.style.clipPath = 'inset(-44px -44px -24px -44px)'; sec.style.height = h0 + 'px'; void sec.offsetHeight;
     sec.style.transition = 'height .4s cubic-bezier(.2,.8,.2,1)'; sec.style.height = h1 + 'px';
-    setTimeout(() => { if (sec._ft === tok) { sec.style.height = sec.style.overflow = sec.style.transition = ''; } }, 460);
+    setTimeout(() => { if (sec._ft === tok) { sec.style.height = sec.style.clipPath = sec.style.transition = ''; } }, 460);
   }
   function goStep(k, quiet) {
     const s = STEPS.find(x => x[0] === k); if (!s) return;
