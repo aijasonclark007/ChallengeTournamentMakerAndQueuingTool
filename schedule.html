@@ -382,6 +382,7 @@ summary:hover{background:#fff}
         <div><label for="courts">Number of courts</label><input id="courts" type="number" min="1" max="12" value="4"></div>
         <div><label for="firstCourt">First court no.</label><input id="firstCourt" type="number" min="1" max="99" value="7"></div>
         <div><label for="eventDate">Event date</label><input id="eventDate" type="date"></div>
+        <div style="flex:1;min-width:200px"><label for="eventVenue">Venue</label><input id="eventVenue" type="text" placeholder="e.g. IBT Sports Complex" maxlength="80" autocomplete="off"></div>
         <div><label for="start">First game</label><input id="start" type="time" value="14:00"></div>
         <button id="drawBtn" class="go">Pair players</button>
         <button id="sample" class="ghost" type="button">Load 72 sample players</button>
@@ -2188,7 +2189,7 @@ const uuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : '
 Sports.mount();
 const defaultSport = Sports.current;   // chosen on the Sports tab
 let tSport = Sports.current();      // the sport of the tournament that is open (each sport keeps its own files)
-const capture = () => ({ v: 1, sport: tSport, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value, date: $('#eventDate').value, wd: [...WD],
+const capture = () => ({ v: 1, sport: tSport, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value, date: $('#eventDate').value, venue: $('#eventVenue').value, wd: [...WD],
   locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin, hide: [...hiddenLv] });
 function describe(st) {
   let t = parsePlayers(st.players || '').length + ' players';
@@ -2255,11 +2256,11 @@ function resetState() {
   draw = null; sched = null; results = {}; ko = null; koSched = null; koResults = {}; coin = {}; gopt = {}; selP = selT = null; hiddenLv = new Set(); try { paintHide(); } catch (e) { /* page still loading */ }
   locks = { add: false, teams: false, brackets: false };
   $('#drawSec').classList.add('hidden'); ['#schedSec', '#standSec', '#koSec'].forEach(x => $(x).classList.add('hidden'));
-  $('#loadMsg').textContent = ''; $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00'; $('#eventDate').value = ''; WD = new Set(); mnotes = {};
+  $('#loadMsg').textContent = ''; $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00'; $('#eventDate').value = ''; $('#eventVenue').value = ''; WD = new Set(); mnotes = {};
 }
 function applyState(st) {
   tSport = st.sport === 'pickleball' ? 'pickleball' : 'badminton';
-  $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00'; $('#eventDate').value = st.date || ''; WD = new Set(st.wd || []); mnotes = {};
+  $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00'; $('#eventDate').value = st.date || ''; $('#eventVenue').value = st.venue || ''; WD = new Set(st.wd || []); mnotes = {};
   gopt = st.gopt || {}; locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
   if (st.draw) { draw = createDraw(parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
   hiddenLv = new Set((st.hide || []).filter(l => LEVELS.includes(l))); paintHide();
@@ -2377,7 +2378,7 @@ Platform.onAuth(user => {
 const PUB_CSS = `
 .pub{font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;color:#1C1C1E;max-width:900px;margin:0 auto;padding:16px}
 .pub h1{font-size:26px;line-height:1.15;margin:0}.pub h2{font-size:20px;margin:28px 0 8px;border-left:5px solid #007AFF;padding-left:10px}
-.pub .sub{color:#5F5F66;margin:4px 0 0}.pub .upd{color:#5F5F66;font-size:14px;margin:2px 0 0}
+.pub .sub{color:#5F5F66;margin:4px 0 0}.pub .venue{color:#3A3A40;font-weight:600;margin:4px 0 0}.pub .upd{color:#5F5F66;font-size:14px;margin:2px 0 0}
 .pub .tools{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
 .pub .tools input{flex:1;min-width:200px;padding:12px 14px;border:0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06);border-radius:12px;font-size:16px;font:inherit}
 .pub .tools button{padding:10px 16px;border-radius:12px;border:0;background:rgba(118,118,128,.12);color:#007AFF;font:inherit;font-weight:700;cursor:pointer}
@@ -2623,7 +2624,7 @@ function pubBody0(web) {
     '</span><span class="vs">vs</span><span class="tm">' + (m.team2 ? esc(m.team2.name) : 'To be decided') + '</span></div></div>' + '<span class="res">' + (r ? r.a + ' - ' + r.b : '') + (r && mid && mnotes[mid] ? '<small class="nt">' + esc(NOTE_KIND[mnotes[mid].kind] || '') + '</small>' : '') + '</span></div>';
   const bsp = brkSpans(), brkRow = (from, lo) => (gopt.breaks || []).map((b, i) => (b.from > lo && b.from <= from ? '<div class="brkrow">' + esc(b.name || 'Break') + ' &middot; ' + fmt(bsp[i].start) + ' - ' + fmt(bsp[i].end) + '</div>' : '')).join('');
   const dlab = (() => { const p = /^(\d{4})-(\d{2})-(\d{2})$/.exec($('#eventDate').value || ''); return p ? new Date(+p[1], +p[2] - 1, +p[3]).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : ''; })();
-  let h = '<div class="pub"><h1>' + esc(name) + '</h1><p class="sub">' + (dlab ? esc(dlab) + ' &middot; ' : '') + 'Game schedule</p><p class="upd">Updated ' +
+  let h = '<div class="pub"><h1>' + esc(name) + '</h1><p class="sub">' + (dlab ? esc(dlab) + ' &middot; ' : '') + 'Game schedule</p>' + ($('#eventVenue').value.trim() ? '<p class="venue">&#128205; ' + esc($('#eventVenue').value.trim()) + '</p>' : '') + '<p class="upd">Updated ' +
     new Date().toLocaleString([], { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</p>';
   if (web) h += '<div class="tabs"><button class="on" data-v="sch" type="button">Schedule</button><button data-v="now" type="button">Now Playing</button><button data-v="std" type="button">Standings</button></div>';
   if (web) h += '<div class="tools"><input id="q" type="search" placeholder="Search your name or team" aria-label="Search"><button class="on" data-lv="All">All</button>' + ['Low','Mid','High'].filter(l => !hiddenLv.has(l)).map(l => '<button data-lv="' + l + '">' + l + '</button>').join('') + '</div>';
@@ -2870,9 +2871,10 @@ let liveSubFor = null; const subLive = () => { if (pubSlug && liveSubFor !== pub
 // keep the published link up to date by itself: when scores, the knockout round or the name change, republish quietly
 $('#eventDate').addEventListener('click', e => { try { e.target.showPicker(); } catch (x) {} });      // a tap anywhere on the box opens the calendar
 $('#eventDate').addEventListener('change', () => { queueSave(); try { autoPublish(); } catch (e) {} });
+$('#eventVenue').addEventListener('change', () => { queueSave(); try { autoPublish(); } catch (e) {} });
 let pubSig = null, pubBusy = false, pubLast = 0;
 // [0] = everything about times, courts, teams and tags; [1] = just the saved scores. Scores alone also reach viewers live, so they republish less often.
-const pubParts = () => sched ? [[$('#eventDate').value, NOW_JS.length + '.' + PUB_CSS.length + '.' + FILTER_JS.length, [...WD], koSched ? koSched.matches.map(m => m.id + ':' + m.slot + ':' + m.court) : '', Object.keys(mnotes).map(k => k + mnotes[k].kind), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)], [committed(results), committed(koResults)]] : null;
+const pubParts = () => sched ? [[$('#eventDate').value, $('#eventVenue').value, NOW_JS.length + '.' + PUB_CSS.length + '.' + FILTER_JS.length, [...WD], koSched ? koSched.matches.map(m => m.id + ':' + m.slot + ':' + m.court) : '', Object.keys(mnotes).map(k => k + mnotes[k].kind), ko ? ko.matches.map(m => m.id + ':' + m.slots.map(x => x.team ? x.team.name : '').join('|')).join(',') : '', sched.matches.length, $('#tname').value.trim(), tSport, gopt.delays || [], gopt.breaks || [], sched.matches.map(m => m.id + ':' + m.slot + ':' + m.court)], [committed(results), committed(koResults)]] : null;
 const pubSigNow = () => sched ? JSON.stringify(pubParts()) : null;
 async function autoPublish() {
   if (preview || !pubSlug || !sched || !tid || !Platform.user || pubBusy || !$('#pubAuto').checked || document.hidden) return;
