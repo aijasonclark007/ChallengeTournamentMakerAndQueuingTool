@@ -135,8 +135,10 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   async function load() {
     try {
       const d = await P.umpireGet(slug, key);
-      try { showAnn(await P.getAnnouncement(slug)); } catch (e) {}
-      try { const l = (await P.getSponsors(slug)).filter(x => x && x.name); if (l.length || spCloud) { SP = l.length ? l : (SPC.list || []).filter(x => x && x.name); spCloud = true; if (spIdx >= SP.length) spIdx = -1; } } catch (e) {}
+      const slow = !window._dxAt || Date.now() - window._dxAt > 45000;       // the announcement and sponsor list rarely change: ask every 45 s, not every 15 s
+      if (slow) window._dxAt = Date.now();
+      if (slow) try { showAnn(await P.getAnnouncement(slug)); } catch (e) {}
+      if (slow) try { const l = (await P.getSponsors(slug)).filter(x => x && x.name); if (l.length || spCloud) { SP = l.length ? l : (SPC.list || []).filter(x => x && x.name); spCloud = true; if (spIdx >= SP.length) spIdx = -1; } } catch (e) {}
       data = d; const nsc = {}; (d.scores || []).forEach(x => { nsc[x.id] = x; });
       mine().forEach(m => { if (prevLive[m.mid] && nsc[m.mid] && nsc[m.mid].status === 'done') finalShow = { mid: m.mid, until: Date.now() + 60000 }; });   // a match just finished: show its result for a minute
       scores = nsc; prevLive = {}; mine().forEach(m => { if (scores[m.mid] && scores[m.mid].status === 'live') prevLive[m.mid] = 1; });

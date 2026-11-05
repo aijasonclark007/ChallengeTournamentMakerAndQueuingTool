@@ -135,8 +135,9 @@ details>summary{transition:color .2s ease}
   async function load() {
     try {
       const d = await P.umpireGet(slug, key);
-      try { ann = await P.getAnnouncement(slug); } catch (e) { ann = null; }
-      try { const ns = await P.getMatchNotes(slug, key); notes = {}; ns.forEach(n => { notes[n.match_id] = n; }); } catch (e) { /* step 14 not run yet: reasons just are not shown */ }
+      const slow = !window._cxAt || Date.now() - window._cxAt > 30000; if (slow) window._cxAt = Date.now();   // announcement and notes: every 30 s, not every 10 s
+      if (slow) try { ann = await P.getAnnouncement(slug); } catch (e) { ann = null; }
+      if (slow) try { const ns = await P.getMatchNotes(slug, key); notes = {}; ns.forEach(n => { notes[n.match_id] = n; }); } catch (e) { /* step 14 not run yet: reasons just are not shown */ }
       data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; }); err = null; $('#dot').className = 'dot';
     } catch (e) { err = e.message || 'Could not load'; $('#dot').className = 'dot err'; }
     paint();
