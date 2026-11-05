@@ -36,6 +36,7 @@ label{font-size:14px;color:var(--mute)}
 input[type=number],input[type=time],input[type=date]{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--bg);color:var(--ink);font:inherit;width:100%}
 .row{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-top:12px}
 .row>div{min-width:110px}
+.row>div.vn{flex:1;min-width:200px}
 button{font:inherit;font-weight:700;border:0;border-radius:999px;padding:11px 20px;cursor:pointer;background:var(--navy);color:#fff}
 button.go{background:var(--lime);color:#0B1B33}
 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
@@ -309,6 +310,7 @@ summary:hover{background:#fff}
   .bar .tools{width:100%;gap:8px}.bar .tools>label{flex:1 1 100%;order:-1;padding:4px 2px}
   .bar .tools>button{flex:1 1 calc(50% - 4px);min-width:0;justify-content:center;text-align:center}
   #secAdd .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr);gap:10px;align-items:end}
+  #secAdd .row>div.vn{grid-column:span 2}
   #secAdd .row>div{min-width:0}#secAdd .row label{display:block;font-size:13px;line-height:1.2;min-height:32px}
   #secAdd .row input{padding:10px 8px;min-height:44px}#secAdd .row input[type=time],#secAdd .row input[type=date]{padding:10px 6px}
   #secAdd .row>button{grid-column:1/-1;width:100%}
@@ -382,8 +384,8 @@ summary:hover{background:#fff}
         <div><label for="courts">Number of courts</label><input id="courts" type="number" min="1" max="12" value="4"></div>
         <div><label for="firstCourt">First court no.</label><input id="firstCourt" type="number" min="1" max="99" value="7"></div>
         <div><label for="eventDate">Event date</label><input id="eventDate" type="date"></div>
-        <div style="flex:1;min-width:200px"><label for="eventVenue">Venue</label><input id="eventVenue" type="text" placeholder="e.g. IBT Sports Complex" maxlength="80" autocomplete="off"></div>
         <div><label for="start">First game</label><input id="start" type="time" value="14:00"></div>
+        <div class="vn"><label for="eventVenue">Venue</label><input id="eventVenue" type="text" placeholder="e.g. IBT Sports Complex" maxlength="80" autocomplete="off"></div>
         <button id="drawBtn" class="go">Pair players</button>
         <button id="sample" class="ghost" type="button">Load 72 sample players</button>
       </div>
