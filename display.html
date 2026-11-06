@@ -42,7 +42,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .row2.srv{border-left-color:var(--lime);box-shadow:0 0 6vh rgba(141,198,63,.22)}
 .row2.win{background:#143B1E;border-left-color:var(--lime)}
 .rn{min-width:0;flex:1}
-.rn .l{font-size:8vh;font-weight:800;line-height:1.12;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rn .l{font-size:var(--nfs,8vh);font-weight:800;line-height:1.12;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rn .tg{margin-top:1vh;font-size:3.6vh;font-weight:800;color:var(--lime);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rn .tg.r{color:var(--mute);font-weight:700}
 .rs{flex:none;font-size:34vh;font-weight:900;line-height:.85;font-variant-numeric:tabular-nums;letter-spacing:-.03em;min-width:26vh;text-align:right}
 /* attendance check */
@@ -200,6 +200,23 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     return '<div class="bar"><span class="grow"><span class="dot' + (netErr && Date.now() - lastOk > 30000 ? ' err' : '') + '"></span><b>' + esc(court) + '</b>' + (m ? ' &middot; ' + esc(m.bracket) + ' &middot; ' + esc(m.time) : '') + '</span><span class="grow" style="text-align:center;color:var(--ink)">' + esc((data && data.name) || '') + (venueOf() ? ' &middot; ' + esc(venueOf()) : '') + '</span><span class="clk" id="clock"></span></div>';
   }
 
+  // rows layout: grow the player names until they fill the row (as big as the height and width allow), so they read from far away
+  function fitNames() {
+    const vh = innerHeight / 100, rns = [].slice.call(document.querySelectorAll('.rn')), got = [];
+    rns.forEach(rn => {
+      const lines = [].slice.call(rn.querySelectorAll('.l')); if (!lines.length) return;
+      const tg = rn.querySelector('.tg'), rowH = rn.parentElement.clientHeight;
+      const availH = rowH * 0.86 - (tg ? tg.offsetHeight + 1.2 * vh : 0);
+      let lo = 4 * vh, hi = Math.max(lo, Math.min(availH / (lines.length * 1.12), 17 * vh));
+      const fits = px => { rn.style.setProperty('--nfs', px + 'px'); return lines.every(l => l.scrollWidth <= l.clientWidth); };
+      if (!fits(hi)) { for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; } hi = lo; }
+      got.push(hi);
+    });
+    const px = Math.min.apply(null, got) * 0.98;                                    // both teams use the same size, so the board looks even
+    if (isFinite(px)) rns.forEach(rn => rn.style.setProperty('--nfs', px + 'px'));
+  }
+  addEventListener('resize', () => { try { fitNames(); } catch (e) {} });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { fitNames(); } catch (e) {} });   // measure again once the font has loaded
   function draw() {
     const st = $('#stage'); if (!data) { return; }
     const ms = mine(); let h = '';
@@ -231,7 +248,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     }
     if (!idleNow && spIdx !== -1) spIdx = -1;
     if (h === lastH) { tick(); return; }                                      // nothing changed: do not redraw, so animations do not restart
-    lastH = h; st.innerHTML = h; tick();
+    lastH = h; st.innerHTML = h; fitNames(); tick();
   }
   function tick() {
     const c = $('#clock'); if (c) c.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
