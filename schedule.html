@@ -1261,13 +1261,33 @@ function replGames(name) {                                               // [gam
   if (ko && koSched) { const by = {}; resolveKnockout(ko, kd).matches.forEach(m => { by[m.id] = m; }); koSched.matches.forEach(x => { const m = by[x.id]; if (m && m.slots && m.slots.some(sl => has(sl.team))) { all++; if (kd[x.id]) fin++; } }); }
   return [all, fin];
 }
+// ----- Swap two players on the day: both change teams in every game still to play; games already played keep the names they were played under -----
+let frozen = {}, swapA = '', swapB = '';      // frozen: { gameId: { t1, t2 } } names of finished games at the moment of a swap (shown to Match Control, TVs and the shared page)
+function swapBoth(root, a, b) {               // like swapNames, but exchanges two names at once (A becomes B and B becomes A)
+  const ka = String(a).trim().toLowerCase(), kb = String(b).trim().toLowerCase(), seen = new Set();
+  const fix = str => { const l = str.toLowerCase(); if (l.indexOf(ka) < 0 && l.indexOf(kb) < 0) return str; let hit = false; const out = str.split(' / ').map(x => { const k = x.trim().toLowerCase(); if (k === ka) { hit = true; return b; } if (k === kb) { hit = true; return a; } return x; }); return hit ? out.join(' / ') : str; };
+  (function walk(o) { if (!o || typeof o !== 'object' || seen.has(o)) return; seen.add(o); for (const k in o) { const v = o[k]; if (typeof v === 'string') { const f = fix(v); if (f !== v) o[k] = f; } else walk(v); } })(root);
+  return fix;
+}
+function freezeFinished(a, b) {               // remember the old names of finished games that involve either player; returns the ids it added
+  const ka = String(a).trim().toLowerCase(), kb = String(b).trim().toLowerCase(), done = committed(results), added = [];
+  const has = t => t && (t.players || []).some(p => { const k = String(p).trim().toLowerCase(); return k === ka || k === kb; });
+  (sched ? sched.matches : []).forEach(m => { if (done[m.id] && !frozen[m.id] && (has(m.team1) || has(m.team2))) { frozen[m.id] = { t1: m.team1 ? m.team1.name : '', t2: m.team2 ? m.team2.name : '' }; added.push(m.id); } });
+  return added;
+}
+function swapCard(people) {
+  const ops = sel => '<option value="">Pick a player</option>' + people.slice().sort((x, y) => x.name.localeCompare(y.name)).map(x => '<option value="' + esc(x.name) + '"' + (x.name === sel ? ' selected' : '') + '>' + esc(x.name) + ' (' + esc(x.level) + ' · ' + esc(x.team) + ')</option>').join('');
+  const st = 'flex:1;min-width:170px;height:46px;box-sizing:border-box';
+  return '<div class="card replcard" style="margin-top:12px"><b>Swap two players</b><div class="hint" style="min-height:0;margin:4px 0 12px">Two players of the same level trade places. Games still to play use the new teams; games already played keep the old names. Courts, times and saved scores stay as they are, and Match Control, the TVs and the shared page update. No need to rebuild.</div>' +
+    '<div class="rform"><select id="swA" style="' + st + '">' + ops(swapA) + '</select><select id="swB" style="' + st + '">' + ops(swapB) + '</select><button type="button" class="go" id="swGo">Swap</button></div><div class="hint" id="swMsg" style="min-height:0;margin-top:8px"></div></div>';
+}
 let replSel = '', replOpen = false;
 function renderRepl() {
   const box = $('#replBox'); if (!box) return;
   if (!sched || !draw) { box.innerHTML = ''; vis(box, false); return; }
   const people = []; draw.getState().teams.forEach(t => t.players.forEach(pl => people.push({ name: pl, team: t.id, level: t.level, mate: t.players.filter(x => x !== pl).join(' / ') })));
   if (!people.some(x => x.name === replSel)) replSel = people.length ? people[0].name : '';
-  const sig = people.map(x => x.name + x.team + x.mate).join('|') + '#' + replSel + '#' + replOpen;
+  const sig = people.map(x => x.name + x.team + x.mate).join('|') + '#' + replSel + '#' + replOpen + '#' + swapA + '#' + swapB;
   if (box.dataset.sig === sig && box.firstChild) { vis(box, manT()); return; }      // nothing changed: leave the box alone so typing and focus are not interrupted
   box.dataset.sig = sig;
   const keepNew = box.querySelector('#replNew') ? box.querySelector('#replNew').value : '';
@@ -1276,7 +1296,12 @@ function renderRepl() {
   box.innerHTML = '<div class="card replcard"><b>Replace a player</b><div class="hint" style="min-height:0;margin:4px 0 12px">Someone cancelled? Pick who is leaving and type who takes their place. The schedule, courts, times and saved scores stay exactly as they are; only the name changes, here, in Match Control, on the TVs and on the shared page.</div>' +
     '<div class="rform"><div class="rsel' + (replOpen ? ' open' : '') + '"><button type="button" class="rselb" id="replBtn" aria-haspopup="listbox" aria-expanded="' + replOpen + '">' + (cur ? '<span class="rn">' + esc(cur.name) + '</span><span class="rs">' + esc(cur.team) + ' &middot; ' + esc(cur.level) + (cur.mate ? ' &middot; with ' + esc(cur.mate) : '') + '</span>' : '<span class="rs">Pick a player</span>') + '<svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
     '<div class="rselp" role="listbox"><input type="search" id="replFind" placeholder="Search a player" autocomplete="off" aria-label="Search a player"><div class="rsl" id="replList">' + people.map(row).join('') + '</div><div class="rsn" id="replNone">No player found</div></div></div>' +
-    '<input id="replNew" type="text" maxlength="40" placeholder="Replacement\'s name" autocomplete="off"><button type="button" class="go" id="replGo">Replace</button></div><div class="hint" id="replMsg" style="min-height:0;margin-top:8px"></div></div>';
+    '<input id="replNew" type="text" maxlength="40" placeholder="Replacement\'s name" autocomplete="off"><button type="button" class="go" id="replGo">Replace</button></div><div class="hint" id="replMsg" style="min-height:0;margin-top:8px"></div></div>' + swapCard(people);
+  const keepSw = box.querySelector('#swMsg') ? box.querySelector('#swMsg').textContent : '';
+  if (keepSw) $('#swMsg').textContent = keepSw;
+  $('#swA').onchange = () => { swapA = $('#swA').value; };
+  $('#swB').onchange = () => { swapB = $('#swB').value; };
+  $('#swGo').onclick = doSwap;
   if (keepNew) $('#replNew').value = keepNew;
   vis(box, manT());
   const sel = box.querySelector('.rsel'), find = $('#replFind'), list = $('#replList');
@@ -1304,6 +1329,25 @@ function renderRepl() {
     const m2 = $('#replMsg'); if (m2) m2.textContent = nu + ' replaces ' + old + (all ? ' in ' + all + ' game' + (all > 1 ? 's' : '') + (fin ? ' (' + fin + ' already played, now shown under the new name)' : '') : '') + '.' + pubd;
     const n2 = $('#replNew'); if (n2) n2.value = '';
   };
+}
+async function doSwap() {
+  const a = $('#swA').value, b = $('#swB').value, msg = t => { const m = $('#swMsg'); if (m) m.textContent = t; };
+  if (!a || !b) { msg('Pick both players.'); return; }
+  if (a.toLowerCase() === b.toLowerCase()) { msg('Pick two different players.'); return; }
+  if (!sched || !draw) { msg('Build the schedule first.'); return; }
+  const added = freezeFinished(a, b);
+  try { draw.swapPlayers(a, b); } catch (e) { added.forEach(id => { delete frozen[id]; }); msg(e.message); return; }
+  const fix = swapBoth(sched, a, b); if (ko) swapBoth(ko, a, b); if (koSched) swapBoth(koSched, a, b);
+  const nc = {}; Object.keys(coin).forEach(k => { nc[fix(k)] = coin[k]; }); coin = nc;                  // coin-toss tie-breaks are keyed by team name
+  const ka = a.toLowerCase(), kb = b.toLowerCase();
+  $('#players').value = $('#players').value.split('\n').map(l => { const q = l.split(/[,\t]/), k = (q[0] || '').trim().toLowerCase(); return k === ka ? (b + l.slice(l.indexOf(q[0]) + q[0].length)) : k === kb ? (a + l.slice(l.indexOf(q[0]) + q[0].length)) : l; }).join('\n');
+  const [g1] = replGames(a), [g2] = replGames(b);
+  selP = null; swapA = swapB = ''; renderTeams(); renderBrackets(); try { renderSchedule(); renderStandings(); if (ko) renderKo(); } catch (e) {}
+  queueSave();
+  let pubd = '';
+  if (pubSlug && tid && Platform.user && !preview) { try { await Platform.publishSchedule(tid, $('#tname').value.trim() || 'Tournament', pubDocument(), matchList()); pubSig = pubSigNow(); pubLast = Date.now(); pubd = ' The shared page, Match Control and the TVs have it too.'; } catch (e) { pubd = ' Could not update the shared page yet: press "Update with latest scores" on the Schedule step.'; } }
+  if (pubSlug && pubKey && !preview) { try { Platform.addLog(pubSlug, pubKey, 'Players swapped: ' + a + ' and ' + b + ' traded places (games already played keep the old names)'); } catch (e) {} }
+  const m2 = $('#swMsg'); if (m2) m2.textContent = a + ' and ' + b + ' have traded places.' + pubd;
 }
 function renderTeams(msg, isErr) {
   const st = draw.getState();
@@ -1564,7 +1608,7 @@ function matchCell(id, kind, t1, t2, r, off, w) {
 
 $('#genBtn').onclick = () => {
   if (blocked('#hintB') || !draw) return;
-  sched = draw.generate(); results = {}; ko = null; koSched = null; koResults = {}; coin = {};
+  sched = draw.generate(); results = {}; ko = null; koSched = null; koResults = {}; coin = {}; frozen = {};
   say('#gMsg', ''); renderSchedule();
   window.goStepNow && goStepNow('schedule');
 };
@@ -2194,7 +2238,7 @@ Sports.mount();
 const defaultSport = Sports.current;   // chosen on the Sports tab
 let tSport = Sports.current();      // the sport of the tournament that is open (each sport keeps its own files)
 const capture = () => ({ v: 1, sport: tSport, players: $('#players').value, courts: $('#courts').value, firstCourt: $('#firstCourt').value, start: $('#start').value, date: $('#eventDate').value, venue: $('#eventVenue').value, wd: [...WD],
-  locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin, hide: [...hiddenLv] });
+  locks, gopt, draw: draw ? draw.snapshot() : null, sched, results, ko, koSched, koResults, coin, frozen, hide: [...hiddenLv] });
 function describe(st) {
   let t = parsePlayers(st.players || '').length + ' players';
   if (st.sched) t += ', ' + st.sched.matches.length + ' games, ' + Object.keys(st.results || {}).filter(k => st.results[k].saved).length + ' scored';
@@ -2257,7 +2301,7 @@ const sportOfRow = e => e.sport === 'pickleball' ? 'pickleball' : 'badminton';
 async function refreshList() { allList = await Platform.listTournaments(); cloudList = allList.filter(e => sportOfRow(e) === Sports.current()); renderTList(); }
 
 function resetState() {
-  draw = null; sched = null; results = {}; ko = null; koSched = null; koResults = {}; coin = {}; gopt = {}; selP = selT = null; hiddenLv = new Set(); try { paintHide(); } catch (e) { /* page still loading */ }
+  draw = null; sched = null; results = {}; ko = null; koSched = null; koResults = {}; coin = {}; frozen = {}; gopt = {}; selP = selT = null; hiddenLv = new Set(); try { paintHide(); } catch (e) { /* page still loading */ }
   locks = { add: false, teams: false, brackets: false };
   $('#drawSec').classList.add('hidden'); ['#schedSec', '#standSec', '#koSec'].forEach(x => $(x).classList.add('hidden'));
   $('#loadMsg').textContent = ''; $('#players').value = ''; $('#courts').value = 4; $('#firstCourt').value = 7; $('#start').value = '14:00'; $('#eventDate').value = ''; $('#eventVenue').value = ''; WD = new Set(); mnotes = {};
@@ -2265,7 +2309,7 @@ function resetState() {
 function applyState(st) {
   tSport = st.sport === 'pickleball' ? 'pickleball' : 'badminton';
   $('#players').value = st.players || ''; $('#courts').value = st.courts || 4; $('#firstCourt').value = st.firstCourt || 7; $('#start').value = st.start || '14:00'; $('#eventDate').value = st.date || ''; $('#eventVenue').value = st.venue || ''; WD = new Set(st.wd || []); mnotes = {};
-  gopt = st.gopt || {}; locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {};
+  gopt = st.gopt || {}; locks = { add: false, teams: false, brackets: false }; results = st.results || {}; ko = st.ko || null; koSched = st.koSched || null; koResults = st.koResults || {}; coin = st.coin || {}; frozen = st.frozen || {};
   if (st.draw) { draw = createDraw(parsePlayers(st.players), gopt); draw.restore(st.draw); $('#drawSec').classList.remove('hidden'); renderDraw(); }
   hiddenLv = new Set((st.hide || []).filter(l => LEVELS.includes(l))); paintHide();
   if (st.sched && draw) { sched = st.sched; renderSchedule(); setAdd(); }
@@ -2770,10 +2814,10 @@ const tvUrl = (court, rows) => location.href.replace(/[^/]*$/, '').replace(/\/?$
 const umpUrl = court => location.href.replace(/[^/]*$/, '').replace(/\/?$/, '/') + 'u.html?s=' + pubSlug + '&k=' + pubKey + '&c=' + encodeURIComponent(court);
 function matchList() {
   const done = committed(results), out = [], nm = t => (t ? t.name : '');
-  sched.matches.forEach(m => { const r = done[m.id]; out.push({ mid: 'g:' + m.id, court: m.courtName, slot: m.slot, time: m.start + ' - ' + m.end, level: m.level, bracket: m.bracket, t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
+  sched.matches.forEach(m => { const r = done[m.id]; out.push({ mid: 'g:' + m.id, court: m.courtName, slot: m.slot, time: m.start + ' - ' + m.end, level: m.level, bracket: m.bracket, t1: frozen[m.id] ? frozen[m.id].t1 : nm(m.team1), t2: frozen[m.id] ? frozen[m.id].t2 : nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   if (ko && koSched) {
     const kd = committed(koResults), by = {}; resolveKnockout(ko, kd).matches.forEach(m => { by[m.id] = m; });
-    koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, level: m.level, bracket: m.roundName, round: m.round, from: m.slots.map(sl => (sl.winnerOf ? 'k:' + sl.winnerOf : null)), t1: nm(m.team1), t2: nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
+    koSched.matches.forEach(x => { const m = by[x.id]; if (!m) return; const r = kd[x.id]; out.push({ mid: 'k:' + x.id, court: x.courtName, slot: x.slot, time: x.start + ' - ' + x.end, level: m.level, bracket: m.roundName, round: m.round, from: m.slots.map(sl => (sl.winnerOf ? 'k:' + sl.winnerOf : null)), t1: frozen[m.id] ? frozen[m.id].t1 : nm(m.team1), t2: frozen[m.id] ? frozen[m.id].t2 : nm(m.team2), res: r ? { a: r.a, b: r.b } : null }); });
   }
   const sp = tSport, dt = $('#eventDate').value || ''; return out.map(x => Object.assign(x, { sport: sp, date: dt, venue: ($('#eventVenue').value || '').trim().slice(0, 80) }));      // the umpire page scores by this sport's rules
 }
