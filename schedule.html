@@ -2935,6 +2935,23 @@ async function autoPublish() {
   pubBusy = false;
 }
 setInterval(autoPublish, 10000);
+// ----- link health: while this page is open, check every few minutes that the public link still exists, and warn at once if it does not -----
+let lkBad = 0;
+async function checkLink() {
+  if (!pubSlug || !Platform.user || preview || document.hidden) return;
+  let v; try { v = await Platform.getScheduleVersion(pubSlug); } catch (e) { return; }      // a network hiccup is not a warning
+  const old = document.getElementById('lkBar');
+  if (v) { lkBad = 0; if (old) old.remove(); return; }
+  if (++lkBad < 2) { setTimeout(checkLink, 15000); return; }                                 // look twice before warning
+  if (old) return;
+  const d = document.createElement('div'); d.id = 'lkBar'; d.className = 'noprint'; d.setAttribute('role', 'alert');
+  d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#b3261e;color:#fff;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;font:600 15px/1.35 system-ui,sans-serif;box-shadow:0 2px 12px rgba(0,0,0,.3)';
+  d.innerHTML = '<span>Your public schedule link is not working any more. Players who open it see &ldquo;not found&rdquo;.</span><button type="button" style="font:inherit;padding:8px 14px;border-radius:10px;border:0;background:#fff;color:#b3261e;cursor:pointer">Publish again</button>';
+  d.querySelector('button').onclick = async () => { const b = d.querySelector('button'); b.disabled = true; b.textContent = 'Publishing...'; const bad = await publishNow(); if (bad === false || !pubSlug) { b.disabled = false; b.textContent = 'Publish again'; return; } lkBad = 0; d.style.background = '#1b7f3b'; d.innerHTML = '<span>Published again. The new link is on the Schedule step. Post it again, and reopen Match Control and the TV links from there.</span>'; setTimeout(() => d.remove(), 20000); };
+  document.body.appendChild(d);
+}
+setInterval(checkLink, 180000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(checkLink, 1500); });
 async function publishNow(msg) {
   if (preview) return say('#pubMsg', 'Preview mode: sharing is turned off. Exit preview to publish a real schedule.');
   if (!sched) return say('#pubMsg', 'Build the schedule first.');
