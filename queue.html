@@ -169,7 +169,8 @@ body.live select{background:#fff;color:#1C1C1E}
 #tabbody #pall{background:rgba(52,199,89,.16);color:#1E8E3E}#tabbody #pnone{background:rgba(142,142,147,.22);color:#48484A}
 .qgame{background:#EEF5FF;border:1.5px dashed rgba(0,122,255,.5);box-shadow:none;transition:background-color .25s ease,border-color .25s ease}.qgame .team{background:#fff}
 .qtag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--blue);background:rgba(0,122,255,.12);padding:2px 8px;border-radius:999px;white-space:nowrap}
-#tabbody .plact{display:grid;grid-template-columns:1fr 1fr;gap:8px}#tabbody .plact .btn{width:100%;justify-content:center;text-align:center;margin:0;white-space:normal;line-height:1.2}</style>
+#tabbody .plact{display:grid;grid-template-columns:1fr 1fr;gap:8px}#tabbody .plact .btn{width:100%;justify-content:center;text-align:center;margin:0;white-space:normal;line-height:1.2}  textarea { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+</style>
 <style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
 <body>
 <div class="wrap" id="root"></div>
@@ -457,7 +458,9 @@ $('#ov').addEventListener('click', e => { if (e.target.id === 'ov') closeModal()
 // iOS-style drag down to close a sheet
 (function () {
   const sh = $('#sheet'), ov = $('#ov'); let y0 = 0, x0 = 0, t0 = 0, dy = 0, lock = '', on = false;
-  sh.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; on = sh.scrollTop <= 0; y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; t0 = Date.now(); dy = 0; lock = ''; }, { passive: true });
+  // a touch that starts inside a text box or any inner scroll area scrolls that area, it never drags the sheet
+  const innerScroll = el => { for (; el && el !== sh; el = el.parentElement) { if (el.tagName === 'TEXTAREA') return true; if (el.scrollHeight > el.clientHeight + 1) { const o = getComputedStyle(el).overflowY; if (o === 'auto' || o === 'scroll') return true; } } return false; };
+  sh.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; on = sh.scrollTop <= 0 && !innerScroll(e.target); y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; t0 = Date.now(); dy = 0; lock = ''; }, { passive: true });
   sh.addEventListener('touchmove', e => {
     if (!on) return; const t = e.touches[0], ddy = t.clientY - y0, ddx = t.clientX - x0;
     if (!lock) { if (Math.abs(ddy) < 8 && Math.abs(ddx) < 8) return; lock = (ddy > 0 && Math.abs(ddy) > Math.abs(ddx)) ? 'v' : 'x'; }
