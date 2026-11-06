@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Inter,system-ui,"Segoe UI",Roboto,Arial,sans-serif}
 .stage{height:100%;display:flex;flex-direction:column;padding:2.2vh 2.6vw}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:2vw;height:9vh;font-size:3.4vh;font-weight:700;color:var(--mute);white-space:nowrap}
-.bar b{color:var(--ink)}.bar .grow{flex:1;overflow:hidden;text-overflow:ellipsis}
+.bar b{color:var(--ink)}.bar .grow{flex:1;overflow:hidden;text-overflow:ellipsis}.bar .grow:first-child{flex:0 0 auto}
 .bar .clk{font-variant-numeric:tabular-nums;color:var(--ink)}
 .dot{display:inline-block;width:1.6vh;height:1.6vh;border-radius:50%;background:var(--lime);margin-right:1vw;vertical-align:middle}.dot.err{background:var(--red)}
 .main{flex:1;min-height:0;display:flex;gap:2vw}
@@ -35,14 +35,14 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 
 .ic{display:inline-block;width:1.25em;margin-right:.1em;text-align:center}
 .names .n:not(.sv) .ic:empty,.names .ic:empty{display:none}
-.rn .ic{margin-right:.2em}
+.rn{position:relative;padding-left:calc(var(--nfs,8vh)*.6)}.rn .ic{position:absolute;left:0;width:.6em;margin:0}.ut .rn{padding-left:0}
 /* rows layout: one team per row, names left, giant score right (like a wall scoreboard) */
 .rows{flex:1;min-height:0;display:flex;flex-direction:column;gap:2.4vh}
-.row2{flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:2vw;background:var(--panel);border-radius:3vh;border-left:2vh solid transparent;padding:0 3vw 0 2vw;transition:border-color .3s}
+.row2{flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;gap:2vw;background:var(--panel);border-radius:3vh;border-left:2vh solid transparent;padding:0 2.4vw 0 1.6vw;transition:border-color .3s}
 .row2.srv{border-left-color:var(--lime);box-shadow:0 0 6vh rgba(141,198,63,.22)}
 .row2.win{background:#143B1E;border-left-color:var(--lime)}
 .rn{min-width:0;flex:1}
-.rn .l{font-size:var(--nfs,8vh);font-weight:800;line-height:1.12;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rn .l{font-size:var(--nfs,8vh);font-weight:800;line-height:1.02;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rn .tg{margin-top:1vh;font-size:3.6vh;font-weight:800;color:var(--lime);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rn .tg.r{color:var(--mute);font-weight:700}
 .rs{flex:none;font-size:34vh;font-weight:900;line-height:.85;font-variant-numeric:tabular-nums;letter-spacing:-.03em;min-width:26vh;text-align:right}
 /* attendance check */
@@ -62,6 +62,13 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .idle .big{font-size:9vh;font-weight:900;line-height:1.1}
 .idle .big i{display:block;font-style:normal;font-size:4.6vh;color:var(--mute);margin:1vh 0}
 .idle .sub{font-size:3.8vh;color:var(--mute);font-weight:700}
+.idle.upn{align-items:stretch;justify-content:flex-start;gap:1.6vh;padding:.4vh 0 0}
+.upn .lab{display:flex;justify-content:center;align-items:baseline;gap:2.4vw;white-space:nowrap}.upn .lab .tm{color:var(--ink);font-size:4vh;letter-spacing:.03em;text-transform:none}
+.uteams{flex:1;min-height:0;display:flex;flex-direction:column;gap:1.2vh}
+.ut{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:var(--panel);border-radius:3vh;padding:0 3vw}
+.ut .rn{flex:1;text-align:center}.uvs{text-align:center;font-size:3.4vh;color:var(--mute);font-weight:800;letter-spacing:.4em;line-height:1}
+.uthen{display:flex;gap:2vw}.tc{flex:1;min-width:0;background:rgba(255,255,255,.05);border-radius:2vh;padding:1.2vh 1.6vw}
+.tc .tt{color:var(--lime);font-weight:800;font-size:2.8vh;letter-spacing:.1em;margin-bottom:.4vh}.tc .tn{font-size:3.4vh;font-weight:800;line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .idle .then{font-size:3.6vh;color:var(--mute);margin-top:2vh}.idle .then b{color:var(--ink)}
 .final{font-size:30vh;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
 .hint{position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);background:rgba(255,255,255,.12);padding:1vh 2vw;border-radius:99px;font-size:2.6vh;color:var(--mute);transition:opacity .6s}
@@ -196,8 +203,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
   }
 
   const venueOf = () => { const m = ((data && data.matches) || []).find(x => x && x.venue); return m ? String(m.venue) : ''; };      // the venue the organizer typed in Draw & Schedule
-  function header(m) {
-    return '<div class="bar"><span class="grow"><span class="dot' + (netErr && Date.now() - lastOk > 30000 ? ' err' : '') + '"></span><b>' + esc(court) + '</b>' + (m ? ' &middot; ' + esc(m.bracket) + ' &middot; ' + esc(m.time) : '') + '</span><span class="grow" style="text-align:center;color:var(--ink)">' + esc((data && data.name) || '') + (venueOf() ? ' &middot; ' + esc(venueOf()) : '') + '</span><span class="clk" id="clock"></span></div>';
+  function header(m, short) {
+    return '<div class="bar"><span class="grow"><span class="dot' + (netErr && Date.now() - lastOk > 30000 ? ' err' : '') + '"></span><b>' + esc(court) + '</b>' + (m && !short ? ' &middot; ' + esc(m.bracket) + ' &middot; ' + esc(m.time) : '') + '</span><span class="grow" style="text-align:center;color:var(--ink)">' + esc((data && data.name) || '') + (venueOf() ? ' &middot; ' + esc(venueOf()) : '') + '</span><span class="clk" id="clock"></span></div>';
   }
 
   // rows layout: grow the player names until they fill the row (as big as the height and width allow), so they read from far away
@@ -206,8 +213,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     rns.forEach(rn => {
       const lines = [].slice.call(rn.querySelectorAll('.l')); if (!lines.length) return;
       const tg = rn.querySelector('.tg'), rowH = rn.parentElement.clientHeight;
-      const availH = rowH * 0.86 - (tg ? tg.offsetHeight + 1.2 * vh : 0);
-      let lo = 4 * vh, hi = Math.max(lo, Math.min(availH / (lines.length * 1.12), 17 * vh));
+      const availH = rowH * 0.95 - (tg ? tg.offsetHeight + 1.2 * vh : 0);
+      let lo = 4 * vh, hi = Math.max(lo, Math.min(availH / (lines.length * 1.02), 24 * vh));
       const fits = px => { rn.style.setProperty('--nfs', px + 'px'); return lines.every(l => l.scrollWidth <= l.clientWidth); };
       if (!fits(hi)) { for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; } hi = lo; }
       got.push(hi);
@@ -240,10 +247,12 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
       if (!nx) h = header(null) + '<div class="idle"><div class="lab">All done</div><div class="big">All matches on ' + esc(court) + ' are finished<i>Thank you for playing!</i></div></div>';
       else {
         const nb = fresh() && bc.mid === nx.mid;
-        h = header(nx) + '<div class="idle"><div class="lab">' + (ready(nx) ? 'Up next' : 'Next match') + '</div>' +
-          (ready(nx) ? '<div class="big">' + esc(nx.t1) + '<i>vs</i>' + esc(nx.t2) + '</div>' : '<div class="big">To be decided</div>') +
-          '<div class="sub">' + esc(nx.bracket) + ' &middot; ' + esc(nx.time) + '</div>' + (nb ? '<div style="width:80%">' + banner() + '</div>' : '') +
-          (then.length ? '<div class="then">Then: ' + then.map(m => '<b>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '</b> (' + esc(String(m.time).split(' - ')[0]) + ')').join(' &middot; ') + '</div>' : '') + '</div>';
+        const lines = t => String(t || 'TBD').split('/').map(x => x.trim()).filter(Boolean), tm = String(nx.time || '');
+        const team = t => '<div class="ut"><div class="rn">' + lines(t).map(l => '<div class="l">' + esc(l) + '</div>').join('') + '</div></div>';
+        h = header(nx, true) + '<div class="idle upn"><div class="lab">' + (ready(nx) ? 'Up next' : 'Next match') + '<span class="tm">' + esc(tm) + ' &middot; ' + esc(nx.bracket) + '</span></div>' +
+          (ready(nx) ? '<div class="uteams">' + team(nx.t1) + '<div class="uvs">VS</div>' + team(nx.t2) + '</div>' : '<div class="big">To be decided</div>') +
+          (nb ? '<div style="width:100%">' + banner() + '</div>' : '') +
+          (then.length ? '<div class="uthen">' + then.map(m => '<div class="tc"><div class="tt">THEN &middot; ' + esc(String(m.time).split(' - ')[0]) + '</div><div class="tn">' + esc(m.t1 || 'TBD') + '</div><div class="tn">' + esc(m.t2 || 'TBD') + '</div></div>').join('') + '</div>' : '') + '</div>';
       }
     }
     if (!idleNow && spIdx !== -1) spIdx = -1;
