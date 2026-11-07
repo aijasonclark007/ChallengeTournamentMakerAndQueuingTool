@@ -2358,7 +2358,15 @@ document.addEventListener('click', async e => {
     } catch (err) { note('Could not delete: ' + err.message, true); }
   }
 });
-$('#tNew').onclick = () => addTournament($('#tname').value.trim() || 'Tournament ' + (cloudList.length + 1), null);
+$('#tNew').onclick = async () => {              // asks for its own name, so it never renames the tournament that is open
+  const cur = cloudList.find(x => x.id === tid);
+  const nm = prompt('Name your new tournament:', '');
+  if (nm === null) return;                      // cancelled: nothing changes
+  const name = nm.trim();
+  if (!name) { note('Type a name for the new tournament, then press Create new again.', true); return; }
+  if (cur) $('#tname').value = cur.name || $('#tname').value;   // anything typed in the name box but not renamed yet is dropped, so the open tournament keeps its name
+  await addTournament(name, null);
+};
 Sports.onChange(async () => {                       // each sport has its own tournaments: save this one, then open the new sport's most recent (or a fresh one)
   if (preview || !Platform.user || !tid) { tSport = Sports.current(); return; }
   await saveNow(); tid = null; loadAll();
