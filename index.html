@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Challenge Match Day</title>
 <link rel="icon" type="image/svg+xml" href="/icons/icon.svg"><link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-<meta name="description" content="Challenge - Match Day by Jason Clark: sports scoring, draw and schedule tool, and queuing tool for badminton and pickleball.">
-<meta property="og:title" content="Challenge - Match Day by Jason Clark">
+<meta name="description" content="Challenge Match Day: sports scoring, draw and schedule tool, and queuing tool for badminton and pickleball.">
+<meta property="og:title" content="Challenge Match Day">
 <meta property="og:description" content="Score badminton and pickleball matches, build the draw and game schedule, and run the queue on court.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Challenge - Match Day">
@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://challengematchday.vercel.app/og.png">
 <meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Challenge - Match Day: badminton and pickleball scoring, queuing and draws">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Challenge - Match Day by Jason Clark"><meta name="twitter:image" content="https://challengematchday.vercel.app/og.png">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Challenge Match Day"><meta name="twitter:image" content="https://challengematchday.vercel.app/og.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Challenge"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#F2F2F7">
 <link rel="manifest" href="/manifest.json">
@@ -417,7 +417,7 @@ async function route() {
   const order = ['sports', 'score', 'draw', 'queue'], dir = Math.sign(order.indexOf(tab) - order.indexOf(prevTab)); prevTab = tab;
   $('#view').style.setProperty('--tx', (dir * 48) + 'px'); placeNavThumb(true);
   $('#main').classList.toggle('wide', page === 'score' || page === 'draw' || page === 'queue');
-  document.title = 'Challenge - Match Day by Jason Clark';
+  document.title = 'Challenge Match Day';
   if (tok !== rt) return;
   if (page === 'score' || page === 'draw' || page === 'queue') { showTool(page, arg); return; }
   if (page === 'reset' || (cloud && P.recoveryPending && P.recoveryPending())) { setView(resetPage()); return initReset(); }   // came from a password-reset email (don't touch the hash yet: supabase is still reading the token from it)
