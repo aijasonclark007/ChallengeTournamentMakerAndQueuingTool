@@ -282,6 +282,7 @@ summary:hover{background:#fff}
 #sdlg .warn{background:#FFEDEB;border:1px solid rgba(255,59,48,.35);color:#B3261E;border-radius:12px;padding:10px 12px;font-weight:700;margin:0 0 12px}
 #sdlg .btns{display:flex;gap:10px;margin-top:6px}#sdlg .btns button{flex:1;padding:13px;border-radius:14px;font-weight:800;font-size:16px}
 #sdlg .btns .stay{background:#007AFF;color:#fff}#sdlg .btns .stop{background:#FFEDEB;color:#D70015}
+#sdlg .btns .cancel{background:#F2F2F7;color:#3a3a3c}#sdlg .sdin{width:100%;box-sizing:border-box;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:17px;margin:2px 0 8px;background:#fff}#sdlg .sdin:focus{outline:none;border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.2)}#sdlg .sderr{color:#B3261E;font-weight:700;min-height:18px;margin:0 0 6px;font-size:14px}
 #nowPlay .np{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px 14px;padding:12px 14px;background:#fff;border:1.5px solid rgba(255,59,48,.35);box-shadow:0 4px 14px rgba(255,59,48,.10);border-radius:16px;margin:8px 0}
 #nowPlay .np .np-c{display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;white-space:nowrap}
 #nowPlay .np .np-c:before{content:"";width:9px;height:9px;border-radius:50%;background:#FF3B30;animation:nplive 1.4s infinite}
@@ -2358,12 +2359,25 @@ document.addEventListener('click', async e => {
     } catch (err) { note('Could not delete: ' + err.message, true); }
   }
 });
+function askNewName() {                          // a centered dialog (the browser's own pop-up can't be moved)
+  return new Promise(res => {
+    const d = document.createElement('div'); d.id = 'sdlg';
+    d.innerHTML = '<div class="box" role="dialog" aria-modal="true"><h3>Name your new tournament</h3><p>This creates a separate tournament. The one you have open keeps its name and its link.</p>' +
+      '<input class="sdin" type="text" maxlength="80" placeholder="e.g. November 8 Tournament" aria-label="New tournament name"><div class="sderr"></div>' +
+      '<div class="btns"><button class="cancel" type="button">Cancel</button><button class="stay" type="button">Create</button></div></div>';
+    const inp = d.querySelector('.sdin'), err = d.querySelector('.sderr');
+    const done = v => { d.remove(); document.removeEventListener('keydown', key); res(v); };
+    const ok = () => { const v = inp.value.trim(); if (!v) { err.textContent = 'Type a name first.'; inp.focus(); return; } done(v); };
+    const key = e => { if (e.key === 'Escape') done(null); else if (e.key === 'Enter') { e.preventDefault(); ok(); } };
+    d.onclick = e => { if (e.target === d) done(null); };
+    d.querySelector('.cancel').onclick = () => done(null); d.querySelector('.stay').onclick = ok;
+    document.addEventListener('keydown', key); document.body.appendChild(d); inp.focus();
+  });
+}
 $('#tNew').onclick = async () => {              // asks for its own name, so it never renames the tournament that is open
   const cur = cloudList.find(x => x.id === tid);
-  const nm = prompt('Name your new tournament:', '');
-  if (nm === null) return;                      // cancelled: nothing changes
-  const name = nm.trim();
-  if (!name) { note('Type a name for the new tournament, then press Create new again.', true); return; }
+  const name = await askNewName();
+  if (!name) return;                            // cancelled: nothing changes
   if (cur) $('#tname').value = cur.name || $('#tname').value;   // anything typed in the name box but not renamed yet is dropped, so the open tournament keeps its name
   await addTournament(name, null);
 };
