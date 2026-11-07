@@ -2879,7 +2879,16 @@ function showPubLink() {
   if (fresh && !REDUCED) { const u = $('#pubUrl'); u.classList.remove('glow'); void u.offsetWidth; u.classList.add('glow'); setTimeout(() => u.classList.remove('glow'), 1300); }
   showUmp();
 }
-async function loadPubLink() { pubSlug = null; pubKey = null; try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) {} pubSig = pubSigNow(); showPubLink(); subLive(); }
+let plTry = 0;
+async function loadPubLink() {
+  pubSlug = null; pubKey = null; let err = '';
+  try { if (tid && Platform.user) { const r = await Platform.myPublishedSchedule(tid); pubSlug = r ? r.slug : null; pubKey = r ? r.umpire_key : null; } } catch (e) { err = (e && e.message) || String(e); }
+  pubSig = pubSigNow(); showPubLink(); subLive();
+  if (err) {                                                    // never show "no link" when the lookup actually failed: say so, and try again
+    say('#pubMsg', "Couldn't check your share link (" + err + "). Please don't press Get shareable link yet. Trying again...");
+    if (plTry++ < 5) setTimeout(loadPubLink, 3000 * plTry);
+  } else plTry = 0;
+}
 // finished matches from the umpires' phones are saved into the scoreboard automatically
 let lvBook = {}, lvCursor = 0, lvFull = 0, lvSlug = null, lvDelta = true;
 async function liveRows() {                                  // changed scores only (a full copy every 2 minutes); the whole list if step 18 has not been run
