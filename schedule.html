@@ -1609,6 +1609,15 @@ function matchCell(id, kind, t1, t2, r, off, w) {
 
 $('#genBtn').onclick = () => {
   if (blocked('#hintB') || !draw) return;
+  if (sched && !window.__quiet) {                              // a schedule already exists: building again reshuffles everything and erases saved scores
+    const n = Object.keys(committed(results)).length, pub = typeof pubSlug !== 'undefined' && pubSlug;
+    const msg = 'A schedule is already built' + (n ? ' and ' + n + ' game' + (n === 1 ? ' has a' : 's have') + ' saved score' + (n === 1 ? '' : 's') : '') + '.\n\n' +
+      'Building again reshuffles the courts and times' + (n ? ' and ERASES those scores' : '') + (pub ? ', and changes what your shared link, Match Control, the TVs and the umpires show' : '') + '.\n\n' +
+      'To change one player, use "Replace a player" or "Swap two players" (Teams step, tick Re-organize teams manually) instead. They keep the schedule.\n\nBuild a NEW schedule anyway?';
+    if (!window.confirm(msg)) return;
+    if (n || pub) { const t = window.prompt('This cannot be undone from here. Type REBUILD to confirm.'); if (!t || t.trim().toUpperCase() !== 'REBUILD') return; }
+    try { autoBackup(true); } catch (e) {}                     // a restore point, just in case
+  }
   sched = draw.generate(); results = {}; ko = null; koSched = null; koResults = {}; coin = {}; frozen = {};
   say('#gMsg', ''); renderSchedule();
   window.goStepNow && goStepNow('schedule');
