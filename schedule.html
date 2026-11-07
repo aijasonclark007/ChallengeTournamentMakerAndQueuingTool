@@ -2508,11 +2508,11 @@ html{scroll-behavior:smooth}
 .pub .tabs{position:relative}.pub .tabs button{position:relative;z-index:1}.pub .tabs button.on{background:transparent;box-shadow:none}
 .pub .tabs::before{content:'';position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px - (var(--n,3) - 1) * 6px) / var(--n,3));background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.12);transform:translateX(calc(var(--i,0) * (100% + 6px)));transition:transform .34s cubic-bezier(.2,.8,.2,1)}
 .pub #viewSch,.pub #viewNow,.pub #viewStd{animation:pubin .38s cubic-bezier(.2,.8,.2,1)}
-@keyframes pubin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pubin{from{opacity:0}to{opacity:1}}
 .pub .game,.pub .srow{transition:background-color .18s}
 .pub-none{margin:28px 0;text-align:center;color:#5F5F66;animation:finup .3s ease both}
 .pub .fin{animation:finup .32s cubic-bezier(.2,.8,.2,1) both}
-@keyframes finup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes finup{from{opacity:0}to{opacity:1}}
 .pub button:focus{outline:none}.pub button:focus-visible{outline:2px solid rgba(0,122,255,.55);outline-offset:2px}.pub .tools button:focus:not(:focus-visible),.pub .tabs button:focus:not(:focus-visible){outline:none}
 .pub-top{position:fixed;right:16px;bottom:16px;width:44px;height:44px;border-radius:50%;border:0;background:#007AFF;color:#fff;font-size:20px;line-height:1;box-shadow:0 6px 18px rgba(0,122,255,.35);opacity:0;transform:translateY(16px) scale(.9);pointer-events:none;transition:opacity .25s,transform .3s cubic-bezier(.2,.8,.2,1);cursor:pointer;z-index:30}.pub-top.on{opacity:1;transform:none;pointer-events:auto}
 @media print{.pub-top{display:none}}
@@ -2520,7 +2520,7 @@ html{scroll-behavior:smooth}
 .pub .tabs button,.pub .tools button{-webkit-appearance:none;appearance:none;touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .pub .tabs button{transition:color .3s ease .05s,transform .14s cubic-bezier(.2,.8,.2,1)}
 .pub #viewSch,.pub #viewNow,.pub #viewStd{will-change:opacity,transform}
-.pub .pout{opacity:0!important;transform:translateY(-6px)!important;animation:none!important;transition:opacity .09s ease,transform .09s ease;pointer-events:none}
+.pub .pout{opacity:0!important;animation:none!important;transition:opacity .09s ease;pointer-events:none}
 @keyframes flA{from{opacity:.25;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes flB{from{opacity:.25;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes fsA{from{opacity:.55}to{opacity:1}}@keyframes fsB{from{opacity:.55}to{opacity:1}}
 .pub #viewSch.flA,.pub #viewNow.flA,.pub #viewStd.flA{animation:flA .34s cubic-bezier(.2,.8,.2,1)}
