@@ -33,7 +33,9 @@ body.hasbar iframe{height:calc(100% - 46px)}
     document.title = row.name + ' - Game Schedule';
     const f = document.createElement('iframe');
     f.setAttribute('sandbox', 'allow-scripts allow-popups');   // runs the name search, nothing else
-    f.srcdoc = row.html;
+    // keep the scrollbar gutter on every tab so short tabs (Now Playing) don't shift the page sideways; added here so it works without republishing
+    const keep = '<style>html{overflow-y:scroll}</style>';
+    f.srcdoc = /<\/head>/i.test(row.html) ? row.html.replace(/<\/head>/i, keep + '</head>') : keep + row.html;
     m.remove(); document.body.appendChild(f);
     // live data in ONE request: the scores that changed since last time (a full copy every 2 minutes, and whenever the count looks off), the announcement and moved courts.
     // At most one refresh every 5 seconds, and nothing while the tab is hidden.
