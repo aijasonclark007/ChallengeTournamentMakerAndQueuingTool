@@ -71,12 +71,12 @@
 
   // ----- speaking -----
   function voices() { try { return speechSynthesis.getVoices() || []; } catch (e) { return []; } }
-  function pickVoice(forCall) {                  // the saved choice, otherwise Rosa (English, Philippines) when this computer has it, otherwise Brian (Multilingual) when this computer has it, otherwise any Natural English voice
+  function pickVoice(forCall) {                  // announcements: the saved choice, else Brian. Court calls: the saved call voice, else Rosa (English, Philippines) when this computer has her, else the announcement voice
     var vs = voices(), by = function (f) { return vs.filter(f)[0]; };
+    var rosa = function (x) { return /rosa/i.test(x.name) && (/^en[-_]ph/i.test(x.lang) || /philippines/i.test(x.name)); };
     return by(function (x) { return forCall && S.callVoice && x.name === S.callVoice; }) ||
+      (forCall ? by(function (x) { return rosa(x) && /natural|online/i.test(x.name); }) || by(rosa) : null) ||
       by(function (x) { return S.voice && x.name === S.voice; }) ||
-      by(function (x) { return /rosa/i.test(x.name) && /natural|online/i.test(x.name) && (/^en[-_]ph/i.test(x.lang) || /philippines/i.test(x.name)); }) ||
-      by(function (x) { return /rosa/i.test(x.name) && (/^en[-_]ph/i.test(x.lang) || /philippines/i.test(x.name)); }) ||
       by(function (x) { return /brian/i.test(x.name) && /multilingual/i.test(x.name) && /^en/i.test(x.lang); }) ||
       by(function (x) { return /brian/i.test(x.name) && /natural/i.test(x.name) && /^en/i.test(x.lang); }) ||
       by(function (x) { return /natural/i.test(x.name) && /^en/i.test(x.lang); }) || null;
@@ -282,8 +282,8 @@
     lastLink = link;
     var v = $('#vcVoice'), fill = function () {
       var vs = voices().filter(function (x) { return /^en/i.test(x.lang); }); if (!vs.length) vs = voices();
-      v.innerHTML = '<option value="">Auto (Rosa, Philippines)</option>' + vs.map(function (x) { return '<option value="' + esc(x.name) + '"' + (S.voice === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
-      var cv = $('#vcCallVoice'); if (cv) cv.innerHTML = '<option value="">Same as announcements</option>' + vs.map(function (x) { return '<option value="' + esc(x.name) + '"' + (S.callVoice === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
+      v.innerHTML = '<option value="">Auto (Brian)</option>' + vs.map(function (x) { return '<option value="' + esc(x.name) + '"' + (S.voice === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
+      var cv = $('#vcCallVoice'); if (cv) cv.innerHTML = '<option value="">Auto (Rosa, Philippines)</option>' + vs.map(function (x) { return '<option value="' + esc(x.name) + '"' + (S.callVoice === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('');
     };
     fill(); try { speechSynthesis.onvoiceschanged = fill; } catch (e) {}
     lists(); paint();
