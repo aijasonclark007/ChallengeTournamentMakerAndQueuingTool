@@ -48,12 +48,21 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--blue);bo
 #conf{position:fixed;inset:0;pointer-events:none;z-index:60}
 #dlg{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:20px}#dlg.on{display:flex}
 #dlg .box{background:#fff;border-radius:20px;padding:22px;max-width:440px;width:100%}#dlg h3{margin:0 0 8px}
+#sbox{display:none;width:min(100%,760px)}#slot{width:100%;display:block;border-radius:24px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#spinBtn{display:none;margin-top:16px;min-width:220px;padding:16px 28px;font-size:22px;border-radius:18px}
+#mode{position:fixed;inset:0;z-index:80;background:rgba(18,20,30,.86);display:none;align-items:center;justify-content:center;padding:20px}#mode.on{display:flex}
+#mode .in{max-width:760px;width:100%;text-align:center;color:#fff}#mode h2{margin:0 0 6px;font-size:clamp(24px,4vw,36px)}#mode p{margin:0 0 20px;color:#c9cbd6}
+#mode .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:560px){#mode .cards{grid-template-columns:1fr}}
+#mode .mc{background:#fff;color:var(--ink);border-radius:22px;padding:22px 16px;text-align:center;transition:transform .15s}#mode .mc:hover{transform:translateY(-3px)}
+#mode .mc b{display:block;font-size:22px;margin:6px 0}#mode .mc span{display:block;font-size:14px;color:var(--mute);line-height:1.4}#mode .mc i{font-style:normal;font-size:46px}
+#mode .mc.sel{box-shadow:0 0 0 4px var(--blue)}
+#tip{margin-top:8px;font-size:14px;font-weight:700;color:#8a5a00;display:none}#tip button{margin-left:6px;padding:6px 12px;border-radius:10px;background:#FFF4D6;font-weight:800}
 body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display:none}body.pres .top{display:none}
 @media(prefers-reduced-motion:reduce){#win.on,#win .box{animation:none}}
 </style>
 </head>
 <body>
-<div class="top"><h1>Raffle<small id="sub">Challenge Match Day</small></h1><span class="pill off" id="conn">Checking...</span><button class="btn" id="bFull" type="button">Full screen</button></div>
+<div class="top"><h1>Raffle<small id="sub">Challenge Match Day</small></h1><button class="btn" id="bMode" type="button">Wheel</button><span class="pill off" id="conn">Checking...</span><button class="btn" id="bFull" type="button">Full screen</button></div>
 <div class="main">
   <div class="side">
     <div class="card">
@@ -67,6 +76,7 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
       <label for="prize">Prize (optional, shown with the winner)</label>
       <input id="prize" type="text" maxlength="60" placeholder="e.g. Racket bag">
       <div class="chk"><input id="optRemove" type="checkbox" checked><label for="optRemove" style="margin:0;font-weight:600">Remove each winner from the wheel</label></div>
+      <div class="chk"><input id="optQuick" type="checkbox"><label for="optQuick" style="margin:0;font-weight:600">Quick draw (shorter spin, good for many prizes)</label></div>
       <div class="chk"><input id="optAuto" type="checkbox" checked><label for="optAuto" style="margin:0;font-weight:600">Show the winner on all TVs and phones when the wheel stops</label></div>
       <label for="optClear">Take the winner off the screens after</label>
       <select id="optClear"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="0">Keep until I clear it</option></select>
@@ -81,12 +91,15 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
   </div>
   <div class="stage">
     <div class="wheelbox" id="wbox"><div class="pointer"></div><canvas id="wheel" aria-label="Raffle wheel"></canvas><button class="hub" id="hub" type="button">SPIN</button></div>
+    <div id="sbox"><canvas id="slot" aria-label="Slot machine"></canvas></div>
     <div class="now" id="now" aria-live="polite"></div>
-    <div class="hint" id="spinHint">Press SPIN or the space bar.</div>
+    <button class="btn go" id="spinBtn" type="button">SPIN</button>
+    <div class="hint" id="spinHint">Press SPIN or the space bar.</div><div id="tip"></div>
   </div>
 </div>
 <div id="win" role="dialog" aria-modal="true" aria-label="Winner"><div class="box"><div class="k">RAFFLE WINNER</div><div class="prz" id="wPrize"></div><div class="nm" id="wName"></div><div class="st" id="wStat"></div><div class="row" style="justify-content:center"><button class="btn go" id="wAnn" type="button">Show on all screens</button><button class="btn" id="wNext" type="button">Close</button></div></div></div>
 <div id="dlg"><div class="box"><h3 id="dT"></h3><p id="dP" style="color:#4a4a4f;line-height:1.45"></p><div class="row" style="justify-content:flex-end"><button class="btn" id="dNo" type="button"></button><button class="btn go" id="dYes" type="button"></button></div></div></div>
+<div id="mode" role="dialog" aria-modal="true" aria-label="Choose a raffle style"><div class="in"><h2>How do you want to draw?</h2><p>You can switch any time with the button at the top.</p><div class="cards"><button class="mc" data-m="wheel" type="button"><i>&#127905;</i><b>The Wheel</b><span>A big spinning wheel. Best for up to about 40 names and a crowd moment.</span></button><button class="mc" data-m="slot" type="button"><i>&#127920;</i><b>Slot Machine</b><span>Names scroll like a reel and stop on the winner. Easy to read with any number of names.</span></button></div></div></div>
 <canvas id="conf"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="platform-config.js"></script>
@@ -99,7 +112,7 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
   const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
   const TAG = '\u{1F389} RAFFLE WINNER: ';
-  let list = [], winners = [], rot = 0, spinning = false, current = null, annTimer = null, lastAnn = '';
+  let slotStop = '', mode = LS.get('raffle.mode') === 'slot' ? 'slot' : 'wheel', slotPos = 0, list = [], winners = [], rot = 0, spinning = false, current = null, annTimer = null, lastAnn = '';
 
   // ---------- cleaning pasted names ----------
   function clean(text) {
@@ -120,7 +133,7 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
     const p = pool();
     $('#cnt').innerHTML = list.length ? '<b>' + list.length + '</b> name' + (list.length === 1 ? '' : 's') + ' ready' + (r.dup ? ' (' + r.dup + ' duplicate' + (r.dup === 1 ? '' : 's') + ' removed)' : '') + (p.length !== list.length ? ' &middot; ' + p.length + ' still on the wheel' : '') : 'No names yet.';
     $('#chips').innerHTML = list.map(n => '<span>' + esc(n) + '</span>').join('');
-    draw(); $('#hub').disabled = p.length < 2 || spinning;
+    draw(); lock(p.length < 2 || spinning); showTip(p.length);
     if (!spinning && !current) $('#now').textContent = p.length < 2 ? (list.length ? 'Need at least 2 names on the wheel.' : '') : '';
   }
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -130,7 +143,9 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
   const COLORS = ['#007AFF', '#FF9500', '#34C759', '#AF52DE', '#FF3B30', '#00B8D9', '#FFCC00', '#FF2D87'];
   let shown = [];
   function size() { const b = $('#wbox').getBoundingClientRect(), d = Math.max(240, Math.round(b.width)), r = window.devicePixelRatio || 1; if (cv.width !== d * r) { cv.width = d * r; cv.height = d * r; } return { d, r }; }
-  function draw() {
+  const lock = v => { $('#hub').disabled = v; $('#spinBtn').disabled = v; };
+  const draw = () => mode === 'slot' ? drawSlot() : drawWheel();
+  function drawWheel() {
     shown = pool(); const { d, r } = size(), n = shown.length; cx.setTransform(r, 0, 0, r, 0, 0); cx.clearRect(0, 0, d, d);
     const c = d / 2, R = c - 10;
     if (n < 1) { cx.fillStyle = '#e5e5ea'; cx.beginPath(); cx.arc(c, c, R, 0, 7); cx.fill(); cx.fillStyle = '#8e8e93'; cx.font = '700 ' + Math.round(d / 22) + 'px system-ui'; cx.textAlign = 'center'; cx.fillText('Paste names to begin', c, c + 6); return; }
@@ -150,16 +165,58 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
   function spin() {
     if (spinning) return; closeWin();
     const p = pool(); if (p.length < 2) return;
-    spinning = true; current = null; $('#hub').disabled = true; draw();
+    spinning = true; current = null; lock(true); draw();
+    if (mode === 'slot') return spinSlot(p);
     const n = p.length, w = pickIndex(n), f = 0.15 + Math.random() * 0.7, a = 2 * Math.PI / n;
     const target = -Math.PI / 2 - (w + f) * a, extra = (REDUCED ? 2 : 6 + Math.floor(Math.random() * 3)) * 2 * Math.PI;
-    const delta = norm(target - rot) + extra, start = rot, dur = REDUCED ? 1200 : 6500, t0 = performance.now();
+    const quick = $('#optQuick').checked, delta = norm(target - rot) + (quick && !REDUCED ? 3 * 2 * Math.PI : extra), start = rot, dur = REDUCED ? 1200 : quick ? 2600 : 6500, t0 = performance.now();
     const step = now => {
       const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 4); rot = start + delta * e; draw();
       $('#now').textContent = shown[idxAt(n)] || '';
       if (t < 1) requestAnimationFrame(step); else land(p[w]);
     };
     requestAnimationFrame(step);
+  }
+  // ---------- slot machine ----------
+  const mod = (a, n) => ((a % n) + n) % n;
+  function drawSlot() {
+    shown = pool(); const box = $('#sbox').getBoundingClientRect(), w = Math.max(280, Math.round(box.width)), h = Math.round(Math.min(w * 0.62, 430)), r = window.devicePixelRatio || 1, c = $('#slot');
+    if (c.width !== w * r || c.height !== h * r) { c.width = w * r; c.height = h * r; c.style.height = h + 'px'; }
+    const x = c.getContext('2d'); x.setTransform(r, 0, 0, r, 0, 0);
+    const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#0f1220'); g.addColorStop(.5, '#1b2140'); g.addColorStop(1, '#0f1220'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    const n = shown.length, rowH = h / 4.2;
+    if (n < 1) { x.fillStyle = '#9aa0b5'; x.font = '700 ' + Math.round(w / 22) + 'px system-ui'; x.textAlign = 'center'; x.fillText('Paste names to begin', w / 2, h / 2 + 6); return; }
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    const k0 = Math.round(slotPos);
+    for (let j = -3; j <= 3; j++) {
+      const k = k0 + j, dist = Math.abs(k - slotPos), y = h / 2 + (k - slotPos) * rowH;
+      let fs = rowH * 0.56 * Math.max(.5, 1 - dist * .26); const t = shown[mod(k, n)];
+      x.font = '800 ' + fs + 'px system-ui'; while (x.measureText(t).width > w * 0.88 && fs > 12) { fs -= 2; x.font = '800 ' + fs + 'px system-ui'; }
+      x.globalAlpha = Math.max(.1, 1 - dist * .5); x.fillStyle = dist < .5 ? '#FFD60A' : '#ffffff'; x.fillText(t, w / 2, y);
+    }
+    x.globalAlpha = 1; x.lineWidth = 4; x.strokeStyle = '#FFD60A'; x.beginPath(); x.roundRect ? x.roundRect(10, h / 2 - rowH * .55, w - 20, rowH * 1.1, 16) : x.rect(10, h / 2 - rowH * .55, w - 20, rowH * 1.1); x.stroke();
+    const f1 = x.createLinearGradient(0, 0, 0, h * .28); f1.addColorStop(0, 'rgba(15,18,32,.95)'); f1.addColorStop(1, 'rgba(15,18,32,0)'); x.fillStyle = f1; x.fillRect(0, 0, w, h * .28);
+    const f2 = x.createLinearGradient(0, h * .72, 0, h); f2.addColorStop(0, 'rgba(15,18,32,0)'); f2.addColorStop(1, 'rgba(15,18,32,.95)'); x.fillStyle = f2; x.fillRect(0, h * .72, w, h * .28);
+  }
+  function spinSlot(p) {
+    const n = p.length, w = pickIndex(n), quick = $('#optQuick').checked;
+    const cur = mod(Math.round(slotPos), n), rows = REDUCED ? 6 : quick ? 22 : 50;
+    const delta = mod(w - cur, n) + Math.ceil(rows / n) * n, start = Math.round(slotPos), dur = REDUCED ? 1000 : quick ? 1900 : 5000, t0 = performance.now();
+    const step = now => {
+      const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 4); slotPos = start + delta * e; drawSlot();
+      if (t < 1) requestAnimationFrame(step); else { slotPos = start + delta; drawSlot(); slotStop = shown[mod(Math.round(slotPos), shown.length)]; land(p[w]); }
+    };
+    requestAnimationFrame(step);
+  }
+  function applyMode() {
+    const slot = mode === 'slot';
+    $('#wbox').style.display = slot ? 'none' : ''; $('#hub').style.display = slot ? 'none' : ''; $('#sbox').style.display = slot ? 'block' : 'none'; $('#spinBtn').style.display = slot ? 'inline-block' : 'none';
+    $('#now').style.display = slot ? 'none' : ''; $('#bMode').textContent = slot ? 'Slot Machine' : 'The Wheel';
+    document.querySelectorAll('#mode .mc').forEach(b => b.classList.toggle('sel', b.dataset.m === mode));
+    LS.set('raffle.mode', mode); draw(); showTip(pool().length);
+  }
+  function showTip(n) {
+    const t = $('#tip'); if (mode === 'wheel' && n > 40) { t.style.display = 'block'; t.innerHTML = 'With ' + n + ' names the wheel is hard to read.<button type="button" id="tipGo">Use the slot machine</button>'; $('#tipGo').onclick = () => { mode = 'slot'; applyMode(); }; } else t.style.display = 'none';
   }
   function land(name) {
     spinning = false; rot = norm(rot); current = { name, prize: $('#prize').value.trim(), at: Date.now() };
@@ -210,23 +267,25 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
   // ---------- wiring ----------
   $('#names').addEventListener('input', renderNames);
   $('#optRemove').addEventListener('change', renderNames);
-  $('#hub').onclick = spin;
+  $('#hub').onclick = spin; $('#spinBtn').onclick = spin;
+  $('#bMode').onclick = () => $('#mode').classList.add('on');
+  document.querySelectorAll('#mode .mc').forEach(b => b.onclick = () => { if (spinning) return; mode = b.dataset.m; $('#mode').classList.remove('on'); applyMode(); });
   $('#wNext').onclick = closeWin; $('#wAnn').onclick = () => current && announce(current);
   $('#bClearBan').onclick = clearBanner;
   $('#bReset').onclick = async () => { if (!winners.length) return; if (!(await ask('Start over?', 'This clears the winners list and puts every name back on the wheel. The banner on the screens is not changed.', 'Start over', 'Cancel'))) return; winners = []; current = null; saveWinners(); renderWinners(); renderNames(); };
   $('#bFull').onclick = () => { document.body.classList.toggle('pres'); if (document.body.classList.contains('pres') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); else if (document.fullscreenElement) document.exitFullscreen(); setTimeout(draw, 80); };
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { if ($('#win').classList.contains('on')) closeWin(); else if (document.body.classList.contains('pres')) { document.body.classList.remove('pres'); setTimeout(draw, 80); } }
+    if (e.key === 'Escape') { if ($('#mode').classList.contains('on')) $('#mode').classList.remove('on'); else if ($('#win').classList.contains('on')) closeWin(); else if (document.body.classList.contains('pres')) { document.body.classList.remove('pres'); setTimeout(draw, 80); } }
     if (e.key === ' ' && !/^(TEXTAREA|INPUT|SELECT|BUTTON)$/.test((e.target.tagName || ''))) { e.preventDefault(); spin(); }
   });
   document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { document.body.classList.remove('pres'); } setTimeout(draw, 80); });
   addEventListener('resize', draw);
-  window.__raffle = { clean, spin, get winners() { return winners; }, get rot() { return rot; }, idxAt, pool };
+  window.__raffle = { clean, spin, get mode() { return mode; }, get slotStop() { return slotStop; }, get winners() { return winners; }, get rot() { return rot; }, idxAt, pool };
 
   // restore, then connect status
   $('#names').value = LS.get('raffle.names') || '';
   try { winners = JSON.parse(LS.get('raffle.winners') || '[]') || []; } catch (e) { winners = []; }
-  renderWinners(); renderNames();
+  renderWinners(); applyMode(); renderNames(); $('#mode').classList.add('on');
   (async () => {
     const c = $('#conn');
     if (!slug || !key) { c.textContent = 'Not connected to the TVs'; c.className = 'pill off'; return; }
