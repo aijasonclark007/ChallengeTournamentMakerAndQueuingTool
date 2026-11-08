@@ -33,9 +33,21 @@ body.hasbar iframe{height:calc(100% - 46px)}
     document.title = row.name + ' - Game Schedule';
     const f = document.createElement('iframe');
     f.setAttribute('sandbox', 'allow-scripts allow-popups');   // runs the name search, nothing else
-    // keep the scrollbar gutter on every tab so short tabs (Now Playing) don't shift the page sideways; added here so it works without republishing
-    const keep = '<style>html{overflow-y:scroll}</style>';
-    f.srcdoc = /<\/head>/i.test(row.html) ? row.html.replace(/<\/head>/i, keep + '</head>') : keep + row.html;
+    // The shared page lives in a sandboxed frame. Whenever its HTML is (re)loaded we add: the scrollbar gutter (short tabs like Now Playing don't shift the page sideways),
+    // and a tiny script that tells us which tab / scroll position the visitor is on, so a refresh after the organizer republishes puts them back where they were
+    // (it used to jump back to the Schedule tab). Done here so it works without republishing from the tool.
+    let curTab = '', curY = 0;
+    const wrap = html => {
+      const inj = '<style>html{overflow-y:scroll}</style><script>(function(){var want=' + JSON.stringify(curTab) + ',wy=' + (curY | 0) + ';' +
+        'function rep(v,y){try{parent.postMessage({t:"pubtab",v:v,y:y},"*")}catch(e){}}' +
+        'document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".pub .tabs button");if(b&&b.dataset.v)rep(b.dataset.v);var g=e.target.closest&&e.target.closest("[data-go]");if(g&&g.dataset.go)rep(g.dataset.go)},true);' +
+        'var st;window.addEventListener("scroll",function(){clearTimeout(st);st=setTimeout(function(){rep(null,window.pageYOffset||0)},250)},{passive:true});' +
+        'function restore(){if(!want)return;var b=document.querySelector(\'.pub .tabs button[data-v="\'+want+\'"]\');if(b&&!b.classList.contains("on"))b.click();if(wy)window.scrollTo(0,wy)}' +
+        'window.addEventListener("load",function(){setTimeout(restore,0);setTimeout(restore,500)});})();<\/script>';
+      return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, inj + '</head>') : inj + html;
+    };
+    window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'pubtab') return; if (typeof d.v === 'string' && /^[a-z0-9_-]{1,20}$/i.test(d.v)) curTab = d.v; if (typeof d.y === 'number' && d.y >= 0 && d.y < 1e6) curY = d.y; });
+    f.srcdoc = wrap(row.html);
     m.remove(); document.body.appendChild(f);
     // live data in ONE request: the scores that changed since last time (a full copy every 2 minutes, and whenever the count looks off), the announcement and moved courts.
     // At most one refresh every 5 seconds, and nothing while the tab is hidden.
@@ -72,7 +84,7 @@ body.hasbar iframe{height:calc(100% - 46px)}
     let lastHtml = row.html, lastVer = row.updated_at, light = true;      // light: ask for a tiny version stamp first, download the page only when it changed
     setInterval(async () => { if (document.hidden) return; try {
       if (light) { try { const v = await Platform.getScheduleVersion(slug); if (v && v === lastVer) return; if (v) lastVer = v; } catch (e) { light = false; } }   // step 16 not run: fall back to the old full download
-      const r = await Platform.getPublicSchedule(slug); if (r && r.html) { lastVer = r.updated_at || lastVer; if (r.html !== lastHtml) { lastHtml = r.html; f.srcdoc = r.html; } } } catch (e) {} }, 45000);      // new times (running late, moved games) reach people who already have the page open
+      const r = await Platform.getPublicSchedule(slug); if (r && r.html) { lastVer = r.updated_at || lastVer; if (r.html !== lastHtml) { lastHtml = r.html; f.srcdoc = wrap(r.html); } } } catch (e) {} }, 45000);      // new times (running late, moved games) reach people who already have the page open
     f.addEventListener('load', () => { post(); push(); }); setInterval(push, 20000); try { Platform.liveChannel('spub-' + slug, () => push()); } catch (e) {}
   } catch (e) { m.textContent = 'Could not load the schedule: ' + e.message; }
 })();
