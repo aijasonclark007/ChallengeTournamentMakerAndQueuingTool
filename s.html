@@ -11,6 +11,11 @@ iframe{border:0;width:100%;height:100%;display:block}
 body.hasbar iframe{height:calc(100% - 46px)}
 #thxbar{position:fixed;left:0;right:0;bottom:0;height:46px;display:none;align-items:center;justify-content:center;background:#F2F2F7;border-top:1px solid rgba(60,60,67,.14);padding-bottom:env(safe-area-inset-bottom)}body.hasbar #thxbar{display:flex}
 .msg{padding:40px 20px;text-align:center;color:#555}
+#tvbtn{position:fixed;right:12px;bottom:12px;z-index:8;border:0;border-radius:99px;padding:11px 16px;font:800 14px/1 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:#0B1B33;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:pointer;opacity:.92}
+body.hasbar #tvbtn{bottom:58px}
+#tvx{display:none;position:fixed;right:12px;top:12px;z-index:12;border:0;border-radius:99px;padding:10px 14px;font:800 14px/1 system-ui,sans-serif;background:rgba(255,255,255,.14);color:#fff;cursor:pointer;opacity:.35}#tvx:hover,#tvx:focus{opacity:1}
+body.tv #tvbtn{display:none}body.tv #tvx{display:block}body.tv #thxbar{display:none!important}body.tv iframe{height:100%!important}
+body.tv #ann{left:2vw;right:2vw;top:1.5vh;font-size:clamp(22px,3.6vw,56px);padding:1.4vh 2vw;border-radius:2vh}
 #ann{position:fixed;left:10px;right:10px;top:10px;z-index:9;background:#FF9500;color:#1b1200;border-radius:14px;padding:11px 14px;font-weight:800;font-size:15px;box-shadow:0 8px 24px rgba(0,0,0,.22);display:none}</style>
 </head>
 <body>
@@ -36,17 +41,67 @@ body.hasbar iframe{height:calc(100% - 46px)}
     // The shared page lives in a sandboxed frame. Whenever its HTML is (re)loaded we add: the scrollbar gutter (short tabs like Now Playing don't shift the page sideways),
     // and a tiny script that tells us which tab / scroll position the visitor is on, so a refresh after the organizer republishes puts them back where they were
     // (it used to jump back to the Schedule tab). Done here so it works without republishing from the tool.
-    let curTab = '', curY = 0;
+    let curTab = '', curY = 0, tv = false;
+    // runs INSIDE the sandboxed frame (it is stringified into the page): remembers tab/scroll across refreshes and runs the full-screen "TV mode" for Now Playing
+    function frameScript(want, wy, tvOn) {
+      function rep(v, y) { try { parent.postMessage({ t: 'pubtab', v: v, y: y }, '*'); } catch (e) {} }
+      document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.pub .tabs button'); if (b && b.dataset.v) rep(b.dataset.v); var g = e.target.closest && e.target.closest('[data-go]'); if (g && g.dataset.go) rep(g.dataset.go); }, true);
+      var st; window.addEventListener('scroll', function () { clearTimeout(st); st = setTimeout(function () { rep(null, window.pageYOffset || 0); }, 250); }, { passive: true });
+      var H = document.documentElement, ft = 0;
+      function fit() {                                                       // biggest text size at which every court box still fits its space
+        if (!H.classList.contains('tvm')) return;
+        var g = document.querySelector('#viewNow .npg'); if (!g) return;
+        var cs = [].slice.call(g.querySelectorAll('.npc')).filter(function (c) { return c.style.display !== 'none'; }), n = cs.length || 1;
+        var cols = n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : 4, rows = Math.ceil(n / cols);
+        g.style.gridTemplateColumns = 'repeat(' + cols + ',1fr)'; g.style.gridTemplateRows = 'repeat(' + rows + ',1fr)';
+        var lo = 5, hi = Math.max(lo, Math.min(innerHeight / rows / 7, innerWidth / cols / 12));
+        var ok = function (u) { H.style.setProperty('--u', u + 'px'); return cs.every(function (c) { return c.scrollHeight <= c.clientHeight + 1 && c.scrollWidth <= c.clientWidth + 1; }); };
+        if (!ok(hi)) { for (var i = 0; i < 14; i++) { var mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; } ok(lo); }
+      }
+      function sched() { cancelAnimationFrame(ft); ft = requestAnimationFrame(fit); }
+      function tvmode(on) {
+        H.classList.toggle('tvm', !!on);
+        if (on) { var b = document.querySelector('.pub .tabs button[data-v="now"]'); if (b && !b.classList.contains('on')) b.click(); window.scrollTo(0, 0); sched(); setTimeout(sched, 300); }
+        else { H.style.removeProperty('--u'); var g = document.querySelector('#viewNow .npg'); if (g) { g.style.gridTemplateColumns = ''; g.style.gridTemplateRows = ''; } }
+      }
+      window.addEventListener('message', function (e) { var d = e.data; if (d && d.t === 'tv') tvmode(d.on); });
+      window.addEventListener('resize', sched);
+      function restore() { if (tvOn) return; if (!want) return; var b = document.querySelector('.pub .tabs button[data-v="' + want + '"]'); if (b && !b.classList.contains('on')) b.click(); if (wy) window.scrollTo(0, wy); }
+      window.addEventListener('load', function () {
+        var vn = document.getElementById('viewNow'); if (vn && window.MutationObserver) new MutationObserver(function () { if (H.classList.contains('tvm')) sched(); }).observe(vn, { childList: true, subtree: true });
+        if (tvOn) tvmode(true); setTimeout(restore, 0); setTimeout(restore, 500);
+      });
+    }
+    const TVCSS = 'html{overflow-y:scroll}' +
+      'html.tvm{overflow:hidden!important;background:#0B1220!important}html.tvm body{background:#0B1220!important}' +
+      'html.tvm .pub{max-width:none!important;margin:0!important;padding:1.4vh 1.6vw!important;height:100vh;box-sizing:border-box;display:flex;flex-direction:column;background:#0B1220;color:#fff}' +
+      'html.tvm .pub .sub,html.tvm .pub .venue,html.tvm .pub .upd,html.tvm .pub .tabs,html.tvm .pub .tools,html.tvm .pub #viewSch,html.tvm .pub #viewStd{display:none!important}' +
+      'html.tvm .pub h1{font-size:clamp(20px,3.6vh,46px)!important;color:#fff}' +
+      'html.tvm .pub #viewNow{display:flex!important;flex-direction:column;flex:1;min-height:0;animation:none!important;opacity:1!important;transform:none!important}' +
+      'html.tvm .pub #viewNow>*:not(.npsum):not(.npg){display:none!important}' +
+      'html.tvm .pub .npsum{margin:.8vh 0 1.2vh!important}html.tvm .pub .npp{font-size:clamp(14px,2.2vh,28px)!important}' +
+      'html.tvm .pub .npg{display:grid!important;flex:1;min-height:0;margin:0!important;gap:1.6vh 1.2vw!important;align-items:stretch!important}' +
+      'html.tvm .pub .npc{padding:calc(var(--u,12px)*1.1)!important;border-radius:calc(var(--u,12px)*1.8)!important;display:flex;flex-direction:column;justify-content:space-evenly;overflow:hidden;min-height:0;min-width:0;animation:none!important}' +
+      'html.tvm .pub .npc.idle{background:#1A2640!important;color:#DDE6F7!important}html.tvm .pub .npc.idle .npx{color:#9FB0CC!important}' +
+      'html.tvm .pub .npct{font-size:calc(var(--u,12px)*2.3)!important}html.tvm .pub .npn{font-size:calc(var(--u,12px)*2.15)!important}' +
+      'html.tvm .pub .nps{font-size:calc(var(--u,12px)*6)!important;min-width:calc(var(--u,12px)*3.6)!important}' +
+      'html.tvm .pub .npx{font-size:calc(var(--u,12px)*1.45)!important;margin-top:calc(var(--u,12px)*.7)!important}' +
+      'html.tvm .pub .lv,html.tvm .pub .npbk,html.tvm .pub .nplive,html.tvm .pub .npsv,html.tvm .pub .nprc,html.tvm .pub .npvs{font-size:calc(var(--u,12px)*1.25)!important}' +
+      'html.tvm .pub .npwait{font-size:calc(var(--u,12px)*1.7)!important}html.tvm .pub .npt{padding:calc(var(--u,12px)*.6) calc(var(--u,12px)*.9)!important}';
     const wrap = html => {
-      const inj = '<style>html{overflow-y:scroll}</style><script>(function(){var want=' + JSON.stringify(curTab) + ',wy=' + (curY | 0) + ';' +
-        'function rep(v,y){try{parent.postMessage({t:"pubtab",v:v,y:y},"*")}catch(e){}}' +
-        'document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".pub .tabs button");if(b&&b.dataset.v)rep(b.dataset.v);var g=e.target.closest&&e.target.closest("[data-go]");if(g&&g.dataset.go)rep(g.dataset.go)},true);' +
-        'var st;window.addEventListener("scroll",function(){clearTimeout(st);st=setTimeout(function(){rep(null,window.pageYOffset||0)},250)},{passive:true});' +
-        'function restore(){if(!want)return;var b=document.querySelector(\'.pub .tabs button[data-v="\'+want+\'"]\');if(b&&!b.classList.contains("on"))b.click();if(wy)window.scrollTo(0,wy)}' +
-        'window.addEventListener("load",function(){setTimeout(restore,0);setTimeout(restore,500)});})();<\/script>';
+      const inj = '<style>' + TVCSS + '</style><script>(' + frameScript.toString() + ')(' + JSON.stringify(curTab) + ',' + (curY | 0) + ',' + (tv ? 'true' : 'false') + ');<\/script>';
       return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, inj + '</head>') : inj + html;
     };
     window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'pubtab') return; if (typeof d.v === 'string' && /^[a-z0-9_-]{1,20}$/i.test(d.v)) curTab = d.v; if (typeof d.y === 'number' && d.y >= 0 && d.y < 1e6) curY = d.y; });
+    // full-screen TV view of the Now Playing court boxes
+    const tvb = document.createElement('button'); tvb.id = 'tvbtn'; tvb.type = 'button'; tvb.textContent = '⛶ TV full screen'; tvb.title = 'Show the Now Playing court boxes full screen (press F)';
+    const tvx = document.createElement('button'); tvx.id = 'tvx'; tvx.type = 'button'; tvx.textContent = '✕ Exit'; document.body.append(tvb, tvx);
+    const sendTv = on => { try { f.contentWindow.postMessage({ t: 'tv', on }, '*'); } catch (e) {} };
+    const enterTv = () => { if (tv) return; tv = true; document.body.classList.add('tv'); sendTv(true); try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
+    const exitTv = () => { if (!tv) return; tv = false; document.body.classList.remove('tv'); sendTv(false); try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} };
+    tvb.onclick = enterTv; tvx.onclick = exitTv;
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && tv) exitTv(); });
+    document.addEventListener('keydown', e => { if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName || ''))) return; if (e.key === 'f' || e.key === 'F') { tv ? exitTv() : enterTv(); } });
     f.srcdoc = wrap(row.html);
     m.remove(); document.body.appendChild(f);
     // live data in ONE request: the scores that changed since last time (a full copy every 2 minutes, and whenever the count looks off), the announcement and moved courts.
