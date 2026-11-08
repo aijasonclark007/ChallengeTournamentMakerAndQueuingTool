@@ -47,6 +47,43 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
     var ko = document.createElement('div'); ko.id = 'tvko';
     function E(x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function winOf(r) { return r && r.a !== r.b ? (r.a > r.b ? 0 : 1) : -1; }
+    function seeds(l) {                                               // who meets whom in round 1, worked out from the standings (same rules as the knockout builder), as "Top 1 of Bracket A" labels
+      var bs = (window.STD || []).filter(function (b) { return b.level === l; }); if (!bs.length) return null;
+      var adv = Math.max.apply(null, bs.map(function (b) { return b.adv || 2; })), entries = [];
+      var perB = bs.map(function (b) {
+        var wdn = {}; (b.wd || []).forEach(function (n) { wdn[n] = 1; });
+        var rows = b.teams.map(function (t) { return { n: t.n, w: 0, pf: 0, pa: 0, out: !!wdn[t.n] }; }), by = {}, beat = {};
+        rows.forEach(function (r) { by[r.n] = r; });
+        b.games.forEach(function (g) {
+          var res = g.r, X = LIVE[g.id]; if (X && X.status === 'done') res = [X.s1, X.s2];
+          if (!res || res[0] === res[1]) return; var A = by[g.a], B = by[g.b]; if (!A || !B) return;
+          var aw = res[0] > res[1]; A.pf += res[0]; A.pa += res[1]; B.pf += res[1]; B.pa += res[0]; (aw ? A : B).w++; beat[(aw ? g.a : g.b) + '>' + (aw ? g.b : g.a)] = 1;
+        });
+        rows.sort(function (x, y) { return y.w - x.w || y.pf - x.pf || ((beat[y.n + '>' + x.n] ? 1 : 0) - (beat[x.n + '>' + y.n] ? 1 : 0)) || (y.pf - y.pa) - (x.pf - x.pa) || (x.n < y.n ? -1 : 1); });
+        return { name: b.name, rows: rows.filter(function (r) { return !r.out; }) };
+      });
+      for (var r = 0; r < adv; r++) {
+        var grp = []; perB.forEach(function (b) { if (b.rows[r]) grp.push({ row: b.rows[r], rank: r + 1, bracket: b.name }); });
+        grp.sort(function (x, y) { return y.row.w - x.row.w || y.row.pf - x.row.pf || (y.row.pf - y.row.pa) - (x.row.pf - x.row.pa); });
+        entries = entries.concat(grp);
+      }
+      if (entries.length < 2) return null;
+      var size = 1; while (size < entries.length) size *= 2;
+      var order = [1]; while (order.length < size) { var n = order.length * 2; order = order.reduce(function (a, q) { return a.concat([q, n + 1 - q]); }, []); }
+      var slots = order.map(function (q) { return entries[q - 1] || null; });
+      var clash = function (i) { return slots[2 * i] && slots[2 * i + 1] && slots[2 * i].bracket === slots[2 * i + 1].bracket; };
+      for (var pass = 0; pass < 30; pass++) {
+        var bad = -1; for (var i = 0; i < size / 2; i++) if (clash(i)) { bad = i; break; } if (bad < 0) break;
+        var pos = 2 * bad + 1, fixed = false;
+        for (var q2 = 0; q2 < size && !fixed; q2++) {
+          if (q2 === pos || !slots[q2] || slots[q2].rank === 1) continue;
+          var t = slots[pos]; slots[pos] = slots[q2]; slots[q2] = t;
+          if (!clash(bad) && !clash(q2 >> 1)) fixed = true; else { t = slots[pos]; slots[pos] = slots[q2]; slots[q2] = t; }
+        }
+        if (!fixed) break;
+      }
+      return slots.map(function (e) { return e ? 'Top ' + e.rank + ' of ' + e.bracket : null; });
+    }
     function readKo() {                                               // the knockout games of the published schedule, plus live scores
       var by = {};
       [].forEach.call(document.querySelectorAll('#viewSch .game[data-mid^="k:"]'), function (g) {
@@ -58,6 +95,10 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
         else { var mm = /(\d+)\s*-\s*(\d+)/.exec((g.querySelector('.res') || {}).textContent || ''); if (mm) { r = { a: +mm[1], b: +mm[2] }; st = 'done'; } }
         (by[m[1]] = by[m[1]] || []).push({ id: g.dataset.mid, level: m[1], rd: +m[2], n: +m[3], rname: lt && tx.indexOf(lt) === 0 ? tx.slice(lt.length) : tx, t: [t(tms[0]), t(tms[1])], r: r, st: st, court: (g.querySelector('.ct') || {}).textContent || '', time: h3 ? h3.textContent.split(' - ')[0] : '' });
       });
+      Object.keys(by).forEach(function (l) {
+        var sd = null; try { sd = seeds(l); } catch (e) {}
+        by[l].forEach(function (m) { m.ph = [null, null]; if (sd && m.rd === 1) [0, 1].forEach(function (k) { if (!m.t[k]) m.ph[k] = sd[2 * (m.n - 1) + k] || null; }); });
+      });
       return by;
     }
     function koHtml(by, l) {
@@ -66,16 +107,23 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
         var ms = by[l], rounds = {}, R = 0;
         ms.forEach(function (m) { (rounds[m.rd] = rounds[m.rd] || []).push(m); if (m.rd > R) R = m.rd; });
         for (var r = 1; r <= R; r++) if (rounds[r]) rounds[r].sort(function (x, y) { return x.n - y.n; });
-        for (var r2 = 1; r2 < R; r2++) {                              // winners move on right away (when no BYE makes the pairing unclear)
-          var A = rounds[r2], B = rounds[r2 + 1]; if (!A || !B || A.length !== 2 * B.length) continue;
-          B.forEach(function (m, i) { [0, 1].forEach(function (k) { var f = A[2 * i + k], w = f && f.st === 'done' ? winOf(f.r) : -1; if (!m.t[k] && w >= 0) m.t[k] = f.t[w]; }); });
+        for (var r2 = 1; r2 < R; r2++) {                              // winners move on right away: game n of the next round is fed by games 2n-1 and 2n of this one (a BYE team is already in its box)
+          var A = rounds[r2], B = rounds[r2 + 1]; if (!A || !B) continue;
+          B.forEach(function (m) {
+            [0, 1].forEach(function (k) {
+              if (m.t[k]) return;
+              var no = 2 * m.n - 1 + k, f = A.filter(function (x) { return x.n === no; })[0]; if (!f) return;
+              var w = f.st === 'done' ? winOf(f.r) : -1;
+              if (w >= 0 && f.t[w]) m.t[k] = f.t[w]; else m.ph[k] = 'Winner of ' + f.rname + ' game ' + f.n;
+            });
+          });
         }
         var cols = '';
         for (var q = 1; q <= R; q++) {
           if (!rounds[q]) continue;
           cols += '<div class="kc"><div class="kh">' + E(rounds[q][0].rname) + '</div><div class="kg">' + rounds[q].map(function (m) {
             var w = m.st === 'done' ? winOf(m.r) : -1, fin = m.rname === 'Finals';
-            var row = function (k) { return '<div class="kt' + (w === k ? ' w' : w >= 0 ? ' l' : '') + '"><span class="n">' + (fin && w === k ? '&#127942; ' : '') + (m.t[k] ? E(m.t[k]) : '<em>To be decided</em>') + '</span><b>' + (m.r ? m.r[k ? 'b' : 'a'] : '') + '</b></div>'; };
+            var row = function (k) { return '<div class="kt' + (w === k ? ' w' : w >= 0 ? ' l' : '') + '"><span class="n">' + (fin && w === k ? '&#127942; ' : '') + (m.t[k] ? E(m.t[k]) : '<em>' + (m.ph && m.ph[k] ? E(m.ph[k]) : 'Winner of earlier game') + '</em>') + '</span><b>' + (m.r ? m.r[k ? 'b' : 'a'] : '') + '</b></div>'; };
             return '<div class="km' + (m.st === 'live' ? ' lv' : '') + '">' + row(0) + row(1) + '<small>' + (m.st === 'live' ? '<u>LIVE</u> ' : '') + E(m.court) + (m.time ? ' &middot; ' + E(m.time) : '') + '</small></div>';
           }).join('') + '</div></div>';
         }
