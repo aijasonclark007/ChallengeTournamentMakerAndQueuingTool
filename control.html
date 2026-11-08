@@ -44,7 +44,7 @@ button:disabled{opacity:.4;cursor:default}
 .rsn{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#FFE4E1;color:#B3261E;font-size:11px;font-weight:700}.keep{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:14px}
 .more{margin-top:8px}.more summary{cursor:pointer;color:var(--mute);font-size:13px;font-weight:700;padding:4px 0}
 .next{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
-.next .q{display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:center;height:42px;font-size:13.5px;line-height:1.25}
+.next .q{display:grid;grid-template-columns:64px 1fr auto;gap:8px;align-items:center;height:42px;font-size:13.5px;line-height:1.25}
 .next .q span{color:var(--mute);font-size:12px;font-weight:700;white-space:nowrap}
 .next .q p{margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .foot{margin-top:auto;padding-top:10px}
@@ -59,7 +59,8 @@ button:disabled{opacity:.4;cursor:default}
 @media (prefers-reduced-motion:reduce){.morerow,#bMore svg{transition:none}}
 .tbw{padding-bottom:0!important;display:none}.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .tb input{flex:1 1 220px;min-width:0;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px}
-.tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.tb select{padding:11px 10px;border:0;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font:700 14px inherit;color:inherit;font-family:inherit}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
+.tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.qcall{margin-left:8px;padding:7px 12px;border-radius:10px;background:#FF9500;color:#fff;font-weight:800;font-size:13px;white-space:nowrap;flex:none}.qcall:active{transform:scale(.96)}
+.tb select{padding:11px 10px;border:0;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font:700 14px inherit;color:inherit;font-family:inherit}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
 .kbr{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}.kcol{display:flex;flex-direction:column;width:190px;flex:none}.kbody{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px}.kcol h4{height:20px;line-height:20px;margin:0 0 6px}
 .kcol h4{margin:0 0 2px;font-size:12px;color:var(--mute);text-align:center}.kcard{background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}.kcard.a{animation:kin .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 40ms)}
 .kcard .kh{padding:3px 8px;font-size:11px;color:var(--mute);background:var(--chip)}.kcard .kr{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line)}.kcard .kh+.kr{border-top:0}
@@ -301,7 +302,7 @@ details>summary{transition:color .2s ease}
     if (kind === 'sched') {
       const left = all.filter(m => state(m) !== 'done').sort(bySlot); if (!left.length) return '<div class="pn"><h3>Full schedule</h3><div class="meta">Every match is finished.</div></div>';
       let h = '<div class="pn"><h3>Still to play (' + left.length + ')</h3>', last = null;
-      left.forEach(m => { const tk = String(m.time); if (tk !== last) { last = tk; h += '<div style="margin:10px 0 2px;font-weight:800">' + esc(tk) + '</div>'; } h += '<div class="pr"><span class="t">' + esc(m.court) + '</span><span class="t">' + esc(m.bracket) + '</span><div>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '</div>' + sTag(m) + '</div>'; });
+      left.forEach(m => { const tk = String(m.time); if (tk !== last) { last = tk; h += '<div style="margin:10px 0 2px;font-weight:800">' + esc(tk) + '</div>'; } h += '<div class="pr"><span class="t">' + esc(m.court) + '</span><span class="t">' + esc(m.bracket) + '</span><div>' + esc(m.t1 || 'TBD') + ' vs ' + esc(m.t2 || 'TBD') + '</div>' + sTag(m) + (state(m) === 'up' && ready(m) ? '<button type="button" class="qcall" data-callx="' + esc(m.mid) + '" title="Call this game to the court now">Call</button>' : '') + '</div>'; });
       return h + '</div>';
     }
     if (kind === 'bracket') return bracketHtml(all);
@@ -412,6 +413,7 @@ details>summary{transition:color .2s ease}
     });
     if (shownKind === panelKind && box.firstElementChild) box.firstElementChild.style.animation = 'none';      // slide in once when opened; later updates (data arriving, refreshes, typing) swap quietly
     shownKind = panelKind;
+    box.querySelectorAll('[data-callx]').forEach(b => b.onclick = () => { const m = mById(b.dataset.callx); if (m) call(m); });
     const set = $('#annSet'), clr = $('#annClr');
     if (set) set.onclick = async () => { const t = ($('#annText').value || '').trim(); if (!t) { toast('Type a message first.'); return; } try { await P.setAnnouncement(slug, key, t); } catch (e) { toast(/function|schema cache/i.test(e.message || '') ? 'Run supabase-step13.sql first.' : (e.message || 'Could not send.')); return; } logIt('Announcement: ' + t); changed('Announcement is live.'); };
     if (clr) clr.onclick = async () => { try { await P.setAnnouncement(slug, key, ''); } catch (e) { toast(e.message || 'Could not clear.'); return; } logIt('Announcement cleared'); ann = null; $('#panel').innerHTML = ''; shownKind = ''; panelKind = ''; document.querySelectorAll('#tbw [data-p]').forEach(b => b.classList.remove('on')); $('#bMore').classList.remove('on'); changed('Announcement cleared.'); };
@@ -511,7 +513,7 @@ details>summary{transition:color .2s ease}
         }
         if (btn.length) h += '<div class="btns">' + btn.join('') + '</div>';
       } else h += '<div class="meta">' + (doneN ? 'All ' + doneN + ' matches on this court are finished.' : 'No matches ready on this court.') + '</div>';
-      h += '<div class="next"><div class="lbl" style="margin-top:0">Coming up</div>' + [0, 1, 2].map(n => { const m = rest[n]; return m ? '<div class="q"><span>' + esc(String(m.time).split(' - ')[0]) + '</span><p>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</p></div>' : '<div class="q" style="display:block">' + (n === 0 ? '<span style="font-weight:500">Nothing else ready yet</span>' : '') + '</div>'; }).join('') + '</div>';
+      h += '<div class="next"><div class="lbl" style="margin-top:0">Coming up</div>' + [0, 1, 2].map(n => { const m = rest[n]; return m ? '<div class="q"><span>' + esc(String(m.time).split(' - ')[0]) + '</span><p>' + esc(m.t1) + ' vs ' + esc(m.t2) + '</p><button type="button" class="qcall" data-call="' + esc(m.mid) + '" title="Call this game to the court now">Call</button></div>' : '<div class="q" style="display:block">' + (n === 0 ? '<span style="font-weight:500">Nothing else ready yet</span>' : '') + '</div>'; }).join('') + '</div>';
       h += '<div class="foot"><div class="meta">' + doneN + ' of ' + ct.list.length + ' finished</div><div class="prog"><i data-p="' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '" style="width:' + (ct.list.length ? Math.round(doneN * 100 / ct.list.length) : 0) + '%"></i></div>';
       const movable = ct.list.filter(m => state(m) !== 'done'), others = courts.filter(x => x.name !== ct.name), sp = (ct.list[0] && ct.list[0].sport) || 'badminton';
       h += '<details class="tools" data-tc="' + esc(ct.name) + '"' + (openMore['t:' + ct.name] ? ' open' : '') + '><summary>More options</summary>';
