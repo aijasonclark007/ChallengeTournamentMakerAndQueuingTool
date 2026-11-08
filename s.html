@@ -92,12 +92,13 @@ body.tv #ann{left:2vw;right:2vw;top:1.5vh;font-size:clamp(22px,3.6vw,56px);paddi
       const inj = '<style>' + TVCSS + '</style><script>(' + frameScript.toString() + ')(' + JSON.stringify(curTab) + ',' + (curY | 0) + ',' + (tv ? 'true' : 'false') + ');<\/script>';
       return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, inj + '</head>') : inj + html;
     };
-    window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'pubtab') return; if (typeof d.v === 'string' && /^[a-z0-9_-]{1,20}$/i.test(d.v)) curTab = d.v; if (typeof d.y === 'number' && d.y >= 0 && d.y < 1e6) curY = d.y; });
+    window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'pubtab') return; if (typeof d.v === 'string' && /^[a-z0-9_-]{1,20}$/i.test(d.v)) curTab = d.v; try { tvb.textContent = curTab === 'std' ? '⛶ Standings TV' : '⛶ TV full screen'; } catch (e) {} if (typeof d.y === 'number' && d.y >= 0 && d.y < 1e6) curY = d.y; });
     // full-screen TV view of the Now Playing court boxes
     const tvb = document.createElement('button'); tvb.id = 'tvbtn'; tvb.type = 'button'; tvb.textContent = '⛶ TV full screen'; tvb.title = 'Show the Now Playing court boxes full screen (press F)';
     const tvx = document.createElement('button'); tvx.id = 'tvx'; tvx.type = 'button'; tvx.textContent = '✕ Exit'; document.body.append(tvb, tvx);
     const sendTv = on => { try { f.contentWindow.postMessage({ t: 'tv', on }, '*'); } catch (e) {} };
-    const enterTv = () => { if (tv) return; tv = true; document.body.classList.add('tv'); sendTv(true); try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
+    const enterTv = () => { if (tv) return; if (curTab === 'std') { location.href = 'tvstandings.html?s=' + encodeURIComponent(slug); return; }   // on the Standings tab the TV button opens the standings slideshow
+      tv = true; document.body.classList.add('tv'); sendTv(true); try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
     const exitTv = () => { if (!tv) return; tv = false; document.body.classList.remove('tv'); sendTv(false); try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} };
     tvb.onclick = enterTv; tvx.onclick = exitTv;
     document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && tv) exitTv(); });
