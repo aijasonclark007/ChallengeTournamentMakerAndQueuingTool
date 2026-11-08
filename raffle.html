@@ -68,6 +68,8 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
     <div class="card">
       <h2>1. Paste the names</h2>
       <textarea id="names" placeholder="Paste a list here. One name per line, or separated by commas.&#10;Numbers, bullets, emojis and symbols are removed for you." aria-label="Names"></textarea>
+      <div class="row" id="loadRow" style="display:none"><button class="btn go" id="bLoad" type="button">Load all players from the tournament</button></div>
+      <p class="hint" id="loadMsg"></p>
       <p class="hint" id="cnt"></p>
       <div class="chips" id="chips" aria-label="Cleaned names"></div>
     </div>
@@ -272,6 +274,19 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
   document.querySelectorAll('#mode .mc').forEach(b => b.onclick = () => { if (spinning) return; mode = b.dataset.m; $('#mode').classList.remove('on'); applyMode(); });
   $('#wNext').onclick = closeWin; $('#wAnn').onclick = () => current && announce(current);
   $('#bClearBan').onclick = clearBanner;
+  $('#bLoad').onclick = async () => {                      // every player in every game of the tournament (the Match Control link can read the game list)
+    const msg = t => { $('#loadMsg').textContent = t; };
+    if ($('#names').value.trim() && !(await ask('Replace the names?', 'The names box already has names. Loading the tournament players will replace them.', 'Replace', 'Keep mine'))) return;
+    $('#bLoad').disabled = true; msg('Loading...');
+    try {
+      const d = await P.umpireGet(slug, key), ts = [];
+      (d.matches || []).forEach(m => { [m.t1, m.t2].forEach(t => { if (t && !/^(winner|loser|tbd|to be decided|bye)\b/i.test(String(t).trim())) String(t).split(' / ').forEach(x => ts.push(x)); }); });
+      const r = clean(ts.join('\n'));
+      if (!r.names.length) { msg('No players found yet. Build and publish the schedule first.'); }
+      else { $('#names').value = r.names.join('\n'); renderNames(); msg(r.names.length + ' players loaded' + (d.name ? ' from ' + d.name : '') + '. A team that has a custom name is listed by that name.'); }
+    } catch (e) { msg('Could not load the players: ' + (e.message || e)); }
+    $('#bLoad').disabled = false;
+  };
   $('#bReset').onclick = async () => { if (!winners.length) return; if (!(await ask('Start over?', 'This clears the winners list and puts every name back on the wheel. The banner on the screens is not changed.', 'Start over', 'Cancel'))) return; winners = []; current = null; saveWinners(); renderWinners(); renderNames(); };
   $('#bFull').onclick = () => { document.body.classList.toggle('pres'); if (document.body.classList.contains('pres') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); else if (document.fullscreenElement) document.exitFullscreen(); setTimeout(draw, 80); };
   document.addEventListener('keydown', e => {
@@ -290,7 +305,7 @@ body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display
     const c = $('#conn');
     if (!slug || !key) { c.textContent = 'Not connected to the TVs'; c.className = 'pill off'; return; }
     if (!P || !P.configured) { c.textContent = 'Not connected'; c.className = 'pill bad'; return; }
-    try { await P.getAnnouncement(slug); c.textContent = 'Connected to all screens'; c.className = 'pill'; } catch (e) { c.textContent = 'Cannot reach the screens'; c.className = 'pill bad'; }
+    $('#loadRow').style.display = ''; try { await P.getAnnouncement(slug); c.textContent = 'Connected to all screens'; c.className = 'pill'; } catch (e) { c.textContent = 'Cannot reach the screens'; c.className = 'pill bad'; }
   })();
 })();
 </script>
