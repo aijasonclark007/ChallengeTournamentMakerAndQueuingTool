@@ -232,7 +232,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     const bm = fresh() ? ms.find(m => m.mid === bc.mid) : null;
     const cur = live || (bm && state(bm) !== 'done' ? bm : null);
     const finalOn = !!(finalShow && finalShow.until > Date.now() && ms.find(m => m.mid === finalShow.mid));
-    idleNow = !!ms.length && !live && !finalOn;                              // standby = nothing is live: the sponsors play (one full round), then pause, then play again. Only a live game stops them.
+    idleNow = !!ms.length && !cur && !finalOn;                              // standby = nothing is live: the sponsors play (one full round), then pause, then play again. Only a live game stops them.
     if (idleNow && spIdx >= 0 && SP.length) h = header(cur || ms.find(m => state(m) === 'up') || null) + sponsorSlide();
     else if (!ms.length) h = header(null) + '<div class="idle"><div class="big">' + esc(court || 'No court selected') + '<i>No matches found for this court.</i></div></div>';
     else if (cur) {
