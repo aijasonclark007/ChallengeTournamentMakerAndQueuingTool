@@ -107,9 +107,16 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
         var ms = by[l], rounds = {}, R = 0;
         ms.forEach(function (m) { (rounds[m.rd] = rounds[m.rd] || []).push(m); if (m.rd > R) R = m.rd; });
         for (var r = 1; r <= R; r++) if (rounds[r]) rounds[r].sort(function (x, y) { return x.n - y.n; });
-        for (var r2 = 1; r2 < R; r2++) {                              // winners move on right away (when no BYE makes the pairing unclear)
-          var A = rounds[r2], B = rounds[r2 + 1]; if (!A || !B || A.length !== 2 * B.length) continue;
-          B.forEach(function (m, i) { [0, 1].forEach(function (k) { var f = A[2 * i + k], w = f && f.st === 'done' ? winOf(f.r) : -1; if (!m.t[k] && w >= 0) m.t[k] = f.t[w]; }); });
+        for (var r2 = 1; r2 < R; r2++) {                              // winners move on right away: game n of the next round is fed by games 2n-1 and 2n of this one (a BYE team is already in its box)
+          var A = rounds[r2], B = rounds[r2 + 1]; if (!A || !B) continue;
+          B.forEach(function (m) {
+            [0, 1].forEach(function (k) {
+              if (m.t[k]) return;
+              var no = 2 * m.n - 1 + k, f = A.filter(function (x) { return x.n === no; })[0]; if (!f) return;
+              var w = f.st === 'done' ? winOf(f.r) : -1;
+              if (w >= 0 && f.t[w]) m.t[k] = f.t[w]; else m.ph[k] = 'Winner of ' + f.rname + ' game ' + f.n;
+            });
+          });
         }
         var cols = '';
         for (var q = 1; q <= R; q++) {
