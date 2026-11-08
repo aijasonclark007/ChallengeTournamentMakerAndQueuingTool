@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raffle - Challenge Match Day</title>
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg"><link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<style>
+:root{--ink:#1c1c1e;--mute:#6b6b72;--line:#dcdce2;--card:#fff;--bg:#f2f2f7;--blue:#007AFF;--red:#D70015;--green:#1C7C3A}
+*{box-sizing:border-box}html{overflow-y:scroll}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+button{font:inherit;border:0;cursor:pointer;color:inherit;background:none}button:disabled{opacity:.45;cursor:default}
+.top{display:flex;align-items:center;gap:10px;padding:14px 18px;background:#fff;border-bottom:1px solid var(--line)}
+.top h1{margin:0;font-size:20px;flex:1}.top h1 small{display:block;font-size:12px;font-weight:600;color:var(--mute)}
+.pill{padding:6px 12px;border-radius:99px;font-size:13px;font-weight:800;background:#E8F8EC;color:var(--green)}.pill.off{background:#FFF4D6;color:#8a5a00}.pill.bad{background:#FFEDEB;color:var(--red)}
+.main{display:grid;grid-template-columns:minmax(300px,400px) 1fr;gap:18px;padding:18px;max-width:1300px;margin:0 auto}
+@media(max-width:860px){.main{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:14px}
+.card h2{margin:0 0 8px;font-size:16px}
+label{display:block;font-weight:700;font-size:13px;margin:10px 0 4px}
+textarea,input[type=text],select{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:12px;font:inherit;font-size:15px;background:#fff;color:var(--ink)}
+textarea{min-height:140px;resize:vertical}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.2)}
+.hint{font-size:13px;color:var(--mute);margin:6px 0 0}.err{color:var(--red);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto;margin-top:8px}
+.chips span{background:#EAF2FF;color:#0B4FB3;border-radius:99px;padding:4px 10px;font-size:13px;font-weight:600}
+.chk{display:flex;gap:9px;align-items:center;font-weight:600;font-size:14px;margin:9px 0}.chk input{width:20px;height:20px;accent-color:var(--blue)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{padding:12px 16px;border-radius:13px;font-weight:800;font-size:15px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.go{background:var(--blue);color:#fff;box-shadow:none}.btn.stop{background:#FFEDEB;color:var(--red);box-shadow:none}
+.stage{display:flex;flex-direction:column;align-items:center;position:relative}
+.wheelbox{position:relative;width:min(100%,640px);aspect-ratio:1}
+#wheel{width:100%;height:100%;display:block}
+.pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:38px solid #1c1c1e;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));z-index:3}
+.hub{position:absolute;left:50%;top:50%;width:86px;height:86px;margin:-43px 0 0 -43px;border-radius:50%;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.35);z-index:2;font-weight:900;font-size:17px;color:var(--blue)}
+.hub:disabled{opacity:1;color:#aaa}
+.now{min-height:50px;margin:12px 0 0;font-size:clamp(22px,4vw,38px);font-weight:900;text-align:center;letter-spacing:.2px;max-width:100%;overflow-wrap:anywhere}
+.empty{padding:60px 20px;text-align:center;color:var(--mute);font-weight:700}
+.winners{margin:0;padding-left:22px}.winners li{margin:5px 0;font-weight:700}.winners small{font-weight:600;color:var(--mute)}
+#win{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+#win.on{display:flex;animation:fd .25s}@keyframes fd{from{opacity:0}to{opacity:1}}
+#win .box{background:#fff;border-radius:26px;padding:30px 26px;max-width:760px;width:100%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.4);animation:pp .45s cubic-bezier(.22,1,.36,1)}
+@keyframes pp{from{transform:scale(.85);opacity:.4}to{transform:none;opacity:1}}
+#win .k{font-weight:900;letter-spacing:2px;color:var(--blue);font-size:16px}
+#win .prz{font-size:clamp(18px,3vw,28px);font-weight:800;margin:6px 0;color:var(--mute)}
+#win .nm{font-size:clamp(34px,8vw,92px);font-weight:900;line-height:1.05;margin:10px 0 16px;overflow-wrap:anywhere}
+#win .st{min-height:20px;font-weight:700;font-size:14px;margin-bottom:10px}
+#conf{position:fixed;inset:0;pointer-events:none;z-index:60}
+#dlg{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:20px}#dlg.on{display:flex}
+#dlg .box{background:#fff;border-radius:20px;padding:22px;max-width:440px;width:100%}#dlg h3{margin:0 0 8px}
+#sbox{display:none;width:min(100%,760px)}#slot{width:100%;display:block;border-radius:24px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#spinBtn{display:none;margin-top:16px;min-width:220px;padding:16px 28px;font-size:22px;border-radius:18px}
+#mode{position:fixed;inset:0;z-index:80;background:rgba(18,20,30,.86);display:none;align-items:center;justify-content:center;padding:20px}#mode.on{display:flex}
+#mode .in{max-width:760px;width:100%;text-align:center;color:#fff}#mode h2{margin:0 0 6px;font-size:clamp(24px,4vw,36px)}#mode p{margin:0 0 20px;color:#c9cbd6}
+#mode .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:560px){#mode .cards{grid-template-columns:1fr}}
+#mode .mc{background:#fff;color:var(--ink);border-radius:22px;padding:22px 16px;text-align:center;transition:transform .15s}#mode .mc:hover{transform:translateY(-3px)}
+#mode .mc b{display:block;font-size:22px;margin:6px 0}#mode .mc span{display:block;font-size:14px;color:var(--mute);line-height:1.4}#mode .mc i{font-style:normal;font-size:46px}
+#mode .mc.sel{box-shadow:0 0 0 4px var(--blue)}
+#tip{margin-top:8px;font-size:14px;font-weight:700;color:#8a5a00;display:none}#tip button{margin-left:6px;padding:6px 12px;border-radius:10px;background:#FFF4D6;font-weight:800}
+body.pres .main{grid-template-columns:1fr;max-width:none}body.pres .side{display:none}body.pres .top{display:none}
+@media(prefers-reduced-motion:reduce){#win.on,#win .box{animation:none}}
+</style>
+</head>
+<body>
+<div class="top"><h1>Raffle<small id="sub">Challenge Match Day</small></h1><button class="btn" id="bMode" type="button">Wheel</button><span class="pill off" id="conn">Checking...</span><button class="btn" id="bFull" type="button">Full screen</button></div>
+<div class="main">
+  <div class="side">
+    <div class="card">
+      <h2>1. Paste the names</h2>
+      <textarea id="names" placeholder="Paste a list here. One name per line, or separated by commas.&#10;Numbers, bullets, emojis and symbols are removed for you." aria-label="Names"></textarea>
+      <p class="hint" id="cnt"></p>
+      <div class="chips" id="chips" aria-label="Cleaned names"></div>
+    </div>
+    <div class="card">
+      <h2>2. Options</h2>
+      <label for="prize">Prize (optional, shown with the winner)</label>
+      <input id="prize" type="text" maxlength="60" placeholder="e.g. Racket bag">
+      <div class="chk"><input id="optRemove" type="checkbox" checked><label for="optRemove" style="margin:0;font-weight:600">Remove each winner from the wheel</label></div>
+      <div class="chk"><input id="optQuick" type="checkbox"><label for="optQuick" style="margin:0;font-weight:600">Quick draw (shorter spin, good for many prizes)</label></div>
+      <div class="chk"><input id="optAuto" type="checkbox" checked><label for="optAuto" style="margin:0;font-weight:600">Show the winner on all TVs and phones when the wheel stops</label></div>
+      <label for="optClear">Take the winner off the screens after</label>
+      <select id="optClear"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="0">Keep until I clear it</option></select>
+      <div class="row"><button class="btn stop" id="bClearBan" type="button">Clear the banner now</button></div>
+      <p class="hint" id="annMsg"></p>
+    </div>
+    <div class="card">
+      <h2>Winners</h2>
+      <ol class="winners" id="wlist"></ol><p class="hint" id="wnone">No winners yet.</p>
+      <div class="row"><button class="btn" id="bReset" type="button">Start over (keep names)</button></div>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="wheelbox" id="wbox"><div class="pointer"></div><canvas id="wheel" aria-label="Raffle wheel"></canvas><button class="hub" id="hub" type="button">SPIN</button></div>
+    <div id="sbox"><canvas id="slot" aria-label="Slot machine"></canvas></div>
+    <div class="now" id="now" aria-live="polite"></div>
+    <button class="btn go" id="spinBtn" type="button">SPIN</button>
+    <div class="hint" id="spinHint">Press SPIN or the space bar.</div><div id="tip"></div>
+  </div>
+</div>
+<div id="win" role="dialog" aria-modal="true" aria-label="Winner"><div class="box"><div class="k">RAFFLE WINNER</div><div class="prz" id="wPrize"></div><div class="nm" id="wName"></div><div class="st" id="wStat"></div><div class="row" style="justify-content:center"><button class="btn go" id="wAnn" type="button">Show on all screens</button><button class="btn" id="wNext" type="button">Close</button></div></div></div>
+<div id="dlg"><div class="box"><h3 id="dT"></h3><p id="dP" style="color:#4a4a4f;line-height:1.45"></p><div class="row" style="justify-content:flex-end"><button class="btn" id="dNo" type="button"></button><button class="btn go" id="dYes" type="button"></button></div></div></div>
+<div id="mode" role="dialog" aria-modal="true" aria-label="Choose a raffle style"><div class="in"><h2>How do you want to draw?</h2><p>You can switch any time with the button at the top.</p><div class="cards"><button class="mc" data-m="wheel" type="button"><i>&#127905;</i><b>The Wheel</b><span>A big spinning wheel. Best for up to about 40 names and a crowd moment.</span></button><button class="mc" data-m="slot" type="button"><i>&#127920;</i><b>Slot Machine</b><span>Names scroll like a reel and stop on the winner. Easy to read with any number of names.</span></button></div></div></div>
+<canvas id="conf"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="platform-config.js"></script>
+<script src="platform.js"></script>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search), slug = q.get('s'), key = q.get('k');
+  const $ = s => document.querySelector(s);
+  const P = window.Platform;
+  const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const TAG = '\u{1F389} RAFFLE WINNER: ';
+  let slotStop = '', mode = LS.get('raffle.mode') === 'slot' ? 'slot' : 'wheel', slotPos = 0, list = [], winners = [], rot = 0, spinning = false, current = null, annTimer = null, lastAnn = '';
+
+  // ---------- cleaning pasted names ----------
+  function clean(text) {
+    const seen = new Set(), out = []; let dup = 0;
+    String(text || '').split(/[\n\r\t,;|]+/).forEach(part => {
+      let n = part.replace(/[^\p{L}\p{M}\s'’.\-]/gu, ' ').replace(/[’]/g, "'");       // letters, accents, spaces, ' . - only
+      n = n.replace(/\s+/g, ' ').replace(/^[\s'.\-]+|[\s'.\-]+$/g, '').trim();                 // no leading/trailing punctuation
+      if (n.length < 2 || !/\p{L}/u.test(n)) return;
+      const k = n.toLowerCase(); if (seen.has(k)) { dup++; return; } seen.add(k); out.push(n);
+    });
+    return { names: out, dup };
+  }
+  const won = n => winners.some(w => w.name === n);
+  const pool = () => $('#optRemove').checked ? list.filter(n => !won(n)) : list.slice();
+
+  function renderNames() {
+    const r = clean($('#names').value); list = r.names; LS.set('raffle.names', $('#names').value);
+    const p = pool();
+    $('#cnt').innerHTML = list.length ? '<b>' + list.length + '</b> name' + (list.length === 1 ? '' : 's') + ' ready' + (r.dup ? ' (' + r.dup + ' duplicate' + (r.dup === 1 ? '' : 's') + ' removed)' : '') + (p.length !== list.length ? ' &middot; ' + p.length + ' still on the wheel' : '') : 'No names yet.';
+    $('#chips').innerHTML = list.map(n => '<span>' + esc(n) + '</span>').join('');
+    draw(); lock(p.length < 2 || spinning); showTip(p.length);
+    if (!spinning && !current) $('#now').textContent = p.length < 2 ? (list.length ? 'Need at least 2 names on the wheel.' : '') : '';
+  }
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---------- wheel ----------
+  const cv = $('#wheel'), cx = cv.getContext('2d');
+  const COLORS = ['#007AFF', '#FF9500', '#34C759', '#AF52DE', '#FF3B30', '#00B8D9', '#FFCC00', '#FF2D87'];
+  let shown = [];
+  function size() { const b = $('#wbox').getBoundingClientRect(), d = Math.max(240, Math.round(b.width)), r = window.devicePixelRatio || 1; if (cv.width !== d * r) { cv.width = d * r; cv.height = d * r; } return { d, r }; }
+  const lock = v => { $('#hub').disabled = v; $('#spinBtn').disabled = v; };
+  const draw = () => mode === 'slot' ? drawSlot() : drawWheel();
+  function drawWheel() {
+    shown = pool(); const { d, r } = size(), n = shown.length; cx.setTransform(r, 0, 0, r, 0, 0); cx.clearRect(0, 0, d, d);
+    const c = d / 2, R = c - 10;
+    if (n < 1) { cx.fillStyle = '#e5e5ea'; cx.beginPath(); cx.arc(c, c, R, 0, 7); cx.fill(); cx.fillStyle = '#8e8e93'; cx.font = '700 ' + Math.round(d / 22) + 'px system-ui'; cx.textAlign = 'center'; cx.fillText('Paste names to begin', c, c + 6); return; }
+    const a = 2 * Math.PI / n; cx.save(); cx.translate(c, c); cx.rotate(rot);
+    for (let i = 0; i < n; i++) {
+      let col = COLORS[i % COLORS.length]; if (n > 1 && i === n - 1 && i % COLORS.length === 0) col = '#5856D6';
+      cx.beginPath(); cx.moveTo(0, 0); cx.arc(0, 0, R, i * a, (i + 1) * a); cx.closePath(); cx.fillStyle = col; cx.fill();
+      if (n <= 40) { cx.save(); cx.rotate(i * a + a / 2); cx.fillStyle = '#fff'; cx.textAlign = 'right'; cx.textBaseline = 'middle'; const fs = Math.max(10, Math.min(d / 22, a * R * 0.5)); cx.font = '800 ' + fs + 'px system-ui'; cx.shadowColor = 'rgba(0,0,0,.45)'; cx.shadowBlur = 3; let t = shown[i]; const maxW = R * 0.66; while (cx.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -2); if (t !== shown[i]) t = t.trim() + '…'; cx.fillText(t, R - 14, 0); cx.restore(); }
+    }
+    cx.restore(); cx.lineWidth = 8; cx.strokeStyle = '#1c1c1e'; cx.beginPath(); cx.arc(c, c, R, 0, 7); cx.stroke();
+  }
+  const norm = x => ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const idxAt = n => Math.floor(norm(-Math.PI / 2 - rot) / (2 * Math.PI / n)) % n;     // slice under the pointer (top)
+
+  // ---------- picking ----------
+  function pickIndex(n) { const u = new Uint32Array(1), lim = Math.floor(4294967296 / n) * n; do { crypto.getRandomValues(u); } while (u[0] >= lim); return u[0] % n; }   // unbiased
+  function spin() {
+    if (spinning) return; closeWin();
+    const p = pool(); if (p.length < 2) return;
+    spinning = true; current = null; lock(true); draw();
+    if (mode === 'slot') return spinSlot(p);
+    const n = p.length, w = pickIndex(n), f = 0.15 + Math.random() * 0.7, a = 2 * Math.PI / n;
+    const target = -Math.PI / 2 - (w + f) * a, extra = (REDUCED ? 2 : 6 + Math.floor(Math.random() * 3)) * 2 * Math.PI;
+    const quick = $('#optQuick').checked, delta = norm(target - rot) + (quick && !REDUCED ? 3 * 2 * Math.PI : extra), start = rot, dur = REDUCED ? 1200 : quick ? 2600 : 6500, t0 = performance.now();
+    const step = now => {
+      const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 4); rot = start + delta * e; draw();
+      $('#now').textContent = shown[idxAt(n)] || '';
+      if (t < 1) requestAnimationFrame(step); else land(p[w]);
+    };
+    requestAnimationFrame(step);
+  }
+  // ---------- slot machine ----------
+  const mod = (a, n) => ((a % n) + n) % n;
+  function drawSlot() {
+    shown = pool(); const box = $('#sbox').getBoundingClientRect(), w = Math.max(280, Math.round(box.width)), h = Math.round(Math.min(w * 0.62, 430)), r = window.devicePixelRatio || 1, c = $('#slot');
+    if (c.width !== w * r || c.height !== h * r) { c.width = w * r; c.height = h * r; c.style.height = h + 'px'; }
+    const x = c.getContext('2d'); x.setTransform(r, 0, 0, r, 0, 0);
+    const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#0f1220'); g.addColorStop(.5, '#1b2140'); g.addColorStop(1, '#0f1220'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    const n = shown.length, rowH = h / 4.2;
+    if (n < 1) { x.fillStyle = '#9aa0b5'; x.font = '700 ' + Math.round(w / 22) + 'px system-ui'; x.textAlign = 'center'; x.fillText('Paste names to begin', w / 2, h / 2 + 6); return; }
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    const k0 = Math.round(slotPos);
+    for (let j = -3; j <= 3; j++) {
+      const k = k0 + j, dist = Math.abs(k - slotPos), y = h / 2 + (k - slotPos) * rowH;
+      let fs = rowH * 0.56 * Math.max(.5, 1 - dist * .26); const t = shown[mod(k, n)];
+      x.font = '800 ' + fs + 'px system-ui'; while (x.measureText(t).width > w * 0.88 && fs > 12) { fs -= 2; x.font = '800 ' + fs + 'px system-ui'; }
+      x.globalAlpha = Math.max(.1, 1 - dist * .5); x.fillStyle = dist < .5 ? '#FFD60A' : '#ffffff'; x.fillText(t, w / 2, y);
+    }
+    x.globalAlpha = 1; x.lineWidth = 4; x.strokeStyle = '#FFD60A'; x.beginPath(); x.roundRect ? x.roundRect(10, h / 2 - rowH * .55, w - 20, rowH * 1.1, 16) : x.rect(10, h / 2 - rowH * .55, w - 20, rowH * 1.1); x.stroke();
+    const f1 = x.createLinearGradient(0, 0, 0, h * .28); f1.addColorStop(0, 'rgba(15,18,32,.95)'); f1.addColorStop(1, 'rgba(15,18,32,0)'); x.fillStyle = f1; x.fillRect(0, 0, w, h * .28);
+    const f2 = x.createLinearGradient(0, h * .72, 0, h); f2.addColorStop(0, 'rgba(15,18,32,0)'); f2.addColorStop(1, 'rgba(15,18,32,.95)'); x.fillStyle = f2; x.fillRect(0, h * .72, w, h * .28);
+  }
+  function spinSlot(p) {
+    const n = p.length, w = pickIndex(n), quick = $('#optQuick').checked;
+    const cur = mod(Math.round(slotPos), n), rows = REDUCED ? 6 : quick ? 22 : 50;
+    const delta = mod(w - cur, n) + Math.ceil(rows / n) * n, start = Math.round(slotPos), dur = REDUCED ? 1000 : quick ? 1900 : 5000, t0 = performance.now();
+    const step = now => {
+      const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 4); slotPos = start + delta * e; drawSlot();
+      if (t < 1) requestAnimationFrame(step); else { slotPos = start + delta; drawSlot(); slotStop = shown[mod(Math.round(slotPos), shown.length)]; land(p[w]); }
+    };
+    requestAnimationFrame(step);
+  }
+  function applyMode() {
+    const slot = mode === 'slot';
+    $('#wbox').style.display = slot ? 'none' : ''; $('#hub').style.display = slot ? 'none' : ''; $('#sbox').style.display = slot ? 'block' : 'none'; $('#spinBtn').style.display = slot ? 'inline-block' : 'none';
+    $('#now').style.display = slot ? 'none' : ''; $('#bMode').textContent = slot ? 'Slot Machine' : 'The Wheel';
+    document.querySelectorAll('#mode .mc').forEach(b => b.classList.toggle('sel', b.dataset.m === mode));
+    LS.set('raffle.mode', mode); draw(); showTip(pool().length);
+  }
+  function showTip(n) {
+    const t = $('#tip'); if (mode === 'wheel' && n > 40) { t.style.display = 'block'; t.innerHTML = 'With ' + n + ' names the wheel is hard to read.<button type="button" id="tipGo">Use the slot machine</button>'; $('#tipGo').onclick = () => { mode = 'slot'; applyMode(); }; } else t.style.display = 'none';
+  }
+  function land(name) {
+    spinning = false; rot = norm(rot); current = { name, prize: $('#prize').value.trim(), at: Date.now() };
+    winners.push(current); saveWinners(); renderWinners(); $('#now').textContent = name;
+    $('#wName').textContent = name; $('#wPrize').textContent = current.prize; $('#wStat').textContent = ''; $('#wStat').className = 'st';
+    $('#win').classList.add('on'); confetti(); renderNames();
+    if ($('#optAuto').checked) announce(current); else { $('#wAnn').style.display = ''; }
+  }
+  function closeWin() { $('#win').classList.remove('on'); }
+  function renderWinners() {
+    $('#wlist').innerHTML = winners.map(w => '<li>' + esc(w.name) + (w.prize ? ' <small>- ' + esc(w.prize) + '</small>' : '') + '</li>').join('');
+    $('#wnone').style.display = winners.length ? 'none' : '';
+  }
+  const saveWinners = () => LS.set('raffle.winners', JSON.stringify(winners));
+
+  // ---------- banner on every TV / phone / schedule page ----------
+  function say(t, cls) { $('#annMsg').textContent = t; $('#annMsg').className = 'hint ' + (cls || ''); const s = $('#wStat'); s.textContent = t; s.className = 'st ' + (cls || ''); }
+  const bannerText = w => (TAG + w.name + (w.prize ? ' - ' + w.prize : '')).slice(0, 200);
+  async function announce(w) {
+    if (!slug || !key || !P || !P.configured) { say('Not connected to the TVs. Open the raffle from Match Control to send winners to every screen.', 'err'); return false; }
+    try {
+      let cur = null; try { cur = await P.getAnnouncement(slug); } catch (e) {}
+      if (cur && cur.body && !cur.body.startsWith(TAG) && cur.body !== lastAnn) {
+        const ok = await ask('Replace the current announcement?', 'The screens are showing: "' + cur.body + '". Showing the winner will replace it.', 'Replace it', 'Keep it');
+        if (!ok) { say('Winner not sent. The current announcement stays on the screens.'); return false; }
+      }
+      const t = bannerText(w); await P.setAnnouncement(slug, key, t); lastAnn = t;
+      say('Showing on all TVs, umpire phones and the schedule page.', ''); armClear(t); return true;
+    } catch (e) { say('Could not send to the screens: ' + (e.message || e), 'err'); return false; }
+  }
+  function armClear(t) {
+    clearTimeout(annTimer); const s = +$('#optClear').value; if (!s) return;
+    annTimer = setTimeout(async () => { try { const cur = await P.getAnnouncement(slug); if (cur && cur.body === t) { await P.setAnnouncement(slug, key, ''); say('Winner taken off the screens.'); } } catch (e) {} }, s * 1000);
+  }
+  async function clearBanner() {
+    clearTimeout(annTimer); if (!slug || !key || !P || !P.configured) { say('Not connected to the TVs.', 'err'); return; }
+    try { await P.setAnnouncement(slug, key, ''); say('Banner cleared on all screens.'); } catch (e) { say('Could not clear: ' + (e.message || e), 'err'); }
+  }
+
+  // ---------- small helpers ----------
+  function ask(title, text, yes, no) { return new Promise(res => { $('#dT').textContent = title; $('#dP').textContent = text; $('#dYes').textContent = yes; $('#dNo').textContent = no; $('#dlg').classList.add('on'); const done = v => { $('#dlg').classList.remove('on'); res(v); }; $('#dYes').onclick = () => done(true); $('#dNo').onclick = () => done(false); }); }
+  function confetti() {
+    if (REDUCED) return; const c = $('#conf'), x = c.getContext('2d'); c.width = innerWidth; c.height = innerHeight;
+    const ps = Array.from({ length: 160 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * .4, vx: (Math.random() - .5) * 4, vy: 2 + Math.random() * 5, s: 6 + Math.random() * 8, r: Math.random() * 6, vr: (Math.random() - .5) * .3, col: COLORS[Math.floor(Math.random() * COLORS.length)] }));
+    const t0 = performance.now(); (function f(now) { x.clearRect(0, 0, c.width, c.height); ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.r += p.vr; x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.col; x.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); x.restore(); }); if (now - t0 < 3500) requestAnimationFrame(f); else x.clearRect(0, 0, c.width, c.height); })(t0);
+  }
+
+  // ---------- wiring ----------
+  $('#names').addEventListener('input', renderNames);
+  $('#optRemove').addEventListener('change', renderNames);
+  $('#hub').onclick = spin; $('#spinBtn').onclick = spin;
+  $('#bMode').onclick = () => $('#mode').classList.add('on');
+  document.querySelectorAll('#mode .mc').forEach(b => b.onclick = () => { if (spinning) return; mode = b.dataset.m; $('#mode').classList.remove('on'); applyMode(); });
+  $('#wNext').onclick = closeWin; $('#wAnn').onclick = () => current && announce(current);
+  $('#bClearBan').onclick = clearBanner;
+  $('#bReset').onclick = async () => { if (!winners.length) return; if (!(await ask('Start over?', 'This clears the winners list and puts every name back on the wheel. The banner on the screens is not changed.', 'Start over', 'Cancel'))) return; winners = []; current = null; saveWinners(); renderWinners(); renderNames(); };
+  $('#bFull').onclick = () => { document.body.classList.toggle('pres'); if (document.body.classList.contains('pres') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); else if (document.fullscreenElement) document.exitFullscreen(); setTimeout(draw, 80); };
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if ($('#mode').classList.contains('on')) $('#mode').classList.remove('on'); else if ($('#win').classList.contains('on')) closeWin(); else if (document.body.classList.contains('pres')) { document.body.classList.remove('pres'); setTimeout(draw, 80); } }
+    if (e.key === ' ' && !/^(TEXTAREA|INPUT|SELECT|BUTTON)$/.test((e.target.tagName || ''))) { e.preventDefault(); spin(); }
+  });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { document.body.classList.remove('pres'); } setTimeout(draw, 80); });
+  addEventListener('resize', draw);
+  window.__raffle = { clean, spin, get mode() { return mode; }, get slotStop() { return slotStop; }, get winners() { return winners; }, get rot() { return rot; }, idxAt, pool };
+
+  // restore, then connect status
+  $('#names').value = LS.get('raffle.names') || '';
+  try { winners = JSON.parse(LS.get('raffle.winners') || '[]') || []; } catch (e) { winners = []; }
+  renderWinners(); applyMode(); renderNames(); $('#mode').classList.add('on');
+  (async () => {
+    const c = $('#conn');
+    if (!slug || !key) { c.textContent = 'Not connected to the TVs'; c.className = 'pill off'; return; }
+    if (!P || !P.configured) { c.textContent = 'Not connected'; c.className = 'pill bad'; return; }
+    try { await P.getAnnouncement(slug); c.textContent = 'Connected to all screens'; c.className = 'pill'; } catch (e) { c.textContent = 'Cannot reach the screens'; c.className = 'pill bad'; }
+  })();
+})();
+</script>
+</body>
+</html>
