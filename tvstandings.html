@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Standings TV - Challenge Match Day</title>
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg"><link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<style>
+html,body{margin:0;height:100%;background:#0B1220;display:flex;flex-direction:column;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+iframe{border:0;width:100%;flex:1;min-height:0;display:block}
+.msg{color:#DDE6F7;padding:40px 24px;text-align:center;font-size:clamp(18px,3vw,34px);font-weight:700}
+#ctl{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:20;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;padding:10px 12px;border-radius:18px;background:rgba(11,18,32,.88);box-shadow:0 8px 28px rgba(0,0,0,.5);transition:opacity .4s;max-width:96vw}
+#ctl.hide{opacity:0;pointer-events:none}
+#ctl button,#ctl select{font:700 14px/1 system-ui,sans-serif;border:0;border-radius:11px;padding:11px 14px;background:#1F2C4A;color:#fff;cursor:pointer}
+#ctl button.go{background:#007AFF}#ctl label{color:#9FB0CC;font:600 12px system-ui,sans-serif;display:flex;align-items:center;gap:6px}
+#ann{flex:none;margin:1vh 2vw 0;background:#FF9500;color:#1b1200;border-radius:2vh;padding:1.4vh 2vw;font-weight:800;font-size:clamp(22px,3.6vw,56px);display:none;text-align:center}
+</style>
+</head>
+<body>
+<div id="ann"></div>
+<div id="m" class="msg">Loading the standings...</div>
+<div id="ctl" class="hide">
+  <button type="button" id="bPrev" title="Previous bracket (Left arrow)">&#9664;</button>
+  <button type="button" id="bPlay" class="go" title="Pause or play (Space)">Pause</button>
+  <button type="button" id="bNext" title="Next bracket (Right arrow)">&#9654;</button>
+  <label>Each bracket for <select id="sSec"><option>6</option><option>8</option><option>10</option><option>12</option><option>15</option><option>20</option><option>30</option><option>45</option><option>60</option></select> s</label>
+  <label>Show <select id="sLvl"><option value="all">All levels</option><option>Low</option><option>Mid</option><option>High</option></select></label>
+  <button type="button" id="bFull" title="Full screen (F)">&#9974; Full screen</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="platform-config.js"></script>
+<script src="platform.js"></script>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search), slug = q.get('s'), m = document.getElementById('m'), $ = s => document.querySelector(s), P = window.Platform;
+  if (!slug) { m.textContent = 'This link is incomplete. Use the public schedule link with tvstandings.html instead of s.html.'; return; }
+  if (!P || !P.configured) { m.textContent = 'The cloud is not connected.'; return; }
+  const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  let sec = +(q.get('sec') || LS.get('tvs.sec') || 12), level = q.get('level') || LS.get('tvs.level') || 'all', paused = false, idx = 0;
+  if (!(sec >= 3 && sec <= 300)) sec = 12; if (!/^(all|Low|Mid|High)$/.test(level)) level = 'all';
+
+  // ---- runs INSIDE the published page (sandboxed frame): shows ONE bracket at a time, sized to fill the screen, on a timer ----
+  function frameScript(cfg) {
+    var H = document.documentElement, sec = cfg.sec, level = cfg.level, cur = cfg.idx | 0, paused = !!cfg.paused, t0 = Date.now(), tm = 0, ft = 0;
+    H.classList.add('tvs');
+    var bar = document.createElement('div'); bar.id = 'tvsbar'; bar.innerHTML = '<div class="tvl"></div><div class="tvd"></div><div class="tvp"><i></i></div>';
+    function groups() { return [].slice.call(document.querySelectorAll('#viewStd .sb')).filter(function (g) { return level === 'all' || g.dataset.level === level; }); }
+    function say(o) { try { parent.postMessage({ t: 'tvs', i: cur, n: o.n, paused: paused }, '*'); } catch (e) {} }
+    function fit() {                                                  // the biggest text size at which the bracket still fits the screen
+      var g = document.querySelector('#viewStd .sb.cur'); if (!g) return;
+      var rows = g.querySelectorAll('.srow').length || 1, lo = 5, hi = Math.max(lo, Math.min(innerHeight / (rows + 2.2) / 4.4, innerWidth / 38));
+      var ok = function (u) { H.style.setProperty('--u', u + 'px'); return g.scrollHeight <= g.clientHeight + 1 && g.scrollWidth <= g.clientWidth + 1; };
+      if (!ok(hi)) { for (var i = 0; i < 14; i++) { var mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; } ok(lo); }
+    }
+    function sched() { cancelAnimationFrame(ft); ft = requestAnimationFrame(fit); }
+    function paintBar(gs) {
+      var g = gs[cur], l = bar.querySelector('.tvl'), d = bar.querySelector('.tvd');
+      l.textContent = g ? (g.querySelector('.sbh b') ? g.querySelector('.sbh b').textContent : '') + '   ' + (cur + 1) + ' of ' + gs.length : '';
+      d.innerHTML = gs.map(function (_, k) { return '<i' + (k === cur ? ' class="on"' : '') + '></i>'; }).join('');
+    }
+    function restart() {
+      clearTimeout(tm); var p = bar.querySelector('.tvp i'); p.style.transition = 'none'; p.style.width = '0'; void p.offsetWidth; t0 = Date.now();
+      if (paused) return;
+      p.style.transition = 'width ' + sec + 's linear'; p.style.width = '100%'; tm = setTimeout(function () { go(cur + 1, true); }, sec * 1000);
+    }
+    function go(i, auto) {
+      var gs = groups(), n = gs.length; if (!n) { say({ n: 0 }); return; }
+      cur = ((i % n) + n) % n; gs.forEach(function (g, k) { g.classList.toggle('cur', k === cur); });
+      var all = [].slice.call(document.querySelectorAll('#viewStd .sb')); all.forEach(function (g) { if (gs.indexOf(g) < 0) g.classList.remove('cur'); });
+      paintBar(gs); sched(); say({ n: n }); restart();
+    }
+    function refresh() { var gs = groups(); if (!gs.length) { say({ n: 0 }); return; } gs.forEach(function (g, k) { g.classList.toggle('cur', k === cur % gs.length); }); if (cur >= gs.length) cur = 0; paintBar(gs); sched(); say({ n: gs.length }); }
+    window.addEventListener('message', function (e) {
+      var d = e.data; if (!d || d.t !== 'tvc') return;
+      if (d.cmd === 'next') go(cur + 1); else if (d.cmd === 'prev') go(cur - 1);
+      else if (d.cmd === 'pause') { paused = true; restart(); say({ n: groups().length }); }
+      else if (d.cmd === 'play') { paused = false; restart(); say({ n: groups().length }); }
+      else if (d.cmd === 'sec') { sec = +d.v || sec; restart(); }
+      else if (d.cmd === 'level') { level = d.v || 'all'; go(0); }
+    });
+    window.addEventListener('resize', sched);
+    window.addEventListener('load', function () {
+      document.body.appendChild(bar);
+      var b = document.querySelector('.pub .tabs button[data-v="std"]'); if (b) b.click();
+      var vd = document.getElementById('viewStd');
+      if (vd && window.MutationObserver) new MutationObserver(function () { refresh(); }).observe(vd, { childList: true });     // scores arrived: the page redraws its standings
+      setTimeout(function () { go(cur); }, 50); setTimeout(function () { go(cur); }, 600);
+    });
+  }
+  const TVCSS = 'html.tvs,html.tvs body{overflow:hidden!important;background:#0B1220!important;margin:0}' +
+    'html.tvs .pub{max-width:none!important;margin:0!important;padding:1.4vh 1.6vw 7vh!important;height:100vh;box-sizing:border-box;display:flex;flex-direction:column;background:#0B1220;color:#fff}' +
+    'html.tvs .pub>*:not(h1):not(#viewStd){display:none!important}' +
+    'html.tvs .pub h1{font-size:clamp(20px,3.8vh,48px)!important;color:#fff;margin:0 0 1vh!important}' +
+    'html.tvs .pub #viewStd{display:flex!important;flex-direction:column;flex:1;min-height:0;animation:none!important;opacity:1!important;transform:none!important}' +
+    'html.tvs .pub #viewStd>.sb{display:none!important;margin:0!important}' +
+    'html.tvs .pub #viewStd>.sb.cur{display:flex!important;flex-direction:column;flex:1;min-height:0;overflow:hidden;background:#14203A!important;color:#fff;border-radius:calc(var(--u,12px)*1.6)!important;animation:tvin .55s ease both;box-shadow:0 12px 40px rgba(0,0,0,.45)}' +
+    '@keyframes tvin{from{opacity:0;transform:translateY(1.5vh)}to{opacity:1;transform:none}}' +
+    'html.tvs .pub #viewStd>p,html.tvs .pub #viewStd>.upd{color:#DDE6F7!important;font-size:clamp(22px,4vh,54px)!important;text-align:center;margin:auto!important}' +
+    'html.tvs .pub .sbh{background:#1D2D52!important;padding:calc(var(--u,12px)*1) calc(var(--u,12px)*1.6)!important;gap:0 calc(var(--u,12px)*1.2)!important}' +
+    'html.tvs .pub .sbh b{font-size:calc(var(--u,12px)*3.4)!important;color:#fff}html.tvs .pub .sbh span{font-size:calc(var(--u,12px)*1.7)!important;color:#9FB0CC!important}' +
+    'html.tvs .pub .srow{flex:1;min-height:0;padding:calc(var(--u,12px)*.5) calc(var(--u,12px)*1.6)!important;gap:calc(var(--u,12px)*1.4)!important;border-top:1px solid rgba(255,255,255,.1)!important;background:transparent!important}' +
+    'html.tvs .pub .srow.top{background:linear-gradient(90deg,rgba(52,199,89,.22),transparent 45%)!important}' +
+    'html.tvs .pub .rk{font-size:calc(var(--u,12px)*3)!important;min-width:calc(var(--u,12px)*3)!important;height:auto!important;width:auto!important;line-height:1!important}' +
+    'html.tvs .pub .av{width:calc(var(--u,12px)*3.2)!important;height:calc(var(--u,12px)*3.2)!important;font-size:calc(var(--u,12px)*1.3)!important;line-height:calc(var(--u,12px)*3.2)!important}' +
+    'html.tvs .pub .sn{font-size:calc(var(--u,12px)*2.6)!important;color:#fff;line-height:1.15!important}' +
+    'html.tvs .pub .fm{margin-top:calc(var(--u,12px)*.3)!important}html.tvs .pub .fm i,html.tvs .pub .adv{font-size:calc(var(--u,12px)*1.3)!important}' +
+    'html.tvs .pub .sw,html.tvs .pub .sp{min-width:calc(var(--u,12px)*5.4)!important}html.tvs .pub .sw b,html.tvs .pub .sp b{font-size:calc(var(--u,12px)*3.2)!important;color:#fff}html.tvs .pub .sw small,html.tvs .pub .sp small{font-size:calc(var(--u,12px)*1.3)!important;color:#9FB0CC!important}' +
+    '#tvsbar{position:fixed;left:0;right:0;bottom:0;height:6vh;display:flex;align-items:center;gap:2vw;padding:0 2vw;background:#0B1220;z-index:5;color:#DDE6F7;font:700 clamp(14px,2.4vh,30px) system-ui,sans-serif}' +
+    '#tvsbar .tvl{flex:none;white-space:pre}#tvsbar .tvd{display:flex;gap:.7vh;flex:1;flex-wrap:wrap;justify-content:flex-end}#tvsbar .tvd i{width:1.4vh;height:1.4vh;border-radius:50%;background:#2B3B63}#tvsbar .tvd i.on{background:#FFD60A;transform:scale(1.3)}' +
+    '#tvsbar .tvp{position:absolute;left:0;right:0;top:0;height:.6vh;background:#1D2D52}#tvsbar .tvp i{display:block;height:100%;width:0;background:#007AFF}';
+  const wrap = (html, st) => {
+    const inj = '<style>' + TVCSS + '</style><script>(' + frameScript.toString() + ')(' + JSON.stringify({ sec, level, idx: st.idx, paused }) + ');<\/script>';
+    return /<\/head>/i.test(html) ? html.replace(/<\/head>/i, inj + '</head>') : inj + html;
+  };
+
+  let row; try { row = await P.getPublicSchedule(slug); } catch (e) { m.textContent = 'Could not load the schedule (' + (e.message || e) + ').'; return; }
+  if (!row) { m.textContent = 'This schedule was not found. The organizer may have removed it.'; return; }
+  document.title = row.name + ' - Standings TV';
+  const f = document.createElement('iframe'); f.setAttribute('sandbox', 'allow-scripts');
+  let lastHtml = row.html, lastVer = row.updated_at, n = 0, book = [], lastAnn = null;
+  f.srcdoc = wrap(row.html, { idx }); m.remove(); document.body.appendChild(f);
+  const toFrame = o => { try { f.contentWindow.postMessage(o, '*'); } catch (e) {} };
+  const postLive = () => toFrame({ t: 'live', scores: book, moves: [] });
+  f.addEventListener('load', postLive);
+  window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'tvs') return; idx = d.i | 0; n = d.n | 0; $('#bPlay').textContent = d.paused ? 'Play' : 'Pause'; });
+
+  // live scores (so the table changes as games finish), a newly published schedule, and the announcement banner
+  const liveTick = async () => { if (document.hidden) return; try { book = await P.getLiveScores(slug) || []; postLive(); } catch (e) {} };
+  const annTick = async () => { if (document.hidden) return; try { const a = await P.getAnnouncement(slug); const b = $('#ann'); if (a && a.body) { b.textContent = a.body; b.style.display = 'block'; } else b.style.display = 'none'; } catch (e) {} };
+  const verTick = async () => {
+    if (document.hidden) return;
+    try {
+      const v = await P.getScheduleVersion(slug); if (v && v === lastVer) return; if (v) lastVer = v;
+      const r = await P.getPublicSchedule(slug); if (r && r.html && r.html !== lastHtml) { lastHtml = r.html; f.srcdoc = wrap(r.html, { idx }); }       // new page: comes back to the same bracket
+    } catch (e) {}
+  };
+  liveTick(); annTick(); setInterval(liveTick, 8000); setInterval(annTick, 10000); setInterval(verTick, 45000);
+
+  // controls (they hide by themselves so the TV shows only the standings)
+  const ctl = $('#ctl'); let hideT = 0;
+  const showCtl = () => { ctl.classList.remove('hide'); clearTimeout(hideT); hideT = setTimeout(() => ctl.classList.add('hide'), 4000); };
+  ['mousemove', 'pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, showCtl, { passive: true }));
+  $('#sSec').value = String(sec); if ($('#sSec').value !== String(sec)) { const o = document.createElement('option'); o.textContent = sec; $('#sSec').appendChild(o); $('#sSec').value = String(sec); }
+  $('#sLvl').value = level;
+  $('#sSec').onchange = e => { sec = +e.target.value; LS.set('tvs.sec', String(sec)); toFrame({ t: 'tvc', cmd: 'sec', v: sec }); };
+  $('#sLvl').onchange = e => { level = e.target.value; LS.set('tvs.level', level); toFrame({ t: 'tvc', cmd: 'level', v: level }); };
+  $('#bPrev').onclick = () => toFrame({ t: 'tvc', cmd: 'prev' }); $('#bNext').onclick = () => toFrame({ t: 'tvc', cmd: 'next' });
+  const togglePlay = () => { paused = !paused; $('#bPlay').textContent = paused ? 'Play' : 'Pause'; toFrame({ t: 'tvc', cmd: paused ? 'pause' : 'play' }); };
+  $('#bPlay').onclick = togglePlay;
+  const full = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) {} };
+  $('#bFull').onclick = full;
+  document.addEventListener('keydown', e => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName || ''))) return;
+    if (e.key === 'f' || e.key === 'F') full(); else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'ArrowRight') toFrame({ t: 'tvc', cmd: 'next' }); else if (e.key === 'ArrowLeft') toFrame({ t: 'tvc', cmd: 'prev' });
+  });
+  setTimeout(showCtl, 600);
+})();
+</script>
+</body>
+</html>
