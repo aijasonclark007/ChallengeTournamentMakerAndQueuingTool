@@ -59,7 +59,7 @@ button:disabled{opacity:.4;cursor:default}
 @media (prefers-reduced-motion:reduce){.morerow,#bMore svg{transition:none}}
 .tbw{padding-bottom:0!important;display:none}.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .tb input{flex:1 1 220px;min-width:0;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px}
-.tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
+.tb button{padding:11px 14px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:14px;position:relative}.tb button.on{background:var(--blue);color:#fff}.tb select{padding:11px 10px;border:0;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font:700 14px inherit;color:inherit;font-family:inherit}.tb button i{position:absolute;top:6px;right:7px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
 .kbr{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}.kcol{display:flex;flex-direction:column;width:190px;flex:none}.kbody{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px}.kcol h4{height:20px;line-height:20px;margin:0 0 6px}
 .kcol h4{margin:0 0 2px;font-size:12px;color:var(--mute);text-align:center}.kcard{background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}.kcard.a{animation:kin .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 40ms)}
 .kcard .kh{padding:3px 8px;font-size:11px;color:var(--mute);background:var(--chip)}.kcard .kr{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line)}.kcard .kh+.kr{border-top:0}
@@ -106,7 +106,7 @@ details>summary{transition:color .2s ease}
 </head>
 <body>
 <div class="top"><h1 id="ttl">Match Control<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
-<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" id="bRaffle" title="Open the raffle wheel in a new tab">Raffle</button><button type="button" id="bCallAll" class="hidden" title="Call every court whose next game has not started">Call all waiting courts</button><button type="button" data-p="voice">Speaker</button><button type="button" id="bMore" aria-expanded="false" aria-controls="moreRow">More<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M2 4.2 6 8l4-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="moreRow" class="tb morerow" inert><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="bracket">Bracket</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
+<div class="wrap tbw" id="tbw"><div class="tb"><input id="find" type="search" placeholder="Find a player or team" autocomplete="off" aria-label="Find a player or team"><button type="button" data-p="ann" id="bAnn">Announce</button><button type="button" id="bRaffle" title="Open the raffle wheel in a new tab">Raffle</button><button type="button" id="bCallAll" class="hidden" title="Call every court whose next game has not started">Call all waiting courts</button><button type="button" id="bAuto" title="When a game finishes, call the next game on that court by itself (voice + the umpire's phone). Run this on ONE Match Control screen only.">Auto-call: Off</button><select id="acDelay" aria-label="How long to wait after a game finishes before calling the next one" title="Wait after a game finishes"><option value="0">right away</option><option value="30">after 30 s</option><option value="60">after 1 min</option><option value="120">after 2 min</option></select><button type="button" data-p="voice">Speaker</button><button type="button" id="bMore" aria-expanded="false" aria-controls="moreRow">More<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M2 4.2 6 8l4-3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="moreRow" class="tb morerow" inert><button type="button" data-p="wd">Withdraw team</button><button type="button" data-p="sched">Full schedule</button><button type="button" data-p="bracket">Bracket</button><button type="button" data-p="log">Activity log</button></div><div id="panel"></div></div>
 <div class="wrap" id="app"><div class="msg">Loading...</div></div>
 <div class="sh" id="es"><div><h2 style="margin:0 0 2px;font-size:19px">Fix the score</h2><p class="meta" id="esMsg" style="margin:0"></p><div class="sc"><b id="esT1"></b><input id="esA" type="number" inputmode="numeric" min="0" max="99"><b id="esT2"></b><input id="esB" type="number" inputmode="numeric" min="0" max="99"></div><div class="btns"><button class="go" id="esSave">Save score</button><button id="esCancel">Cancel</button></div></div></div>
 <div id="toast"></div>
@@ -139,7 +139,7 @@ details>summary{transition:color .2s ease}
       const d = await P.umpireGet(slug, key);
       try { ann = await P.getAnnouncement(slug); } catch (e) { ann = null; }
       try { const ns = await P.getMatchNotes(slug, key); notes = {}; ns.forEach(n => { notes[n.match_id] = n; }); } catch (e) { /* step 14 not run yet: reasons just are not shown */ }
-      data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; }); err = null; $('#dot').className = 'dot';
+      data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; }); err = null; $('#dot').className = 'dot'; try { acCheck(); } catch (e) {}
     } catch (e) { err = e.message || 'Could not load'; $('#dot').className = 'dot err'; }
     paint();
   }
@@ -363,6 +363,37 @@ details>summary{transition:color .2s ease}
     }
     const done = callAllOn; callAllOn = false; b.classList.remove('on'); paintCallAll(); if (done) toast('Called every waiting court');
   }
+  // Auto-call: when a game on a court finishes, call the next game on that court (same as pressing Call), after the chosen wait.
+  // Off by default, remembered on this device only. It looks at the game list that Match Control already loads; it never writes scores.
+  const LSg = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, LSs = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  let acOn = LSg('mc.autocall') === '1', acDelay = +LSg('mc.autodelay') || 0, acSeen = null, acArm = {}, acQ = [], acRunning = false; const acCalled = {};
+  function acPaint() { const b = $('#bAuto'); if (!b) return; b.textContent = 'Auto-call: ' + (acOn ? 'On' : 'Off'); b.classList.toggle('on', acOn); const d = $('#acDelay'); if (d) d.value = String(acDelay); }
+  function acCheck() {                                                         // runs after every refresh of the game list
+    if (!data) return; const now = {}; (data.matches || []).forEach(m => { now[m.mid] = state(m); });
+    if (acSeen && acOn) Object.keys(now).forEach(mid => { if (now[mid] === 'done' && acSeen[mid] && acSeen[mid] !== 'done') { const m = mById(mid); if (m && m.court) acArm[m.court] = { due: Date.now() + acDelay * 1000, until: Date.now() + acDelay * 1000 + 20 * 60000 }; } });
+    acSeen = now; acTick();
+  }
+  function acTick() {                                                          // once a second: has the wait ended? is there a next game ready?
+    if (!acOn || !data) return; const t = Date.now();
+    Object.keys(acArm).forEach(court => {
+      const a = acArm[court]; if (t < a.due) return;
+      const list = (data.matches || []).filter(m => m.court === court).sort((x, y) => (x.slot - y.slot) || String(x.time).localeCompare(String(y.time)));
+      if (t > a.until || list.some(m => state(m) === 'live') || list.every(m => state(m) === 'done')) { delete acArm[court]; return; }          // timed out, the next game already started, or nothing left on this court
+      const nx = list.find(m => state(m) === 'up' && ready(m)); if (!nx) return;                                                         // next game not decided yet: keep waiting
+      delete acArm[court]; if (!acCalled[nx.mid]) { acCalled[nx.mid] = true; acQ.push(nx.mid); acRun(); }
+    });
+  }
+  async function acRun() {                                                     // one call at a time, so two courts finishing together are read out one after the other
+    if (acRunning) return; acRunning = true;
+    try {
+      while (acQ.length && acOn) {
+        const m = mById(acQ.shift()); if (!m || state(m) !== 'up') continue;
+        logIt('Auto-call: next game on ' + m.court); call(m);
+        await new Promise(r => setTimeout(r, 400)); let w = 0; while (window.Announcer && Announcer.busy && Announcer.busy() && w < 240) { await new Promise(r => setTimeout(r, 250)); w++; }
+        await new Promise(r => setTimeout(r, 700));
+      }
+    } finally { acRunning = false; }
+  }
   function renderPanel() {
     const box = $('#panel');
     if (!panelKind) {
@@ -397,6 +428,8 @@ details>summary{transition:color .2s ease}
   function initToolbar() {
     $('#tbw').style.display = 'block';
     $('#bCallAll').onclick = runCallAll;
+    acPaint(); $('#acDelay').onchange = e => { acDelay = +e.target.value || 0; LSs('mc.autodelay', String(acDelay)); };
+    $('#bAuto').onclick = () => { acOn = !acOn; LSs('mc.autocall', acOn ? '1' : '0'); if (!acOn) { acArm = {}; acQ = []; } acPaint(); toast(acOn ? 'Auto-call is ON: the next game is called when a game finishes.' : 'Auto-call is OFF.'); logIt('Auto-call turned ' + (acOn ? 'on' : 'off')); };
     document.querySelectorAll('#tbw [data-p]').forEach(b => b.onclick = () => { if (panelKind === 'find') $('#find').value = ''; openPanel(b.dataset.p); if (b.closest('#moreRow')) setMore(false); });
     $('#bMore').onclick = () => setMore(!$('#moreRow').classList.contains('open'));
     $('#find').addEventListener('input', () => { panelKind = $('#find').value.trim() ? 'find' : ''; document.querySelectorAll('#tbw [data-p]').forEach(b => b.classList.remove('on')); $('#bMore').classList.remove('on'); renderPanel(); });
@@ -554,6 +587,7 @@ details>summary{transition:color .2s ease}
   load();
   setInterval(() => { if (!document.hidden) load(); }, 10000);
   setInterval(() => {                                           // countdowns tick every second without redrawing the buttons
+    try { acTick(); } catch (e) {}
     if (document.hidden || !data) return; let cross = false;
     document.querySelectorAll('[data-cd]').forEach(el => { const c = clocks[el.dataset.mid]; if (!c) return; const l = left(c, el.dataset.cd); if (l == null) return; el.textContent = mmss(l); if (l <= 0 && el.dataset.over === '0') cross = true; });
     if (cross) paint();
