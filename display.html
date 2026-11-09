@@ -71,6 +71,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 .uthen{display:flex;gap:2vw}.tc{flex:1;min-width:0;background:rgba(255,255,255,.05);border-radius:2vh;padding:1.2vh 1.6vw}
 .tc .tt{color:var(--lime);font-weight:800;font-size:2.8vh;letter-spacing:.1em;margin-bottom:.4vh}.tc .tn{font-size:3.4vh;font-weight:800;line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .idle .then{font-size:3.6vh;color:var(--mute);margin-top:2vh}.idle .then b{color:var(--ink)}
+.med .lab{color:var(--blue);font-size:6vh}.med .medt{font-size:38vh;font-weight:900;font-variant-numeric:tabular-nums;line-height:1;color:var(--blue)}.med .medw{font-size:6.5vh;font-weight:800}.med.over .lab,.med.over .medt{color:var(--red)}.med.over .medt{animation:pulse 1s infinite}
 .final{font-size:30vh;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
 .hint{position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);background:rgba(255,255,255,.12);padding:1vh 2vw;border-radius:99px;font-size:2.6vh;color:var(--mute);transition:opacity .6s}
 .hint.off{opacity:0;pointer-events:none}
@@ -168,6 +169,14 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     return '';
   }
 
+  function medicalPanel(m, ml, s) {
+    const over = ml <= 0, who = bc && bc.mWho ? String(bc.mWho) : '';
+    return '<div class="idle med' + (over ? ' over' : '') + '"><div class="lab">' + (over ? 'Medical timeout is over' : 'Medical timeout') + '</div>' +
+      '<div class="medt">' + (over ? '0:00' : '<span data-cd="mLeft">' + mmss(ml) + '</span>') + '</div>' +
+      (who ? '<div class="medw">' + esc(who) + '</div>' : '') +
+      '<div class="sub">' + esc(m.t1) + ' vs ' + esc(m.t2) + ' &middot; ' + ((s && s.s1) || 0) + ' &ndash; ' + ((s && s.s2) || 0) + '</div></div>';
+  }
+
   function board(m, s1, s2, flip, srv, won) {
     const order = flip ? [1, 0] : [0, 1], names = [m.t1, m.t2], pts = [s1, s2];
     const icon = m.sport === 'pickleball' ? '&#127955;' : '&#127992;';
@@ -238,7 +247,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     else if (cur) {
       const s = sc(cur) || { s1: 0, s2: 0 }, use = fresh() && bc.mid === cur.mid;
       const checking = use && bc.here && !bc.allHere && (bc.s1 || 0) + (bc.s2 || 0) === 0 && !bc.srv;     // the umpire opened the match and players are still arriving
-      if (checking) h = header(cur) + attendance(cur) + '<div class="info">' + (banner() || '<div class="banner amber" style="background:rgba(255,159,10,.18);color:var(--amber)">Players: please come to the court</div>') + '</div>';
+      const mlp = use ? left('mLeft') : null;
+      if (mlp != null) h = header(cur) + medicalPanel(cur, mlp, s);                    // medical timeout: the countdown fills the TV
+      else if (checking) h = header(cur) + attendance(cur) + '<div class="info">' + (banner() || '<div class="banner amber" style="background:rgba(255,159,10,.18);color:var(--amber)">Players: please come to the court</div>') + '</div>';
       else h = header(cur) + board(cur, use ? bc.s1 : s.s1, use ? bc.s2 : s.s2, use && bc.flip, use ? bc.srv : null, use && bc.won) + '<div class="info">' + banner() + '</div>';
     } else if (finalShow && finalShow.until > Date.now() && ms.find(m => m.mid === finalShow.mid)) {
       const m = ms.find(x => x.mid === finalShow.mid), s = sc(m) || { s1: 0, s2: 0 }, w = s.s1 > s.s2 ? m.t1 : m.t2;
