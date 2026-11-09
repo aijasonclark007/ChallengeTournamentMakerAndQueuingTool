@@ -387,6 +387,7 @@ summary:hover{background:#fff}
     <div class="bar"><h2>1. Add players</h2><button class="ghost lockbtn" data-lock="add" type="button">Save</button></div>
     <div class="card" style="margin-top:12px">
       <div class="seg" id="tmSeg" role="tablist" aria-label="Tournament type"><button type="button" id="tmFun" class="on" role="tab" aria-selected="true">Fun Games<small>Blind-draw pairs · High / Mid / Low</small></button><button type="button" id="tmOpen" role="tab" aria-selected="false">Open Tournament<small>Ready-made pairs · Levels × Divisions</small></button></div>
+      <div id="tmWrap">
       <div id="funBox">
       <label for="players">One player per line: name, level (High, Mid or Low)</label>
       <textarea id="players" placeholder="Ana Reyes, High&#10;Ben Cruz, Mid"></textarea>
@@ -411,6 +412,7 @@ summary:hover{background:#fff}
           <button type="button" class="ghost" id="oSample">Load sample event (118 pairs)</button>
         </div>
         <div id="oInfo"></div>
+      </div>
       </div>
       <div class="row">
         <div><label for="courts">Number of courts</label><input id="courts" type="number" min="1" max="12" value="4"></div>
@@ -1469,10 +1471,20 @@ function setMode(m, instant) {
   tmode = m;
   $('#tmFun').classList.toggle('on', m === 'fun'); $('#tmOpen').classList.toggle('on', m === 'open');
   $('#tmFun').setAttribute('aria-selected', m === 'fun'); $('#tmOpen').setAttribute('aria-selected', m === 'open');
-  if (instant) { $('#funBox').classList.toggle('hidden', m !== 'fun'); $('#openBox').classList.toggle('hidden', m !== 'open'); }
-  else { vis($('#funBox'), m === 'fun'); vis($('#openBox'), m === 'open'); }
   $('#sample').classList.toggle('hidden', m !== 'fun'); $('#drawBtn').textContent = m === 'open' ? 'Create categories' : 'Pair players';
   if (m === 'open') { if (!$('#oLevels').value) $('#oLevels').value = OPEN_PRESET.join(', '); if (!$('#courts').dataset.o) { $('#courts').dataset.o = 1; $('#courts').value = 10; $('#start').value = '09:00'; $('#firstCourt').value = 1; } renderOpenInfo(); }
+  const fb = $('#funBox'), ob = $('#openBox'), from = m === 'open' ? fb : ob, to = m === 'open' ? ob : fb;
+  if (instant || REDUCED || !to.classList.contains('hidden') || !$('#tmWrap').isConnected) { fb.classList.toggle('hidden', m !== 'fun'); ob.classList.toggle('hidden', m !== 'open'); return; }
+  swapBoxes(from, to);                                       // one smooth swap: the old box goes, the new one fades in while the card eases to its new height (no clipping, no jump)
+}
+function swapBoxes(from, to) {
+  const w = $('#tmWrap'), tok = w._t = {}, h0 = w.offsetHeight;
+  from.classList.add('hidden'); to.classList.remove('hidden'); to.style.opacity = '0';
+  const h1 = w.offsetHeight;
+  w.style.transition = 'none'; w.style.overflow = 'hidden'; w.style.height = h0 + 'px'; void w.offsetHeight;
+  w.style.transition = 'height .34s cubic-bezier(.2,.8,.2,1)'; w.style.height = h1 + 'px';
+  to.style.transition = 'opacity .3s ease .08s'; requestAnimationFrame(() => { to.style.opacity = '1'; });
+  setTimeout(() => { if (w._t !== tok) return; w.style.height = w.style.overflow = w.style.transition = ''; to.style.opacity = to.style.transition = ''; }, 460);
 }
 const swMode = m => { if (draw && m !== tmode) { $('#loadMsg').textContent = 'This tournament is already started as ' + (tmode === 'open' ? 'an Open Tournament' : 'Fun Games') + '. Create a new tournament to use the other type.'; return; } setMode(m); };
 $('#tmFun').onclick = () => swMode('fun'); $('#tmOpen').onclick = () => swMode('open');
