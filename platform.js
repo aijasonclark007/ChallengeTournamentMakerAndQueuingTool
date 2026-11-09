@@ -273,6 +273,10 @@
     needSb(); const r = await sb.rpc('move_match', { p_slug: slug, p_key: key, p_mid: mid, p_court: court || '' });
     if (r.error) fail(r.error);
   }
+  async function playMatch(slug, key, mid, court, slot) {
+    needSb(); const r = await sb.rpc('play_match', { p_slug: slug, p_key: key, p_mid: mid, p_court: court, p_slot: slot });
+    if (r.error) fail(r.error);
+  }
   async function addExtraMatch(slug, key, court, t1, t2, sport, time) {
     needSb(); const r = await sb.rpc('add_extra_match', { p_slug: slug, p_key: key, p_court: court, p_t1: t1, p_t2: t2, p_sport: sport || 'badminton', p_time: time || '' });
     if (r.error) fail(r.error); return r.data;
@@ -391,7 +395,7 @@
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
-    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, getLiveScoresSince, getPublicLive, clearLiveScores, umpireGet, umpireScore, umpireReset, resetUmpireKey, makeTvCode, getTvCode, moveMatch, addExtraMatch, removeExtraMatch, setExtraSlot, editScore, setAnnouncement, getAnnouncement, setSponsors, getSponsors, addLog, getLog, setMatchNote, getMatchNotes, getCourtMoves, unpublishSchedule, getPublicSchedule, getScheduleVersion,
+    listQueueSessions, getQueueSession, getQueueVersion, createQueueSession, saveQueueState, renameQueueSession, deleteQueueSession, joinQueueSession, getPublicQueue, subscribeQueue, publishSchedule, myPublishedSchedule, getLiveScores, getLiveScoresSince, getPublicLive, clearLiveScores, umpireGet, umpireScore, umpireReset, resetUmpireKey, makeTvCode, getTvCode, moveMatch, playMatch, addExtraMatch, removeExtraMatch, setExtraSlot, editScore, setAnnouncement, getAnnouncement, setSponsors, getSponsors, addLog, getLog, setMatchNote, getMatchNotes, getCourtMoves, unpublishSchedule, getPublicSchedule, getScheduleVersion,
     liveChannel, whenReady: () => readyP,
     get user() { return user; }
   };
