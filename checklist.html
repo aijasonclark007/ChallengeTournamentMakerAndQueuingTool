@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Event checklist</title>
+<style>
+:root{--bg:#F2F2F7;--card:#fff;--ink:#1C1C1E;--mute:#6C6C72;--line:#D5DCE8;--blue:#007AFF;--green:#1E8E3E}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1C1C1E;--ink:#F2F2F7;--mute:#98989F;--line:#38383A;--blue:#0A84FF;--green:#30D158}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,system-ui,"Segoe UI",sans-serif}
+.w{max-width:680px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:26px;margin:0 0 4px}p.s{color:var(--mute);margin:0 0 14px}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:6px 0 4px}.bar i{display:block;height:100%;width:0;background:var(--green);transition:width .3s}
+.cnt{font-size:14px;color:var(--mute);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+.cnt button{border:0;background:none;color:var(--blue);font:600 14px inherit;font-family:inherit;cursor:pointer;padding:4px}
+section{background:var(--card);border-radius:16px;padding:6px 16px 10px;margin-bottom:16px}
+h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:14px 0 6px}
+label{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
+label:first-of-type{border-top:0}
+input{appearance:none;-webkit-appearance:none;flex:none;width:24px;height:24px;margin:1px 0 0;border:2px solid var(--line);border-radius:8px;background:transparent;cursor:pointer;display:grid;place-content:center}
+input:checked{background:var(--green);border-color:var(--green)}input:checked::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg) translate(-1px,-1px)}
+input:focus-visible{outline:3px solid rgba(0,122,255,.35)}
+label span b{display:block;font-weight:600}label span small{color:var(--mute);font-size:14px}
+input:checked+span b{color:var(--mute);text-decoration:line-through}
+a{color:var(--blue)}
+</style></head><body><div class="w">
+<h1>Event checklist</h1><p class="s">Tick things off as you go. It is saved on this device only. <a href="schedule.html">Back to the Draw &amp; Schedule tool</a></p>
+<div class="bar"><i id="pb"></i></div><div class="cnt"><span id="ct"></span><button id="rs" type="button">Reset all</button></div>
+<div id="list"></div>
+</div>
+<script>
+const SEC = [
+ ['A week before', [
+  ['Check Supabase usage', 'Dashboard, Usage. Watch Realtime messages and egress. Upgrade before a 200-player event if you are near the free limits.'],
+  ['Collect the pairs and divisions', 'Open Tournament: Player 1, Player 2, Division, Level (and Seed if you have it).'],
+  ['Confirm courts, hours and games length', 'Courts available, minutes per game, when each day ends.'],
+  ['Line up helpers', 'Who runs Match Control, who calls courts, who has the raffle.']]],
+ ['The day before', [
+  ['Build the schedule and publish it', 'Send the public link to the players and check it on a phone.'],
+  ['Test the TV pages', 'Live scores TV and Standings TV, in full screen, on the real screens.'],
+  ['Test Match Control and umpire links', 'Call a match, score it, then clear the test scores.'],
+  ['Charge phones, bring chargers and spare score sheets']]],
+ ['Match day', [
+  ['Open Match Control on the main device', 'Keep that tab open so knockout rounds are created as soon as a level finishes.'],
+  ['Turn on Auto-call if you want it', 'Pick the wait time from the Auto-call button.'],
+  ['Post the announcement on the TV', 'Rules, breaks, where to check in.'],
+  ['Check every court shows the right match']]],
+ ['After the event', [
+  ['Confirm every knockout game has a saved score'],
+  ['Download results (CSV)', 'Schedule page, Standings, Download results (CSV).'],
+  ['Announce champions and thank sponsors'],
+  ['Check Supabase usage again', 'So you know how much room the next event has.']]]
+];
+const KEY = 'checklist.v1', get = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }, set = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
+const E = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let st = get(), total = 0;
+document.getElementById('list').innerHTML = SEC.map((s, i) => '<section><h2>' + E(s[0]) + '</h2>' + s[1].map((t, j) => { total++; const k = i + '.' + j; return '<label><input type="checkbox" data-k="' + k + '"' + (st[k] ? ' checked' : '') + '><span><b>' + E(t[0]) + '</b>' + (t[1] ? '<small>' + E(t[1]) + '</small>' : '') + '</span></label>'; }).join('') + '</section>').join('');
+const paint = () => { const n = Object.keys(st).filter(k => st[k]).length; document.getElementById('pb').style.width = (total ? n * 100 / total : 0) + '%'; document.getElementById('ct').textContent = n + ' of ' + total + ' done'; };
+document.getElementById('list').addEventListener('change', e => { const k = e.target.dataset.k; if (!k) return; if (e.target.checked) st[k] = 1; else delete st[k]; set(st); paint(); });
+document.getElementById('rs').onclick = () => { st = {}; set(st); document.querySelectorAll('input').forEach(i => i.checked = false); paint(); };
+paint();
+</script></body></html>

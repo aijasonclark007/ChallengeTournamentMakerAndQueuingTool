@@ -510,7 +510,7 @@ summary:hover{background:#fff}
   </section>
   <section id="standSec" class="hidden">
     <div class="bar noprint"><h2>5. Standings</h2>
-      <div class="tools"><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div><div id="randPick" class="tools hidden"></div></div>
+      <div class="tools"><button id="expRes" class="ghost" type="button">Download results (CSV)</button><a class="ghost" href="checklist.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Event checklist</a><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div><div id="randPick" class="tools hidden"></div></div>
     <p class="hint">Type each game's score in the schedule above. Teams are ranked by match wins, then total points scored, then head-to-head. The top 2 of each bracket advance.</p>
     <div id="standings"></div>
     <div class="bar noprint" style="margin-top:16px"><span id="koHint" class="hint"></span><button id="koBtn" class="go" type="button">Create knockout round</button></div>
@@ -2326,6 +2326,24 @@ $('#clearScores').onclick = e => {
 };
 
 const advOf = b => (gopt.advanceBy && gopt.advanceBy[b.level]) || gopt.advance || 2;
+// results as a spreadsheet file: pool standings, every group game and every knockout game
+function exportResults() {
+  if (!sched) return;
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', line = a => a.map(q).join(',');
+  const c = committed(results), st = computeStandings(sched.brackets, sched.matches, c, { coin }), out = [];
+  out.push(line(['POOL STANDINGS'])); out.push(line(['Level', 'Group', 'Rank', 'Team', 'Players', 'Won', 'Lost', 'Points for', 'Points against', 'Diff', 'Advanced', 'Withdrew']));
+  sched.brackets.forEach(b => { const x = st[b.id], adv = advOf(b); let k = 0; x.rows.forEach(r => { const el = r.out ? 0 : ++k; out.push(line([b.level, b.name, r.rank, r.team.name, (r.team.players || []).join(' / '), r.won, r.lost, r.pf, r.pa, r.pd, x.scored && el && el <= adv ? 'Yes' : '', r.out ? 'Yes' : ''])); }); });
+  out.push(''); out.push(line(['GROUP GAMES'])); out.push(line(['Level', 'Group', 'Time', 'Court', 'Team 1', 'Team 2', 'Score 1', 'Score 2']));
+  sched.matches.slice().sort((x, y) => x.slot - y.slot).forEach(m => { const r = c[m.id]; out.push(line([m.level, m.bracket, m.time || '', m.court || '', m.team1 && m.team1.name, m.team2 && m.team2.name, r ? r.a : '', r ? r.b : ''])); });
+  if (ko && ko.matches && ko.matches.length) {
+    out.push(''); out.push(line(['KNOCKOUT GAMES'])); out.push(line(['Level', 'Game', 'Team 1', 'Team 2', 'Score 1', 'Score 2']));
+    ko.matches.forEach(m => { const r = koResults[m.id], sv = r && r.saved, nm = i => (m.slots && m.slots[i] && m.slots[i].team ? m.slots[i].team.name : ''); out.push(line([m.level, m.id, nm(0), nm(1), sv ? r.a : '', sv ? r.b : ''])); });
+  }
+  const nm = ($('#tname').value.trim() || 'tournament').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'tournament';
+  const url = URL.createObjectURL(new Blob(['\ufeff' + out.join('\r\n')], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a');
+  a.href = url; a.download = nm + '-results.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+$('#expRes').onclick = exportResults;
 function renderStandings() {
   const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin });
   $('#standings').innerHTML = byLevel(sched.brackets, b => {
