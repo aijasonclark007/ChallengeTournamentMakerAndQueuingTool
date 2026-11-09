@@ -69,19 +69,25 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
         entries = entries.concat(grp);
       }
       if (entries.length < 2) return null;
+      entries.forEach(function (e, i) { e.seed = i + 1; });
       var size = 1; while (size < entries.length) size *= 2;
       var order = [1]; while (order.length < size) { var n = order.length * 2; order = order.reduce(function (a, q) { return a.concat([q, n + 1 - q]); }, []); }
       var slots = order.map(function (q) { return entries[q - 1] || null; });
-      var clash = function (i) { return slots[2 * i] && slots[2 * i + 1] && slots[2 * i].bracket === slots[2 * i + 1].bracket; };
-      for (var pass = 0; pass < 30; pass++) {
-        var bad = -1; for (var i = 0; i < size / 2; i++) if (clash(i)) { bad = i; break; } if (bad < 0) break;
-        var pos = 2 * bad + 1, fixed = false;
-        for (var q2 = 0; q2 < size && !fixed; q2++) {
-          if (q2 === pos || !slots[q2] || slots[q2].rank === 1) continue;
-          var t = slots[pos]; slots[pos] = slots[q2]; slots[q2] = t;
-          if (!clash(bad) && !clash(q2 >> 1)) fixed = true; else { t = slots[pos]; slots[pos] = slots[q2]; slots[q2] = t; }
+      var rounds = Math.round(Math.log2(size)), meet = function (i, j) { return 32 - Math.clz32(i ^ j); };
+      var cost = function () { var c = 0; for (var i = 0; i < size; i++) for (var j = i + 1; j < size; j++) if (slots[i] && slots[j] && slots[i].bracket === slots[j].bracket) c += Math.pow(8, rounds - meet(i, j)); return c; };
+      var swap = function (p, q) { var t = slots[p]; slots[p] = slots[q]; slots[q] = t; };
+      var now = cost();
+      for (var pass = 0; pass < 80 && now > 0; pass++) {
+        var best = null;
+        for (var p = 0; p < size; p++) {
+          if (!slots[p] || slots[p].rank === 1) continue;
+          for (var q = p + 1; q < size; q++) {
+            if (!slots[q] || slots[q].rank === 1) continue;
+            swap(p, q); var c = cost(), d = Math.abs(slots[p].seed - slots[q].seed); swap(p, q);
+            if (c < now && (!best || c < best.c || (c === best.c && d < best.d))) best = { p: p, q: q, c: c, d: d };
+          }
         }
-        if (!fixed) break;
+        if (!best) break; swap(best.p, best.q); now = best.c;
       }
       return slots.map(function (e) { return e ? 'Top ' + e.rank + ' of ' + e.bracket : null; });
     }

@@ -1236,7 +1236,7 @@ function computeStandings(brackets, matches, results, options) {
 /**
  * Single-elimination knockout, one per skill level. The top `advance` teams (default 2) of every
  * bracket go through. Group winners are seeded first, then runners-up; the best seeds get byes when the
- * field is not a power of 2, and teams from the same bracket are kept apart in the first round.
+ * field is not a power of 2, and teams from the same bracket are kept apart for as long as possible (they can only meet again late).
  */
 function buildKnockout(brackets, standings, options) {
   const opt = withDefaults(options), adv0 = opt.advance || 2, matches = [], champions = [];
@@ -1245,7 +1245,7 @@ function buildKnockout(brackets, standings, options) {
   opt.levels.forEach(level => {
     const adv = (opt.advanceBy && opt.advanceBy[level]) || adv0, bs = brackets.filter(b => b.level === level), entries = [];
     for (let r = 0; r < adv; r++) {
-      entries.push.apply(entries, bs.map(b => ({ row: standings[b.id].rows.filter(x => !x.out)[r], bracket: b.name })).filter(x => x.row).sort(better));      // a withdrawn team does not advance: the next team takes the place
+      entries.push.apply(entries, bs.map(b => ({ row: standings[b.id].rows.filter(x => !x.out)[r], bracket: b.name, r })).filter(x => x.row).sort(better));      // a withdrawn team does not advance: the next team takes the place
     }
     entries.forEach((e, i) => { e.team = e.row.team; e.seed = i + 1; });
     if (entries.length < 2) { if (entries.length) champions.push({ level, ref: { team: entries[0].team } }); return; }
@@ -1260,19 +1260,23 @@ function buildKnockout(brackets, standings, options) {
     let order = [1]; while (order.length < size) { const n = order.length * 2; order = order.reduce((a, s) => a.concat([s, n + 1 - s]), []); }
     const slots = order.map(s => entries[s - 1] || null);       // null = bye
 
-    const clash = i => slots[2 * i] && slots[2 * i + 1] && slots[2 * i].bracket === slots[2 * i + 1].bracket;
-    for (let pass = 0; pass < 30; pass++) {
-      let bad = -1;
-      for (let i = 0; i < size / 2; i++) if (clash(i)) { bad = i; break; }
-      if (bad < 0) break;
-      const pos = 2 * bad + 1;
-      let fixed = false;
-      for (let q = 0; q < size && !fixed; q++) {
-        if (q === pos || !slots[q] || slots[q].row.rank === 1) continue;   // group winners stay put
-        [slots[pos], slots[q]] = [slots[q], slots[pos]];
-        if (!clash(bad) && !clash(q >> 1)) fixed = true; else [slots[pos], slots[q]] = [slots[q], slots[pos]];
+    // teams from the same group are kept apart for as long as possible: the later they could meet, the better (same group = first round is worst, then the semifinals, ... the final is fine)
+    const rounds = Math.round(Math.log2(size)), meet = (i, j) => 32 - Math.clz32(i ^ j);        // 1 = first round ... rounds = final
+    const cost = () => { let c = 0; for (let i = 0; i < size; i++) for (let j = i + 1; j < size; j++) if (slots[i] && slots[j] && slots[i].bracket === slots[j].bracket) c += Math.pow(8, rounds - meet(i, j)); return c; };
+    const swap = (p, q) => { const t = slots[p]; slots[p] = slots[q]; slots[q] = t; };
+    let now = cost();
+    for (let pass = 0; pass < 80 && now > 0; pass++) {
+      let best = null;
+      for (let p = 0; p < size; p++) {
+        if (!slots[p] || slots[p].r === 0) continue;                               // group winners stay put
+        for (let q = p + 1; q < size; q++) {
+          if (!slots[q] || slots[q].r === 0) continue;
+          swap(p, q); const c = cost(), d = Math.abs(slots[p].seed - slots[q].seed); swap(p, q);
+          if (c < now && (!best || c < best.c || (c === best.c && d < best.d))) best = { p, q, c, d };
+        }
       }
-      if (!fixed) break;
+      if (!best) break;
+      swap(best.p, best.q); now = best.c;
     }
 
     let refs = slots.map(e => e && { team: e.team, bracket: e.bracket, seed: e.seed }), rnd = 1;
