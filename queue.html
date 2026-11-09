@@ -172,7 +172,16 @@ body.live select{background:#fff;color:#1C1C1E}
 .qtag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--blue);background:rgba(0,122,255,.12);padding:2px 8px;border-radius:999px;white-space:nowrap}
 #tabbody .plact{display:grid;grid-template-columns:1fr 1fr;gap:8px}#tabbody .plact .btn{width:100%;justify-content:center;text-align:center;margin:0;white-space:normal;line-height:1.2}  textarea { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 </style>
-<style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
+<style>a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style><style id="selfix">
+/* one look for every dropdown: rounded, a chevron on the right, same height as the text boxes */
+:root select:not([multiple]){-webkit-appearance:none;appearance:none;background-color:var(--card,#fff);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%238A94A6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;background-size:12px 8px;border:1px solid var(--line,#D5DCE8);border-radius:12px;color:var(--ink,#1C1C1E);font-family:inherit;font-weight:600;line-height:1.25;min-height:42px;padding:9px 38px 9px 14px;cursor:pointer;text-overflow:ellipsis;outline:none}
+:root select:not([multiple]):hover{border-color:#B8C2D4}
+:root select:not([multiple]):focus-visible,:root select:not([multiple]):focus{border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.18)}
+:root select:not([multiple]):disabled{opacity:.5;cursor:default}
+:root select.oadv,:root #oInfo select{min-height:34px;padding:5px 32px 5px 11px;font-size:14px;background-position:right 10px center}
+:root select option{color:#1C1C1E;background:#fff;font-weight:500}
+</style>
+</head>
 <body>
 <div class="wrap" id="root"></div>
 <div id="ov"><div class="sheet" id="sheet"></div></div>

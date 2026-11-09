@@ -138,7 +138,16 @@ h2{font-size:15px;color:var(--mute);margin:18px 2px 4px;text-transform:uppercase
 .qclr{display:block;margin:18px auto 0;background:none;color:var(--mute);font-weight:700;padding:10px}
 </style>
 <style>.annu{position:fixed;left:10px;right:10px;top:calc(8px + env(safe-area-inset-top));z-index:60;background:#FF9500;color:#1b1200;border-radius:14px;padding:11px 14px;font-weight:800;font-size:15px;box-shadow:0 8px 24px rgba(0,0,0,.28);display:none}.annu.on{display:block}.annu small{display:block;font-weight:600;opacity:.7;margin-top:2px}
-a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style></head>
+a,button,.side,.q,.court,.pillbtn,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}.view,.sheet,.nthumb,.thumb,.findbox{backface-visibility:hidden}@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style><style id="selfix">
+/* one look for every dropdown: rounded, a chevron on the right, same height as the text boxes */
+:root select:not([multiple]){-webkit-appearance:none;appearance:none;background-color:var(--card,#fff);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%238A94A6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;background-size:12px 8px;border:1px solid var(--line,#D5DCE8);border-radius:12px;color:var(--ink,#1C1C1E);font-family:inherit;font-weight:600;line-height:1.25;min-height:42px;padding:9px 38px 9px 14px;cursor:pointer;text-overflow:ellipsis;outline:none}
+:root select:not([multiple]):hover{border-color:#B8C2D4}
+:root select:not([multiple]):focus-visible,:root select:not([multiple]):focus{border-color:#007AFF;box-shadow:0 0 0 3px rgba(0,122,255,.18)}
+:root select:not([multiple]):disabled{opacity:.5;cursor:default}
+:root select.oadv,:root #oInfo select{min-height:34px;padding:5px 32px 5px 11px;font-size:14px;background-position:right 10px center}
+:root select option{color:#1C1C1E;background:#fff;font-weight:500}
+</style>
+</head>
 <body>
 <div class="top"><h1 id="ttl">Umpire scoring<small id="sub"></small></h1><span class="dot" id="dot" title="Connection"></span></div>
 <style>#score .sbar{padding-top:calc(var(--sat,env(safe-area-inset-top)) + 8px)}</style>
