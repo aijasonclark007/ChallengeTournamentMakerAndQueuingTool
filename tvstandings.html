@@ -37,11 +37,12 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
   if (!P || !P.configured) { m.textContent = 'The cloud is not connected.'; return; }
   const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
   let sec = +(q.get('sec') || LS.get('tvs.sec') || 12), level = q.get('level') || LS.get('tvs.level') || 'all', paused = false, idx = 0;
-  if (!(sec >= 3 && sec <= 300)) sec = 12; if (!/^(all|Low|Mid|High)$/.test(level)) level = 'all';
+  if (!(sec >= 3 && sec <= 300)) sec = 12; if (level.length > 60) level = 'all';
 
   // ---- runs INSIDE the published page (sandboxed frame): shows ONE bracket at a time, sized to fill the screen, on a timer ----
   function frameScript(cfg) {
-    var H = document.documentElement, sec = cfg.sec, level = cfg.level, cur = cfg.idx | 0, paused = !!cfg.paused, tm = 0, ft = 0, LIVE = {}, ORD = ['Low', 'Mid', 'High'];
+    var H = document.documentElement, sec = cfg.sec, level = cfg.level, cur = cfg.idx | 0, paused = !!cfg.paused, tm = 0, ft = 0, LIVE = {};
+    function order() { var k = Object.keys(window.LVC || {}); return k.length ? k : ['Low', 'Mid', 'High']; }     // Open Tournament: its own levels, lowest first
     H.classList.add('tvs');
     var bar = document.createElement('div'); bar.id = 'tvsbar'; bar.innerHTML = '<div class="tvl"></div><div class="tvd"></div><div class="tvp"><i></i></div>';
     var ko = document.createElement('div'); ko.id = 'tvko';
@@ -133,14 +134,14 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
     }
     function slides() {                                           // per level: its standings, then its own knockout chart
       var by = readKo(), out = [];
-      ORD.forEach(function (l) {
+      order().forEach(function (l) {
         if (level !== 'all' && level !== l) return;
         [].forEach.call(document.querySelectorAll('#viewStd .sb'), function (g) { g.classList.toggle('fin', !!g.querySelector('.adv:not([style])')); if (g.dataset.level === l) out.push({ sb: g }); });
         if (by[l]) out.push({ ko: ko, lv: l, by: by });
       });
       return out;
     }
-    function say(n) { try { parent.postMessage({ t: 'tvs', i: cur, n: n, paused: paused }, '*'); } catch (e) {} }
+    function say(n) { try { parent.postMessage({ t: 'tvs', i: cur, n: n, paused: paused, lv: order() }, '*'); } catch (e) {} }
     function fit() {                                                  // the biggest text size at which the slide still fits the screen
       var g = document.querySelector('#viewStd .sb.cur') || (ko.classList.contains('cur') ? ko : null); if (!g) return;
       var rows = g === ko ? 10 : (g.querySelectorAll('.srow').length || 1), lo = 5, hi = Math.max(lo, Math.min(innerHeight / (rows + 2.2) / 4.4, innerWidth / 38));
@@ -241,7 +242,7 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
   let lastBook = '';
   const postLive = force => { const j = JSON.stringify(book); if (!force && j === lastBook) return; lastBook = j; toFrame({ t: 'live', scores: book, moves: [] }); };
   f.addEventListener('load', () => postLive(true));
-  window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'tvs') return; idx = d.i | 0; n = d.n | 0; $('#bPlay').textContent = d.paused ? 'Play' : 'Pause'; });
+  window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'tvs') return; idx = d.i | 0; n = d.n | 0; fillLvl(d.lv); $('#bPlay').textContent = d.paused ? 'Play' : 'Pause'; });
 
   // live scores (so the table changes as games finish), a newly published schedule, and the announcement banner
   const liveTick = async () => { if (document.hidden) return; try { book = await P.getLiveScores(slug) || []; postLive(); } catch (e) {} };
@@ -260,6 +261,7 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
   const showCtl = () => { ctl.classList.remove('hide'); clearTimeout(hideT); hideT = setTimeout(() => ctl.classList.add('hide'), 4000); };
   ['mousemove', 'pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, showCtl, { passive: true }));
   $('#sSec').value = String(sec); if ($('#sSec').value !== String(sec)) { const o = document.createElement('option'); o.textContent = sec; $('#sSec').appendChild(o); $('#sSec').value = String(sec); }
+  const fillLvl = lv => { const sel = $('#sLvl'), j = JSON.stringify(lv || []); if (!lv || !lv.length || sel.dataset.j === j) return; sel.dataset.j = j; sel.innerHTML = ''; ['all'].concat(lv).forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v === 'all' ? 'All levels' : v; sel.appendChild(o); }); if (!lv.includes(level)) level = 'all'; sel.value = level; };
   $('#sLvl').value = level;
   $('#sSec').onchange = e => { sec = +e.target.value; LS.set('tvs.sec', String(sec)); toFrame({ t: 'tvc', cmd: 'sec', v: sec }); };
   $('#sLvl').onchange = e => { level = e.target.value; LS.set('tvs.level', level); toFrame({ t: 'tvc', cmd: 'level', v: level }); };
