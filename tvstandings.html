@@ -150,10 +150,13 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
       if (!ok(hi)) { for (var i = 0; i < 14; i++) { var mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; } ok(lo); }
     }
     function sched() { cancelAnimationFrame(ft); ft = requestAnimationFrame(fit); }
-    function mark(ss) {
-      [].forEach.call(document.querySelectorAll('#viewStd .sb'), function (g) { g.classList.remove('cur'); });
-      ko.classList.remove('cur'); var s = ss[cur]; if (!s) return;
-      if (s.ko) ko.innerHTML = koHtml(s.by, s.lv); (s.sb || s.ko).classList.add('cur'); H.classList.toggle('tvko', !!s.ko);
+    var koLast = '';
+    function mark(ss, anim) {                                         // anim only when the slide changes: a score refresh redraws quietly, with no fade (that was the flicker)
+      [].forEach.call(document.querySelectorAll('#viewStd .sb'), function (g) { g.classList.remove('cur', 'anim'); });
+      var was = ko.classList.contains('cur'); ko.classList.remove('cur', 'anim'); var s = ss[cur]; if (!s) return;
+      if (s.ko) { var kh = koHtml(s.by, s.lv); if (kh !== koLast) { ko.innerHTML = kh; koLast = kh; } }
+      var el = s.sb || s.ko; el.classList.add('cur'); H.classList.toggle('tvko', !!s.ko);
+      if (anim) { void el.offsetWidth; el.classList.add('anim'); }
     }
     function paintBar(ss) {
       var s = ss[cur], l = bar.querySelector('.tvl'), d = bar.querySelector('.tvd');
@@ -167,7 +170,7 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
     }
     function go(i) {
       var ss = slides(), n = ss.length; if (!n) { say(0); return; }
-      cur = ((i % n) + n) % n; mark(ss); paintBar(ss); sched(); say(n); restart();
+      cur = ((i % n) + n) % n; mark(ss, true); paintBar(ss); sched(); say(n); restart();
     }
     function refresh() { var ss = slides(); if (!ss.length) { say(0); return; } if (cur >= ss.length) cur = 0; mark(ss); paintBar(ss); sched(); say(ss.length); }
     window.addEventListener('message', function (e) {
@@ -186,27 +189,27 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
       var b = document.querySelector('.pub .tabs button[data-v="std"]'); if (b) b.click();
       var vd = document.getElementById('viewStd');
       if (vd && window.MutationObserver) new MutationObserver(function () { refresh(); }).observe(vd, { childList: true });     // scores arrived: the page redraws its standings
-      setTimeout(function () { go(cur); }, 50); setTimeout(function () { go(cur); }, 600);
+      setTimeout(function () { go(cur); }, 50); setTimeout(refresh, 600);
     });
   }
   const TVCSS = 'html.tvs,html.tvs body{overflow:hidden!important;background:#F2F2F7!important;margin:0}' +
-    'html.tvs .pub{max-width:none!important;margin:0!important;padding:1.4vh 1.6vw 7vh!important;height:100vh;box-sizing:border-box;display:flex;flex-direction:column;background:#F2F2F7}' +
+    'html.tvs .pub{max-width:none!important;margin:0!important;padding:2.6vh 2.4vw 8vh!important;height:100vh;box-sizing:border-box;display:flex;flex-direction:column;background:#F2F2F7}' +
     'html.tvs .pub>*:not(h1):not(#viewStd):not(#tvko){display:none!important}' +
-    'html.tvs .pub h1{font-size:clamp(20px,3.8vh,48px)!important;margin:0 0 1vh!important}' +
+    'html.tvs .pub h1{font-size:clamp(20px,3.8vh,48px)!important;line-height:1.2!important;margin:0 0 1.6vh!important}' +
     'html.tvs .pub #viewStd{display:flex!important;flex-direction:column;flex:1;min-height:0;animation:none!important;opacity:1!important;transform:none!important}' +
     'html.tvs.tvko .pub #viewStd{display:none!important}' +
-    'html.tvs .pub #tvko{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden}html.tvs .pub #tvko.cur{display:flex;animation:tvin .55s ease both}' +
+    'html.tvs .pub #tvko{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden}html.tvs .pub #tvko.cur{display:flex}html.tvs .pub #tvko.cur.anim{animation:tvin .5s ease both}' +
     'html.tvs .pub #viewStd>.sb{display:none!important;margin:0!important}' +
-    'html.tvs .pub #viewStd>.sb.cur{display:flex!important;flex-direction:column;flex:1;min-height:0;overflow:hidden;border-radius:calc(var(--u,12px)*1.6)!important;animation:tvin .55s ease both}' +
+    'html.tvs .pub #viewStd>.sb.cur{display:flex!important;flex-direction:column;flex:1;min-height:0;overflow:hidden;border-radius:calc(var(--u,12px)*1.6)!important}html.tvs .pub #viewStd>.sb.cur.anim{animation:tvin .5s ease both}' +
     '@keyframes tvin{from{opacity:0;transform:translateY(1.5vh)}to{opacity:1;transform:none}}' +
     'html.tvs .pub #viewStd>p,html.tvs .pub #viewStd>.upd{font-size:clamp(22px,4vh,54px)!important;text-align:center;margin:auto!important}' +
-    'html.tvs .pub .sbh{padding:calc(var(--u,12px)*1) calc(var(--u,12px)*1.6)!important;gap:0 calc(var(--u,12px)*1.2)!important}' +
+    'html.tvs .pub .sbh{padding:calc(var(--u,12px)*1.1) calc(var(--u,12px)*1.8)!important;gap:0 calc(var(--u,12px)*1.2)!important}' +
     'html.tvs .pub .sbh b{font-size:calc(var(--u,12px)*3.4)!important}html.tvs .pub .sbh span{font-size:calc(var(--u,12px)*1.7)!important}' +
-    'html.tvs .pub .srow{flex:1;min-height:0;padding:calc(var(--u,12px)*.5) calc(var(--u,12px)*1.6)!important;gap:calc(var(--u,12px)*1.4)!important}' +
+    'html.tvs .pub .srow{flex:1 1 0;padding:calc(var(--u,12px)*.7) calc(var(--u,12px)*1.8)!important;gap:calc(var(--u,12px)*1.5)!important;transition:none!important}' +
     'html.tvs .pub .rk{font-size:calc(var(--u,12px)*3)!important;min-width:calc(var(--u,12px)*3)!important;height:auto!important;width:auto!important;line-height:1!important}' +
     'html.tvs .pub .av{width:calc(var(--u,12px)*3.2)!important;height:calc(var(--u,12px)*3.2)!important;font-size:calc(var(--u,12px)*1.3)!important;line-height:calc(var(--u,12px)*3.2)!important}' +
     'html.tvs .pub .sn{font-size:calc(var(--u,12px)*2.6)!important;line-height:1.15!important}' +
-    'html.tvs .pub .fm{margin-top:calc(var(--u,12px)*.3)!important}html.tvs .pub .fm i,html.tvs .pub .adv{font-size:calc(var(--u,12px)*1.3)!important}' +
+    'html.tvs .pub .fm{margin-top:calc(var(--u,12px)*.5)!important;gap:calc(var(--u,12px)*.4)!important;align-items:center!important}html.tvs .pub .fm i{width:calc(var(--u,12px)*1.9)!important;height:calc(var(--u,12px)*1.9)!important;font-size:calc(var(--u,12px)*1.05)!important;line-height:1!important}html.tvs .pub .adv{font-size:calc(var(--u,12px)*1.2)!important;line-height:1.2!important}' +
     'html.tvs .pub .srow.top{background:linear-gradient(90deg,rgba(52,199,89,.34),rgba(52,199,89,.08) 75%)!important;box-shadow:inset calc(var(--u,12px)*.55) 0 0 #34C759}' +
     'html.tvs .pub .sb.fin .srow:not(.top){opacity:.5}' +
     'html.tvs .pub .adv{background:#1E8E3E!important;color:#fff!important;border-radius:99px!important;padding:.15em .8em!important;margin-left:.7em!important;font-weight:800!important;letter-spacing:.04em;text-transform:uppercase}' +
@@ -235,8 +238,9 @@ iframe{border:0;width:100%;flex:1;min-height:0;display:block}
   let lastHtml = row.html, lastVer = row.updated_at, n = 0, book = [], lastAnn = null;
   f.srcdoc = wrap(row.html, { idx }); m.remove(); document.body.appendChild(f);
   const toFrame = o => { try { f.contentWindow.postMessage(o, '*'); } catch (e) {} };
-  const postLive = () => toFrame({ t: 'live', scores: book, moves: [] });
-  f.addEventListener('load', postLive);
+  let lastBook = '';
+  const postLive = force => { const j = JSON.stringify(book); if (!force && j === lastBook) return; lastBook = j; toFrame({ t: 'live', scores: book, moves: [] }); };
+  f.addEventListener('load', () => postLive(true));
   window.addEventListener('message', e => { const d = e.data; if (e.source !== f.contentWindow || !d || d.t !== 'tvs') return; idx = d.i | 0; n = d.n | 0; $('#bPlay').textContent = d.paused ? 'Play' : 'Pause'; });
 
   // live scores (so the table changes as games finish), a newly published schedule, and the announcement banner
