@@ -89,6 +89,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
 @keyframes spin{from{opacity:0;transform:translateY(3vh) scale(.97)}to{opacity:1;transform:none}}
 @keyframes annfade{from{opacity:0}to{opacity:1}}@keyframes annpop{from{opacity:0;transform:scale(.9) translateY(4vh)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.offbar{position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:60;max-width:92vw;background:#B42318;color:#fff;border-radius:999px;padding:8px 16px;font:700 14px/1.25 -apple-system,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none;text-align:center}.offbar.on{display:block}
 </style>
 </head>
 <body>
@@ -141,6 +142,18 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
     b.classList.toggle('same', b.dataset.at === a.updated_at && b.classList.contains('on'));      // animate only when the message is new
     t.textContent = a.body; b.dataset.at = a.updated_at; b.classList.add('on');
   }
+  // ----- offline: keep the last data on this device, say clearly when the connection is down, and let the page open again without a connection -----
+  const CKEY = 'cache.disp.' + slug, fmtT = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const cacheSave = d => { try { localStorage.setItem(CKEY, JSON.stringify({ d, t: Date.now() })); } catch (e) {} };
+  const cacheLoad = () => { try { return JSON.parse(localStorage.getItem(CKEY) || 'null'); } catch (e) { return null; } };
+  let lastOkAt = 0;
+  function offPaint(isErr) {
+    let b = document.getElementById('offbar'); if (!b) { b = document.createElement('div'); b.id = 'offbar'; b.className = 'offbar'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
+    const off = isErr && (!lastOkAt || Date.now() - lastOkAt > 30000);
+    b.textContent = 'No connection' + (lastOkAt ? '. Showing the last update from ' + fmtT(lastOkAt) : '. Showing saved data') + (false ? '. Changes will not go through until it is back.' : '. Trying again…'); b.classList.toggle('on', !!off);
+  }
+  window.addEventListener('online', () => { try { load(); } catch (e) {} });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   async function load() {
     try {
       const d = await P.umpireGet(slug, key);
@@ -149,9 +162,12 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hi
       data = d; const nsc = {}; (d.scores || []).forEach(x => { nsc[x.id] = x; });
       mine().forEach(m => { if (prevLive[m.mid] && nsc[m.mid] && nsc[m.mid].status === 'done') finalShow = { mid: m.mid, until: Date.now() + 60000 }; });   // a match just finished: show its result for a minute
       scores = nsc; prevLive = {}; mine().forEach(m => { if (scores[m.mid] && scores[m.mid].status === 'live') prevLive[m.mid] = 1; });
-      netErr = null; lastOk = Date.now();
-    } catch (e) { netErr = e.message || 'offline'; }
-    draw();
+      netErr = null; lastOk = lastOkAt = Date.now(); cacheSave(d);
+    } catch (e) {
+      netErr = e.message || 'offline';
+      if (!data) { const c = cacheLoad(); if (c && c.d) { data = c.d; scores = {}; (c.d.scores || []).forEach(x => { scores[x.id] = x; }); lastOkAt = c.t; } }
+    }
+    offPaint(!!netErr); draw();
   }
 
   function onBc(p) {

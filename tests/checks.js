@@ -75,6 +75,14 @@ async function control(b, base) {
   ok(pm && pm[2] === 'm4' && pm[3] === 'Court 1', 'Play a match here now sends the match to the chosen court', JSON.stringify(pm));
   ok(p.errs.filter(e => !/allowSignup/.test(e)).length === 0, 'no page errors', p.errs.join(' | ')); await p.close();
 }
+async function offline(b, base) {
+  console.log('Offline');
+  const down = PLAT([]).replace('umpireGet:async()=>({', "umpireGet:async()=>{throw new Error('Failed to fetch')},unused:async()=>({");
+  for (const f of ['/control.html?s=abc&k=key', '/display.html?s=abc&k=key&c=Court%201']) {
+    const p = await page(b, base, f, down); const on = await p.evaluate(() => { const e = document.querySelector('#offbar'); return !!e && e.classList.contains('on') && /No connection/.test(e.textContent); });
+    ok(on, f.split('?')[0] + ' says clearly when there is no connection'); await p.close();
+  }
+}
 async function simple(b, base) {
   console.log('Other pages');
   for (const f of ['/checklist.html', '/history.html', '/index.html', '/queue.html', '/raffle.html']) {
@@ -85,7 +93,7 @@ async function simple(b, base) {
 (async () => {
   syntax();
   const s = await server(), base = 'http://localhost:' + s.address().port, b = await chromium.launch();
-  try { await schedule(b, base); await control(b, base); await simple(b, base); } catch (e) { fails++; console.log('  FAIL crashed: ' + e.message); }
+  try { await schedule(b, base); await control(b, base); await offline(b, base); await simple(b, base); } catch (e) { fails++; console.log('  FAIL crashed: ' + e.message); }
   await b.close(); s.close();
   console.log('\n' + passes + ' passed, ' + fails + ' failed'); process.exit(fails ? 1 : 0);
 })();
