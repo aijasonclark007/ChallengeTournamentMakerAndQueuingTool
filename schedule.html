@@ -510,7 +510,7 @@ summary:hover{background:#fff}
   </section>
   <section id="standSec" class="hidden">
     <div class="bar noprint"><h2>5. Standings</h2>
-      <div class="tools"><button id="expRes" class="ghost" type="button">Download results (CSV)</button><a class="ghost" href="checklist.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Event checklist</a><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div><div id="randPick" class="tools hidden"></div></div>
+      <div class="tools"><button id="expRes" class="ghost" type="button">Download results (CSV)</button><button id="expHist" class="ghost" type="button">Save to history</button><a class="ghost" href="history.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Results history</a><a class="ghost" href="checklist.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Event checklist</a><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div><div id="randPick" class="tools hidden"></div></div>
     <p class="hint">Type each game's score in the schedule above. Teams are ranked by match wins, then total points scored, then head-to-head. The top 2 of each bracket advance.</p>
     <div id="standings"></div>
     <div class="bar noprint" style="margin-top:16px"><span id="koHint" class="hint"></span><button id="koBtn" class="go" type="button">Create knockout round</button></div>
@@ -2333,6 +2333,23 @@ $('#clearScores').onclick = e => {
 
 const advOf = b => (gopt.advanceBy && gopt.advanceBy[b.level]) || gopt.advance || 2;
 // results as a spreadsheet file: pool standings, every group game and every knockout game
+// the same results as plain data (for the history page)
+function historyData() {
+  const c = committed(results), st = computeStandings(sched.brackets, sched.matches, c, { coin }), standings = [], games = [], knockout = [];
+  sched.brackets.forEach(b => { const x = st[b.id], adv = advOf(b); let k = 0; x.rows.forEach(r => { const el = r.out ? 0 : ++k; standings.push({ level: b.level, group: b.name, rank: r.rank, team: r.team.name, players: r.team.players || [], won: r.won, lost: r.lost, pf: r.pf, pa: r.pa, advanced: !!(x.scored && el && el <= adv), withdrew: !!r.out }); }); });
+  sched.matches.forEach(m => { const r = c[m.id]; if (r) games.push({ level: m.level, group: m.bracket, t1: m.team1 && m.team1.name, t2: m.team2 && m.team2.name, s1: r.a, s2: r.b }); });
+  if (ko && ko.matches) ko.matches.forEach(m => { const r = koResults[m.id], nm = i => (m.slots && m.slots[i] && m.slots[i].team ? m.slots[i].team.name : ''); if (r && r.saved) knockout.push({ level: m.level, round: m.round, roundName: m.roundName, t1: nm(0), t2: nm(1), s1: r.a, s2: r.b }); });
+  return { standings, games, knockout };
+}
+async function saveToHistory() {
+  if (!sched) return;
+  if (!Platform.user) { say('#gMsg', 'Sign in first to save results to your history.'); return; }
+  const name = $('#tname').value.trim() || 'Tournament', d = new Date(), iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const date = window.prompt('Date of this event (YYYY-MM-DD)?', iso); if (date === null) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) { window.alert('Please use the format YYYY-MM-DD, for example ' + iso + '.'); return; }
+  try { await Platform.saveEventResults({ name, date: date.trim(), data: historyData() }); window.alert('Saved to your history. Open "Results history" to see it.'); }
+  catch (e) { window.alert(/relation|schema cache|event_results/i.test(e.message || '') ? 'Run supabase-step24.sql in Supabase first.' : (e.message || 'Could not save.')); }
+}
 function exportResults() {
   if (!sched) return;
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', line = a => a.map(q).join(',');
@@ -2350,6 +2367,7 @@ function exportResults() {
   a.href = url; a.download = nm + '-results.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 $('#expRes').onclick = exportResults;
+$('#expHist').onclick = saveToHistory;
 function renderStandings() {
   const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin });
   $('#standings').innerHTML = byLevel(sched.brackets, b => {

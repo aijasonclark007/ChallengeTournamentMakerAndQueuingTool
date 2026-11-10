@@ -52,6 +52,10 @@
   const listBackups = () => { need(); return run(sb.from('draw_backups').select('id, draw_id, name, info, created_at, sport:state->>sport').order('created_at', { ascending: false }).limit(60)); };
   const loadBackup = id => { need(); return run(sb.from('draw_backups').select('*').eq('id', id).single()); };
   const saveBackup = b => { need(); return run(sb.from('draw_backups').insert({ user_id: user.id, draw_id: b.draw_id || null, name: b.name || '', info: b.info || '', state: b.state }).select('id, created_at').single()); };
+  // results history across events (table event_results, see supabase-step24.sql)
+  const saveEventResults = e => { need(); return run(sb.from('event_results').insert({ user_id: user.id, name: e.name || '', event_date: e.date || null, data: e.data }).select('id, created_at').single()); };
+  const listEventResults = () => { need(); return run(sb.from('event_results').select('id, name, event_date, created_at, data').order('event_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200)); };
+  const deleteEventResults = id => { need(); return run(sb.from('event_results').delete().eq('id', id)); };
   async function pruneBackups(drawId, keep) {          // keep only the newest few snapshots of one tournament
     need(); const rows = await run(sb.from('draw_backups').select('id').eq('draw_id', drawId).order('created_at', { ascending: false }).range(keep, keep + 100));
     if (rows && rows.length) await run(sb.from('draw_backups').delete().in('id', rows.map(r => r.id)));
@@ -391,7 +395,7 @@
   window.Platform = {
     configured: !!sb, config: C, onAuth, signIn, signUp, signOut, resetPassword, updatePassword, isOrganizer,
     recoveryPending: () => recovery, recoveryError: () => recoveryErr, onRecovery: fn => recSubs.push(fn),
-    listTournaments, loadTournament, saveTournament, deleteTournament, listBackups, loadBackup, saveBackup, pruneBackups,
+    listTournaments, loadTournament, saveTournament, deleteTournament, listBackups, loadBackup, saveBackup, pruneBackups, saveEventResults, listEventResults, deleteEventResults,
     savePlayerToPool, fetchPlayerPool, removePlayerFromPool,
     listPublicTournaments, listMyTournaments, getTournament, saveMyTournament: saveTournament2, deleteMyTournament: deleteTournament2,
     registerForTournament, slotCounts, listRegistrations, setRegistrationStatus, deleteRegistration,
