@@ -28,7 +28,6 @@ a{color:var(--blue)}
 <script>
 const SEC = [
  ['A week before', [
-  ['Check Supabase usage', 'Dashboard, Usage. Watch Realtime messages and egress. Upgrade before a 200-player event if you are near the free limits.'],
   ['Collect the pairs and divisions', 'Open Tournament: Player 1, Player 2, Division, Level (and Seed if you have it).'],
   ['Confirm courts, hours and games length', 'Courts available, minutes per game, when each day ends.'],
   ['Line up helpers', 'Who runs Match Control, who calls courts, who has the raffle.']]],
@@ -45,8 +44,8 @@ const SEC = [
  ['After the event', [
   ['Confirm every knockout game has a saved score'],
   ['Download results (CSV)', 'Schedule page, Standings, Download results (CSV).'],
-  ['Announce champions and thank sponsors'],
-  ['Check Supabase usage again', 'So you know how much room the next event has.']]]
+  ['Save results to history', 'Standings, Save to history, so you can look players up later.'],
+  ['Announce champions and thank sponsors']]]
 ];
 const KEY = 'checklist.v1', get = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }, set = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
 const E = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

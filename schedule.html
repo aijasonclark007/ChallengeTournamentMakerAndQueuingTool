@@ -510,7 +510,7 @@ summary:hover{background:#fff}
   </section>
   <section id="standSec" class="hidden">
     <div class="bar noprint"><h2>5. Standings</h2>
-      <div class="tools"><button id="expRes" class="ghost" type="button">Download results (CSV)</button><button id="expHist" class="ghost" type="button">Save to history</button><a class="ghost" href="history.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Results history</a><a class="ghost" href="checklist.html" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Event checklist</a><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div><div id="randPick" class="tools hidden"></div></div>
+      <div class="tools"><button id="expRes" class="ghost" type="button">Download results (CSV)</button><button id="expHist" class="ghost" type="button">Save to history</button><button id="openHist" class="ghost" type="button">Results history</button><button id="openCk" class="ghost" type="button">Event checklist</button><button id="randGroup" class="ghost test" type="button">Fill random scores (test)</button><button id="clearScores" class="ghost" type="button">Clear all scores</button></div><div id="randPick" class="tools hidden"></div></div>
     <p class="hint">Type each game's score in the schedule above. Teams are ranked by match wins, then total points scored, then head-to-head. The top 2 of each bracket advance.</p>
     <div id="standings"></div>
     <div class="bar noprint" style="margin-top:16px"><span id="koHint" class="hint"></span><button id="koBtn" class="go" type="button">Create knockout round</button></div>
@@ -2368,6 +2368,8 @@ function exportResults() {
 }
 $('#expRes').onclick = exportResults;
 $('#expHist').onclick = saveToHistory;
+$('#openHist').onclick = () => window.open('history.html', '_blank', 'noopener');
+$('#openCk').onclick = () => window.open('checklist.html', '_blank', 'noopener');
 function renderStandings() {
   const st = computeStandings(sched.brackets, sched.matches, committed(results), { coin });
   $('#standings').innerHTML = byLevel(sched.brackets, b => {
