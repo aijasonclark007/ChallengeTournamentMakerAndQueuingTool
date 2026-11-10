@@ -1,0 +1,6 @@
+{
+  "name": "challenge-match-day-checks",
+  "private": true,
+  "scripts": { "test": "node tests/checks.js" },
+  "devDependencies": { "playwright": "^1.48.0" }
+}
