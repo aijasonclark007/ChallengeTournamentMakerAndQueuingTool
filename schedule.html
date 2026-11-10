@@ -1452,6 +1452,8 @@ function parsePairs(text) {
     out.regs.push({ skill: cat, players: pn, seed, _lv: lv, _div: DIVS.indexOf(div) }); out.counts[cat] = (out.counts[cat] || 0) + 1;
   });
   for (let a = 0; a < keys.length; a++) for (let b = a + 1; b < keys.length; b++) if (keys[a].length >= 6 && keys[b].length >= 6 && lev1(keys[a], keys[b]) === 1) out.warns.push(canon[keys[a]] + ' and ' + canon[keys[b]] + ' look almost the same. They are treated as two different people.');
+  const seenIn = {}; out.regs.forEach(r => r.players.forEach(n => { const k = r.skill + '|' + nrm(n); (seenIn[k] = seenIn[k] || { n, skill: r.skill, c: 0 }).c++; }));
+  Object.keys(seenIn).forEach(k => { const x = seenIn[k]; if (x.c > 1) out.warns.push(x.n + ' is in ' + x.c + ' pairs in ' + x.skill + '. A player can only be in one pair per category.'); });
   out.regs.sort((x, y) => x._lv - y._lv || x._div - y._div);
   out.cats = [...new Set(out.regs.map(r => r.skill))];
   return out;
