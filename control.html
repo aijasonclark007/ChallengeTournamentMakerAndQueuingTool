@@ -108,6 +108,7 @@ details>summary{transition:color .2s ease}
 <style id="selfix">
 .cn.live{color:#1E8E3E}.cn.up,.cn.med{color:#007AFF}.cn.warn{color:#C76A00}.cn.over{color:#D92D20}.cn.wait{color:#B26A00}.cn.done{color:#8E8E93}
 .pill.up{background:rgba(0,122,255,.12);color:#007AFF}.pill.wait{background:#FFF1D6;color:#8A5200}.pill.done{background:rgba(142,142,147,.16);color:#6C6C72}
+.offbar{position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:60;max-width:92vw;background:#B42318;color:#fff;border-radius:999px;padding:8px 16px;font:700 14px/1.25 -apple-system,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);display:none;text-align:center}.offbar.on{display:block}
 /* More options: one tidy list, one section open at a time */
 .tools .sec{border-top:1px solid var(--line);margin:0}.tools .sec:first-of-type{border-top:0}
 .tools .sec>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;font-weight:600}
@@ -159,14 +160,29 @@ details>summary{transition:color .2s ease}
   const score = m => scores[m.mid] || (m.res ? { s1: m.res.a, s2: m.res.b } : null);
   const ready = m => m.t1 && m.t2;
 
+  // ----- offline: keep the last data on this device, say clearly when the connection is down, and let the page open again without a connection -----
+  const CKEY = 'cache.ctl.' + slug, fmtT = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const cacheSave = d => { try { localStorage.setItem(CKEY, JSON.stringify({ d, t: Date.now() })); } catch (e) {} };
+  const cacheLoad = () => { try { return JSON.parse(localStorage.getItem(CKEY) || 'null'); } catch (e) { return null; } };
+  let lastOkAt = 0;
+  function offPaint(isErr) {
+    let b = document.getElementById('offbar'); if (!b) { b = document.createElement('div'); b.id = 'offbar'; b.className = 'offbar'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
+    const off = isErr && (!lastOkAt || Date.now() - lastOkAt > 20000);
+    b.textContent = 'No connection' + (lastOkAt ? '. Showing the last update from ' + fmtT(lastOkAt) : '. Showing saved data') + (true ? '. Changes will not go through until it is back.' : '. Trying again…'); b.classList.toggle('on', !!off);
+  }
+  window.addEventListener('online', () => { try { load(); } catch (e) {} });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   async function load() {
     try {
       const d = await P.umpireGet(slug, key);
       try { ann = await P.getAnnouncement(slug); } catch (e) { ann = null; }
       try { const ns = await P.getMatchNotes(slug, key); notes = {}; ns.forEach(n => { notes[n.match_id] = n; }); } catch (e) { /* step 14 not run yet: reasons just are not shown */ }
-      data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; }); err = null; $('#dot').className = 'dot'; try { acCheck(); } catch (e) {}
-    } catch (e) { err = e.message || 'Could not load'; $('#dot').className = 'dot err'; }
-    paint();
+      data = d; scores = {}; (d.scores || []).forEach(x => { scores[x.id] = x; }); err = null; $('#dot').className = 'dot'; lastOkAt = Date.now(); cacheSave(d); try { acCheck(); } catch (e) {}
+    } catch (e) {
+      err = e.message || 'Could not load'; $('#dot').className = 'dot err';
+      if (!data) { const c = cacheLoad(); if (c && c.d) { data = c.d; scores = {}; (c.d.scores || []).forEach(x => { scores[x.id] = x; }); lastOkAt = c.t; } }
+    }
+    offPaint(!!err); paint();
   }
 
   // live clock state pushed by the umpire phones (a clock not heard from for 20 s is treated as offline)
@@ -576,7 +592,7 @@ details>summary{transition:color .2s ease}
     const keep = {}; app.querySelectorAll('input,select').forEach(e => { const k = e.getAttribute('data-x1') ? 'x1:' + e.getAttribute('data-x1') : e.getAttribute('data-x2') ? 'x2:' + e.getAttribute('data-x2') : e.getAttribute('data-xs') ? 'xs:' + e.getAttribute('data-xs') : e.getAttribute('data-mv') ? 'mv:' + e.getAttribute('data-mv') : e.getAttribute('data-to') ? 'to:' + e.getAttribute('data-to') : e.getAttribute('data-xr') ? 'xr:' + e.getAttribute('data-xr') : e.getAttribute('data-pn') ? 'pn:' + e.getAttribute('data-pn') : null; if (k) keep[k] = e.value; });
     app.innerHTML = '<div class="sum"><span>Live <b>' + nLive + '</b></span><span>Finished <b>' + nDone + '</b> of <b>' + all.length + '</b></span><span>Courts <b>' + courts.length + '</b></span>' + (lateCourts.length ? '<span class="lt">Behind: <b>' + esc(lateCourts.join(', ')) + '</b></span>' : '') + '</div>' +
       (alerts.length ? '<div class="alerts">' + alerts.map(a => '<div class="alert">' + esc(a) + '</div>').join('') + '</div>' : '') +
-      '<div class="grid">' + cards.join('') + '</div>' + recentHtml(all) + (err ? '<p class="meta" style="text-align:center">Connection problem: ' + esc(err) + '. Showing the last data.</p>' : '');
+      '<div class="grid">' + cards.join('') + '</div>' + recentHtml(all) + '';
     app.querySelectorAll('[data-x1],[data-x2],[data-xs],[data-mv],[data-to],[data-xr],[data-pn]').forEach(e => { const g = n => e.getAttribute(n), k = g('data-xr') ? 'xr:' + g('data-xr') : g('data-x1') ? 'x1:' + g('data-x1') : g('data-x2') ? 'x2:' + g('data-x2') : g('data-xs') ? 'xs:' + g('data-xs') : g('data-mv') ? 'mv:' + g('data-mv') : g('data-pn') ? 'pn:' + g('data-pn') : 'to:' + g('data-to'); if (keep[k] != null) e.value = keep[k]; });
     app.querySelectorAll('details.sec').forEach(d => d.addEventListener('toggle', () => { const c = d.dataset.sc; if (d.open) { openMore['s:' + c] = d.dataset.sk; d.parentNode.querySelectorAll(':scope>details.sec').forEach(o => { if (o !== d) o.open = false; }); } else if (openMore['s:' + c] === d.dataset.sk) delete openMore['s:' + c]; }));
     app.querySelectorAll('details.tools').forEach(d => { d.addEventListener('toggle', () => { openMore['t:' + d.dataset.tc] = d.open; }); d.querySelector('summary').addEventListener('click', () => { d.classList.add('pop'); setTimeout(() => d.classList.remove('pop'), 400); }); });
