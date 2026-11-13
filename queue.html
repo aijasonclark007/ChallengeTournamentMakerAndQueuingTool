@@ -598,8 +598,8 @@ function feeOutHtml() {
   const s = view, f = s.fees, c = feeCalc(s), rows = s.players.filter(p => p.games > 0 || p.paid).sort((a, b) => a.name.localeCompare(b.name));
   const by = m => rows.filter(p => p.paid && (p.payBy || null) === m).reduce((n, p) => n + Math.ceil(c.due(p)), 0);
   const collected = rows.filter(p => p.paid).reduce((n, p) => n + Math.ceil(c.due(p)), 0), owed = rows.reduce((n, p) => n + Math.ceil(c.due(p)), 0);
-  return '<div class="row" style="margin:0 2px 8px"><span class="mute">Total cost</span><b class="amt" style="font-size:20px">' + peso(c.total) + '</b></div><div class="card">' + (rows.length ? '<table><tr><th>Player</th><th>Games</th><th>Amount</th><th>Payment</th><th>Status</th></tr>' + rows.map(p => '<tr data-name="' + esc(p.name.toLowerCase()) + '"><td><b>' + esc(p.name) + '</b></td><td>' + p.games + '</td><td class="amt">' + peso(c.due(p)) + '</td><td><div class="seg pay"><button type="button" class="cash' + (p.paid && p.payBy === 'cash' ? ' on' : '') + '" data-pay="' + p.id + '" data-m="cash">Cash</button><button type="button" class="gcash' + (p.paid && p.payBy === 'gcash' ? ' on' : '') + '" data-pay="' + p.id + '" data-m="gcash">GCash</button></div>' + (p.paid && !p.payBy ? '<div class="small mute">Pick how</div>' : '') + '</td><td><span class="st ' + (p.paid ? 'paid' : 'unpaid') + '">' + (p.paid ? 'Paid' : 'Unpaid') + '</span></td></tr>').join('') + '</table>' +
-    '<div class="row" style="margin-top:10px"><b>Collected ' + peso(collected) + '</b><span class="mute">of ' + peso(owed) + '</span></div>' +
+  return '<div class="row" style="margin:0 2px 8px"><span class="mute">Total cost</span><b class="amt" style="font-size:20px">' + peso(c.total) + '</b></div><div class="card">' + (rows.length ? '<table><tr><th>Player</th><th>Games</th><th>Amount</th><th>Payment</th><th>Status</th></tr>' + rows.map(p => '<tr data-name="' + esc(p.name.toLowerCase()) + '"><td><b>' + esc(p.name) + '</b>' + '</td><td>' + p.games + '</td><td class="amt">' + peso(c.due(p)) + '</td><td><div class="seg pay"><button type="button" class="cash' + (p.paid && p.payBy === 'cash' ? ' on' : '') + '" data-pay="' + p.id + '" data-m="cash">Cash</button><button type="button" class="gcash' + (p.paid && p.payBy === 'gcash' ? ' on' : '') + '" data-pay="' + p.id + '" data-m="gcash">GCash</button></div>' + (p.paid && !p.payBy ? '<div class="small mute">Pick how</div>' : '') + '</td><td><span class="st ' + (p.paid ? 'paid' : 'unpaid') + '">' + (p.paid ? 'Paid' : 'Unpaid') + '</span></td></tr>').join('') + '</table>' +
+    (f.note ? '<div class="card" style="margin:10px 0 0"><div class="small mute" style="margin-bottom:2px">Notes</div><div style="white-space:pre-wrap;word-break:break-word">' + esc(f.note) + '</div></div>' : '') + '<div class="row" style="margin-top:10px"><b>Collected ' + peso(collected) + '</b><span class="mute">of ' + peso(owed) + '</span></div>' +
     '<div class="row small" style="margin-top:6px;gap:14px"><span><b>' + rows.filter(p => p.paid).length + '</b> paid</span><span><b style="color:var(--red)">' + rows.filter(p => !p.paid).length + '</b> unpaid</span><span><b style="color:var(--green)">Cash</b> ' + peso(by('cash')) + '</span><span><b style="color:var(--blue)">GCash</b> ' + peso(by('gcash')) + '</span>' + (by(null) ? '<span class="mute">Not specified ' + peso(by(null)) + '</span>' : '') + '</div>' : '<div class="mute">Amounts appear once players have played games.</div>') + '</div>';
 }
 let findQ = '', sortMode = 'least';
@@ -620,7 +620,8 @@ function applyFind() {
   $$('tr[data-name]').forEach(r => { const ok = hit(r.dataset.name); r.style.display = ok ? '' : 'none'; if (ok) shown++; });
   $$('.team span').forEach(sp => { const nameEl = sp.firstChild ? sp.firstChild.textContent : ''; sp.classList.toggle('hit', !!q && hit(nameEl)); });
 }
-function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); applyFind(); $$('[data-pay]').forEach(b => b.onclick = () => {
+function feeOutRender() { const o = $('#feeOut'); if (!o) return; o.innerHTML = feeOutHtml(); applyFind();
+  $$('[data-pay]').forEach(b => b.onclick = () => {
     const id = b.dataset.pay, m = b.dataset.m, p = view.players.find(x => x.id === id), name = p ? p.name : 'this player', L = { cash: 'Cash', gcash: 'GCash' };
     if (p && p.paid && p.payBy && p.payBy !== m) {                       // switching the method of a payment that was already recorded
       return modal('Change payment method?', '<div><b>' + esc(name) + '</b> is marked as paid by <b>' + L[p.payBy] + '</b>.</div><div class="small mute" style="margin-top:6px">Change it to <b>' + L[m] + '</b>? Only do this if it was recorded by mistake.</div>',
@@ -636,6 +637,7 @@ function feesView() {
   const f = view.fees;
   const num = (k, lab) => '<div><label class="lab">' + lab + '</label><input type="number" min="0" step="any" data-fee="' + k + '" value="' + (f[k] || '') + '" placeholder="0"></div>';
   return '<div class="card"><div class="two">' + num('courtCost', 'Court rental (total)') + num('shuttles', spOf(view).balls + ' used') + num('shuttlePrice', 'Price per ' + spOf(view).ball) + (f.mode === 'perGame' ? num('perGame', 'Fee per game (each player)') : '') + '</div>' +
+    '<label class="lab">Notes (optional)</label><textarea data-feenote rows="2" maxlength="500" placeholder="e.g. court paid in advance by Jason" style="width:100%;resize:vertical">' + esc(f.note || '') + '</textarea>' +
     '<label class="lab">How to split</label><div class="seg" id="fmode">' + [['equal', 'Equal split'], ['perGame', 'Per game'], ['equity', 'By games played']].map(([k, l]) => '<button data-fm="' + k + '" class="' + (f.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     '<div class="small mute" style="margin-top:8px">' + (f.mode === 'equal' ? 'The total is shared equally by everyone who played at least one game.' : f.mode === 'perGame' ? 'Each player pays the fee for every game they played.' : 'The total is shared in proportion to games played.') + '</div></div>' +
     '<h2>Who owes what</h2><div id="feeOut">' + feeOutHtml() + '</div>';
@@ -883,6 +885,7 @@ function bind() {
     try { for (const p of view.players) await P.savePlayerToPool(p.name, p.level); toast('Saved ' + view.players.length + ' players to your pool.'); } catch (e) { toast(e.message); } };
   // fees
   $$('[data-fee]').forEach(i => i.onchange = () => act(M.fee(i.dataset.fee, parseFloat(i.value) || 0), true));
+  $$('[data-feenote]').forEach(i => i.onchange = () => act(M.fee('note', i.value.trim().slice(0, 500)), true));
   $$('[data-rl]').forEach(b => b.onclick = () => { rankLv = b.dataset.rl; render(); });
   $$('[data-fm]').forEach(b => b.onclick = () => act(M.fee('mode', b.dataset.fm)));
   feeOutRender();
