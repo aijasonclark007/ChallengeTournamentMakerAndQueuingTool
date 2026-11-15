@@ -110,7 +110,9 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 #tabs{position:relative}
 #tabs .thumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform;transform-origin:0 50%}
 #tabs button{position:relative;z-index:1}#tabs button.on{background:none;box-shadow:none}
-#modes,#sortSeg,#rankLv,#fmode{position:relative}#modes button,#sortSeg button,#rankLv button,#fmode button{position:relative;z-index:1}#modes button.on,#sortSeg button.on,#rankLv button.on,#fmode button.on{background:none;box-shadow:none}
+.smw{position:relative;display:inline-block}.smenu{display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:50;min-width:190px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:6px;border:.5px solid var(--line)}.smenu.on{display:block}.smenu.r{left:auto;right:0}
+.smenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 12px;border-radius:10px;font-weight:600;font-size:15px;color:var(--ink,#1C1C1E);cursor:pointer;min-height:44px}.smenu button:active,.smenu button:hover{background:#F2F2F7}.smenu button.dg{color:#D92D20}
+#modes,#sortSeg,#rankLv,#fmode,#resSeg{position:relative}#modes button,#sortSeg button,#rankLv button,#fmode button,#resSeg button{position:relative;z-index:1}#modes button.on,#sortSeg button.on,#rankLv button.on,#fmode button.on,#resSeg button.on{background:none;box-shadow:none}
 .seg>.sthumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform;transform-origin:0 50%}
 #root{touch-action:pan-x pan-y pinch-zoom}
 
@@ -525,8 +527,9 @@ function barHtml() {
   const cur = sessions.find(x => x.id === backend.id) || {};
   const mine = cur.owner === P.user.id;
   return '<div class="banner"><div class="grow"><div class="row"><select id="sess" style="max-width:260px">' + sessions.map(x => '<option value="' + x.id + '"' + (x.id === backend.id ? ' selected' : '') + '>' + esc(x.name) + (x.owner !== P.user.id ? ' (joined)' : '') + '</option>').join('') + '</select>' +
-    '<button class="btn ghost sm" id="sNew">+ New queuing</button><button class="btn ghost sm" id="sJoin">Join with code</button><button class="btn sm" id="sShare">Share</button>' +
-    (mine ? '<button class="btn ghost sm" id="sRen">Rename</button><button class="btn danger sm" id="sDel">Delete</button>' : '') + '</div></div><div class="small mute" id="sync">' + syncHtml() + '</div></div>' + migrateBanner();
+    '<button class="btn ghost sm" id="sNew">+ New queuing</button><span class="smw"><button class="btn ghost sm" id="sMore" type="button" aria-haspopup="true" aria-expanded="false" aria-label="More session options">⋯ More</button>' +
+    '<div class="smenu" id="sMenu" role="menu"><button id="sShare" role="menuitem" type="button">Share</button><button id="sJoin" role="menuitem" type="button">Join with code</button>' +
+    (mine ? '<button id="sRen" role="menuitem" type="button">Rename</button><button id="sDel" role="menuitem" type="button" class="dg">Delete</button>' : '') + '</div></span></div></div><div class="small mute" id="sync">' + syncHtml() + '</div></div>' + migrateBanner();
 }
 function migrateBanner() {
   const g = loadGuest(); if (!g.players.length || localStorage.getItem('queue.guest.moved')) return '';
@@ -640,7 +643,8 @@ function feesView() {
     '<label class="lab">Notes (optional)</label><textarea data-feenote rows="2" maxlength="500" placeholder="e.g. court paid in advance by Jason" style="width:100%;resize:vertical">' + esc(f.note || '') + '</textarea>' +
     '<label class="lab">How to split</label><div class="seg" id="fmode">' + [['equal', 'Equal split'], ['perGame', 'Per game'], ['equity', 'By games played']].map(([k, l]) => '<button data-fm="' + k + '" class="' + (f.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
     '<div class="small mute" style="margin-top:8px">' + (f.mode === 'equal' ? 'The total is shared equally by everyone who played at least one game.' : f.mode === 'perGame' ? 'Each player pays the fee for every game they played.' : 'The total is shared in proportion to games played.') + '</div></div>' +
-    '<h2>Who owes what</h2><div id="feeOut">' + feeOutHtml() + '</div>';
+    '<h2>Who owes what</h2><div id="feeOut">' + feeOutHtml() + '</div>' +
+    '<div class="card" style="margin-top:18px"><b>Start a fresh queuing</b><div class="small mute" style="margin:4px 0 10px">Clears everyone\'s games and payments and empties the courts and the queue. Players stay on the list.</div><button class="btn danger" id="night" type="button">Start fresh (reset games and payments)</button></div>';
 }
 // wins and losses per player, from finished games where a winner was picked (older games with scores still count)
 function records(s) {
@@ -652,7 +656,13 @@ function records(s) {
   return r;
 }
 let rankLv = 'All';
+let resView = 'rank';
 function rankingView() {
+  const n = view.matches.filter(m => m.end).length;
+  const seg = '<div class="seg" id="resSeg" style="margin-bottom:10px"><button data-rv="rank" class="' + (resView === 'rank' ? 'on' : '') + '">Ranking</button><button data-rv="hist" class="' + (resView === 'hist' ? 'on' : '') + '">Games' + (n ? ' (' + n + ')' : '') + '</button></div>';
+  return seg + (resView === 'rank' ? rankTable() : historyList());
+}
+function rankTable() {
   const rec = records(view), rows = view.players.filter(p => (rec[p.id].w + rec[p.id].l) > 0 && (rankLv === 'All' || p.level === rankLv))
     .map(p => ({ p, w: rec[p.id].w, l: rec[p.id].l })).sort((a, b) => (b.w - a.w) || ((b.w / (b.w + b.l)) - (a.w / (a.w + a.l))) || ((b.w + b.l) - (a.w + a.l)) || a.p.name.localeCompare(b.p.name));
   let rank = 0, prev = null; rows.forEach((r, i) => { const key = r.w + '-' + r.l; if (key !== prev) { rank = i + 1; prev = key; } r.rank = rank; });
@@ -664,14 +674,13 @@ function rankingView() {
     : '<div class="mute">The ranking appears after the first game is finished with a winner picked.</div>') + '</div>' +
     '<div class="small mute" style="margin:8px 4px">' + played + ' finished game' + (played === 1 ? '' : 's') + ' counted. Ranked by wins, then win %. Games finished with "No winner" are not counted.</div>';
 }
-function historyView() {
+function historyList() {
   const done = view.matches.filter(m => m.end).sort((a, b) => b.end - a.end), cn = id => (view.courts.find(c => c.id === id) || { name: 'Court' }).name;
   return '<div class="card">' + (done.length ? done.map(m => '<div class="q"><div class="grow"><b>' + esc(names(m.t1)) + '</b> <span class="mute">vs</span> <b>' + esc(names(m.t2)) + '</b><div class="small mute">' + esc(cn(m.court)) + ' · ' + fmtT(m.end - m.start) + ' · ' + new Date(m.end).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '</div></div>' +
-    (m.win ? '<span class="amt" style="font-size:14px;text-align:right">🏆 ' + esc(names(m.win === 1 ? m.t1 : m.t2)) + '</span>' : m.s1 != null && m.s2 != null ? '<span class="amt">' + m.s1 + ' - ' + m.s2 + '</span>' : '') + '</div>').join('') : '<div class="mute">Finished games show up here.</div>') + '</div>' +
-    '<div class="row" style="margin-top:12px"><button class="btn danger" id="night">Start a fresh queuing (reset games and payments)</button></div>';
+    (m.win ? '<span class="amt" style="font-size:14px;text-align:right">🏆 ' + esc(names(m.win === 1 ? m.t1 : m.t2)) + '</span>' : m.s1 != null && m.s2 != null ? '<span class="amt">' + m.s1 + ' - ' + m.s2 + '</span>' : '') + '</div>').join('') : '<div class="mute">Finished games show up here.</div>') + '</div>';
 }
 let selQ = null, lastSwap = null, tabChanged = false, rendered = false, announceOn = false, tabDir = 0, lastThumb = null;
-const TABS = ['courts', 'players', 'ranking', 'fees', 'history'];
+const TABS = ['courts', 'players', 'ranking', 'fees'];
 function goTab(k, fromParent) {
   if (k === tab || !TABS.includes(k)) return; tabDir = TABS.indexOf(k) > TABS.indexOf(tab) ? 1 : -1; tab = k; tabChanged = true; buzz(8); render();
   if (!fromParent) { try { if (window.parent !== window) window.parent.postMessage({ t: 'tab', tool: 'queue', tab: k }, location.origin); } catch (e) {} }
@@ -690,7 +699,7 @@ function buzz(p) { try { Haptics.buzz(p); } catch (e) {} }
 const SPRING = (window.CSS && CSS.supports && CSS.supports('transition-timing-function', 'linear(0,1)')) ? getComputedStyle(document.documentElement).getPropertyValue('--spring').trim() : 'cubic-bezier(.22,1,.36,1)';
 const segPos = {};
 function placeSegs(instant) {                  // the white pill under the chosen option glides (transform only) between options, like the tabs
-  ['modes', 'sortSeg', 'rankLv', 'fmode'].forEach(id => {
+  ['modes', 'sortSeg', 'rankLv', 'fmode', 'resSeg'].forEach(id => {
     const sg = document.getElementById(id); if (!sg) return;
     const on = sg.querySelector('button.on'); if (!on || !on.offsetWidth) return;
     let th = sg.querySelector('.sthumb'); if (!th) { th = document.createElement('i'); th.className = 'sthumb'; sg.appendChild(th); }
@@ -794,8 +803,8 @@ function render() {
   const first = !rendered, changed = tabChanged; tabChanged = false;
   const oldFind = $('.findbox'), oldFindTop = oldFind ? oldFind.getBoundingClientRect().top : null;
   const findHtml = '<div id="findSent" style="height:1px;margin-bottom:-1px"></div><div class="findbox"><input id="find" type="search" autocomplete="off" placeholder="Find player" value="' + esc(findQ) + '" aria-label="Find player"></div>';
-  const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'ranking' ? rankingView() : tab === 'fees' ? feesView() : historyView();
-  $('#root').innerHTML = '<h1>Queuing Tool <span data-sportpick></span></h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Ranking'], ['fees', 'Fees'], ['history', 'History']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + (tab !== 'history' && tab !== 'courts' && tab !== 'players' ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
+  const body = tab === 'courts' ? courtsView() : tab === 'players' ? playersView() : tab === 'ranking' ? rankingView() : feesView();
+  $('#root').innerHTML = '<h1>Queuing Tool <span data-sportpick></span></h1>' + barHtml() + '<div class="seg" id="tabs" style="margin:6px 0 12px">' + [['courts', 'Courts'], ['players', 'Players'], ['ranking', 'Results'], ['fees', 'Fees']].map(([k, l]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '<i class="thumb"></i></div>' + ((tab === 'fees' || (tab === 'ranking' && resView === 'rank')) ? findHtml : '') + '<div id="tabbody">' + body.replace('<!--FIND-->', tab === 'courts' || tab === 'players' ? findHtml : '') + '</div>';
   bind(); Sports.mount();
   rendered = true;
   const fi = $('#find'); if (fi) { fi.oninput = () => { findQ = fi.value; applyFind(); }; fi.onkeydown = e => { if (e.key === 'Escape') { fi.value = ''; findQ = ''; applyFind(); } }; applyFind(); }
@@ -887,11 +896,19 @@ function bind() {
   $$('[data-fee]').forEach(i => i.onchange = () => act(M.fee(i.dataset.fee, parseFloat(i.value) || 0), true));
   $$('[data-feenote]').forEach(i => i.onchange = () => act(M.fee('note', i.value.trim().slice(0, 500)), true));
   $$('[data-rl]').forEach(b => b.onclick = () => { rankLv = b.dataset.rl; render(); });
+  $$('[data-rv]').forEach(b => b.onclick = () => { resView = b.dataset.rv; render(); });
   $$('[data-fm]').forEach(b => b.onclick = () => act(M.fee('mode', b.dataset.fm)));
   feeOutRender();
   const nt = $('#night'); if (nt) nt.onclick = () => { if (confirm('Reset everyone\'s games and payments for a fresh queuing? Players stay on the list.')) act(M.newNight()); };
   // cloud session bar
   const sess = $('#sess'); if (sess) sess.onchange = () => openSession(sess.value);
+  const sm = $('#sMore'), smenu = $('#sMenu');
+  if (sm && smenu) {
+    const shut = () => { smenu.classList.remove('on'); sm.setAttribute('aria-expanded', 'false'); };
+    sm.onclick = e => { e.stopPropagation(); const o = !smenu.classList.contains('on'); smenu.classList.remove('r'); smenu.classList.toggle('on', o); if (o && smenu.getBoundingClientRect().right > window.innerWidth - 8) smenu.classList.add('r'); sm.setAttribute('aria-expanded', String(o)); };
+    smenu.onclick = shut;
+    if (!window.__smClose) { window.__smClose = true; document.addEventListener('click', () => { const m = $('#sMenu'), b = $('#sMore'); if (m) m.classList.remove('on'); if (b) b.setAttribute('aria-expanded', 'false'); }); document.addEventListener('keydown', e => { if (e.key === 'Escape') { const m = $('#sMenu'); if (m) m.classList.remove('on'); } }); }
+  }
   const sn = $('#sNew'); if (sn) sn.onclick = () => modal('New queuing', '<label class="lab" for="nn">Name</label><input id="nn" type="text" maxlength="60" value="' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })) + '">', [{ label: 'Create', fn: async sh => { const name = sh.querySelector('#nn').value.trim() || 'Session'; await createSession(name, blank()); } }]);
   const sr = $('#sRen'); if (sr) sr.onclick = () => { const c = sessions.find(x => x.id === backend.id); if (!c) return;
     modal('Rename this queuing', '<label class="lab" for="rn">Name</label><input id="rn" type="text" maxlength="60" value="' + esc(c.name) + '">',
