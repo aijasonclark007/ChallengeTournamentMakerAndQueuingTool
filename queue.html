@@ -110,8 +110,15 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 #tabs{position:relative}
 #tabs .thumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform;transform-origin:0 50%}
 #tabs button{position:relative;z-index:1}#tabs button.on{background:none;box-shadow:none}
-.smw{position:relative;display:inline-block}.smenu{display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:50;min-width:230px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:6px;border:.5px solid var(--line)}.smenu.on{display:block}.smenu.r{left:auto;right:0}
-.smenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 12px;border-radius:10px;font-weight:600;font-size:15px;color:var(--ink,#1C1C1E);cursor:pointer;min-height:44px}.smenu button:active,.smenu button:hover{background:#F2F2F7}.smenu button.dg{color:#D92D20}
+.smw{position:relative;display:inline-block}
+.smenu{display:none;opacity:0;transform:translateY(-8px) scale(.94);transform-origin:top left;transition:opacity .15s ease,transform .22s cubic-bezier(.2,.9,.25,1.15);position:absolute;left:0;top:calc(100% + 6px);z-index:50;min-width:230px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:6px;border:.5px solid var(--line)}
+.smenu.r{left:auto;right:0;transform-origin:top right}
+.smenu.show{display:block}.smenu.on{opacity:1;transform:none}
+.smenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 12px;border-radius:10px;font-weight:600;font-size:15px;color:var(--ink,#1C1C1E);cursor:pointer;min-height:44px;opacity:0;transform:translateY(-4px);transition:opacity .18s ease,transform .22s ease,background-color .12s}
+.smenu.on button{opacity:1;transform:none}.smenu.on button:nth-child(1){transition-delay:.03s,.03s,0s}.smenu.on button:nth-child(2){transition-delay:.07s,.07s,0s}.smenu.on button:nth-child(3){transition-delay:.11s,.11s,0s}.smenu.on button:nth-child(4){transition-delay:.15s,.15s,0s}
+.smenu button:active,.smenu button:hover{background:#F2F2F7}.smenu button.dg{color:#D92D20}
+.smw>.btn[aria-expanded=true]{background:rgba(0,122,255,.14)}
+@media (prefers-reduced-motion:reduce){.smenu,.smenu button{transition:none!important}}
 #modes,#sortSeg,#rankLv,#fmode,#resSeg{position:relative}#modes button,#sortSeg button,#rankLv button,#fmode button,#resSeg button{position:relative;z-index:1}#modes button.on,#sortSeg button.on,#rankLv button.on,#fmode button.on,#resSeg button.on{background:none;box-shadow:none}
 .seg>.sthumb{position:absolute;top:2px;bottom:2px;left:0;background:#fff;border-radius:9px;box-shadow:0 1px 3px rgba(0,0,0,.14);pointer-events:none;will-change:transform;transform-origin:0 50%}
 #root{touch-action:pan-x pan-y pinch-zoom}
@@ -581,12 +588,17 @@ function courtsView() {
       '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
 function menuHtml(bid, mid, label, items, aria) { return '<span class="smw"><button class="btn ghost sm" id="' + bid + '" type="button" aria-haspopup="true" aria-expanded="false" aria-label="' + esc(aria || 'More options') + '">' + label + '</button><div class="smenu" id="' + mid + '" role="menu">' + items + '</div></span>'; }
+const closeMenu = m => { if (!m.classList.contains('show')) return; m.classList.remove('on'); const b = m.parentNode.querySelector('[aria-expanded]'); if (b) b.setAttribute('aria-expanded', 'false'); setTimeout(() => { if (!m.classList.contains('on')) m.classList.remove('show', 'r'); }, 240); };
 function wireMenu(bid, mid) {
   const sm = $('#' + bid), smenu = $('#' + mid); if (!sm || !smenu) return;
-  const shut = () => { smenu.classList.remove('on'); sm.setAttribute('aria-expanded', 'false'); };
-  sm.onclick = e => { e.stopPropagation(); const o = !smenu.classList.contains('on'); $$('.smenu.on').forEach(m => m.classList.remove('on')); smenu.classList.remove('r'); smenu.classList.toggle('on', o); if (o && smenu.getBoundingClientRect().right > window.innerWidth - 8) smenu.classList.add('r'); sm.setAttribute('aria-expanded', String(o)); };
-  smenu.onclick = shut;
-  if (!window.__smClose) { window.__smClose = true; document.addEventListener('click', () => $$('.smenu.on').forEach(m => m.classList.remove('on'))); document.addEventListener('keydown', e => { if (e.key === 'Escape') $$('.smenu.on').forEach(m => m.classList.remove('on')); }); }
+  sm.onclick = e => {
+    e.stopPropagation(); const o = !smenu.classList.contains('on'); $$('.smenu.show').forEach(m => { if (m !== smenu) closeMenu(m); });
+    if (!o) return closeMenu(smenu);
+    smenu.classList.remove('r'); smenu.classList.add('show'); if (sm.getBoundingClientRect().left + smenu.offsetWidth > window.innerWidth - 8) smenu.classList.add('r');
+    void smenu.offsetWidth; smenu.classList.add('on'); sm.setAttribute('aria-expanded', 'true');
+  };
+  smenu.onclick = () => closeMenu(smenu);
+  if (!window.__smClose) { window.__smClose = true; document.addEventListener('click', () => $$('.smenu.show').forEach(closeMenu)); document.addEventListener('keydown', e => { if (e.key === 'Escape') $$('.smenu.show').forEach(closeMenu); }); }
 }
 function playersView() {
   const recs = records(view), s = view, busy = onCourtIds(s), list = s.players.slice().sort((a, b) => a.name.localeCompare(b.name));
