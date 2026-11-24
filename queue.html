@@ -134,6 +134,20 @@ body.live h1{font-size:34px}body.live .team span{font-size:19px}body.live .timer
 .swaphint{position:sticky;top:64px;z-index:5;background:var(--blue);color:#fff;border-radius:14px;padding:10px 14px;margin:8px 0;font-weight:600;display:flex;gap:10px;align-items:center;box-shadow:0 8px 20px rgba(0,122,255,.3)}.swaphint button{margin-left:auto;background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:700}
 .sortseg{width:auto;margin:0}.sortseg button{padding:5px 10px;font-size:12px}
 .swrest{background:rgba(255,149,0,.14)}.swrest .small{color:#B26A00;font-weight:700}
+/* floating search inside the swap sheet */
+.swfind{position:sticky;top:-18px;z-index:5;margin:-6px -18px 10px;padding:8px 18px 10px;background:linear-gradient(#fff 78%,rgba(255,255,255,0));animation:swfin .42s cubic-bezier(.22,1,.36,1) both}
+.swfind .in{position:relative;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.14),0 0 0 .5px rgba(0,0,0,.08);background:#fff;transition:box-shadow .25s,transform .25s}
+.swfind .in:focus-within{box-shadow:0 10px 28px rgba(0,122,255,.22),0 0 0 2px var(--blue);transform:translateY(-1px) scale(1.01)}
+.swfind input{width:100%;box-sizing:border-box;padding:12px 40px 12px 40px;border:0;border-radius:14px;background:transparent;font-size:16px;outline:0}
+.swfind input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.swfind svg{position:absolute;left:13px;top:50%;width:18px;height:18px;margin-top:-9px;stroke:#6E6E73;fill:none;stroke-width:2.4;stroke-linecap:round;pointer-events:none}
+.swfind .clr{position:absolute;right:8px;top:50%;margin-top:-13px;width:26px;height:26px;border:0;border-radius:50%;background:rgba(60,60,67,.18);color:#444;font-size:15px;line-height:26px;padding:0;cursor:pointer;transform:scale(0);opacity:0;transition:transform .22s cubic-bezier(.34,1.56,.64,1),opacity .15s}
+.swfind.has .clr{transform:scale(1);opacity:1}
+.swrow.swshow{animation:swrowin .28s cubic-bezier(.22,1,.36,1) both}
+.swnone{display:none;text-align:center;padding:18px 0;color:var(--mute,#6E6E73);font-size:14px}.swnone.on{display:block;animation:swrowin .3s both}
+@keyframes swfin{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes swrowin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.swfind,.swrow.swshow,.swnone.on{animation:none}.swfind .in,.swfind .clr{transition:none}}
 .swaplist{display:flex;flex-direction:column;gap:6px}.swrow{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-radius:12px;background:var(--fill);font:inherit;color:inherit;text-align:left;cursor:pointer}.swrow:active{background:rgba(0,122,255,.15)}
 .team span[data-sw]{cursor:pointer;border-radius:8px;padding:2px 4px;margin:-2px -4px;transition:background .15s}.team span[data-sw]:after{content:" \21C4";color:var(--mute);font-size:12px;font-weight:700}
 .team span[data-sw]:active{background:rgba(0,122,255,.18)}
@@ -767,6 +781,19 @@ function startDrag(e, id) {
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
   place(); raf = requestAnimationFrame(tick);
 }
+function sheetSearch() {                        // floating search bar at the top of a swap sheet: filters every player row by name
+  const sh = $('#sheet'), bar = sh.querySelector('.swfind'); if (!bar) return;
+  const inp = bar.querySelector('input'), clr = bar.querySelector('.clr'), none = sh.querySelector('.swnone');
+  const apply = () => {
+    const q = inp.value.trim().toLowerCase(); bar.classList.toggle('has', !!q); let any = false;
+    sh.querySelectorAll('.swaplist').forEach(l => {
+      let vis = 0; l.querySelectorAll('.swrow').forEach(r => { const hit = !q || r.textContent.toLowerCase().includes(q), was = r.style.display !== 'none'; r.style.display = hit ? '' : 'none'; if (hit) { vis++; if (q && !was) { r.classList.remove('swshow'); void r.offsetWidth; r.classList.add('swshow'); } } });
+      l.style.display = vis ? '' : 'none'; const h = l.previousElementSibling; if (h && h.classList.contains('small')) h.style.display = vis ? '' : 'none'; if (vis) any = true; });
+    none.classList.toggle('on', !any);
+  };
+  inp.oninput = apply; inp.onkeydown = e => { if (e.key === 'Escape' && inp.value) { e.stopPropagation(); inp.value = ''; apply(); } };
+  clr.onclick = () => { inp.value = ''; apply(); inp.focus(); };
+}
 function swapSheet(ref) {                      // tap a name on any court card, then tap who takes their place
   let [kind, key, outId] = ref.split(':'); const inBox = kind === 'q'; if (inBox) kind = 'g';   // 'q' = tapped inside the Queued next game box
   const s = view, qg = queuedGames(s);
@@ -795,7 +822,7 @@ function swapSheet(ref) {                      // tap a name on any court card, 
   const myCourt = myCid && !inBox ? courtName(myCid) : '';
   const hideMates = inBox && onCourtIds(s).has(outId);           // this player is already playing on a court: use the game's Cancel button to change who plays, not team swaps here
   const restBtn = '<button class="swrow swrest" id="swRest" style="margin:0 0 12px"><span><b>' + esc(nm(outId)) + ' is taking a break</b></span><span class="small">Rest</span></button>';
-  modal('Swap ' + nm(outId), restBtn + (gq && !hideMates ? '<div class="small mute" style="margin-bottom:8px">' + esc(nm(outId)) + ' is on <b>' + (gq.t1.includes(outId) ? 'Team 1' : 'Team 2') + '</b>' + (myCourt ? ' on <b>' + esc(myCourt) + '</b>' : '') + '. Swap with someone in this game to change the teams:</div><div class="swaplist" style="margin-bottom:12px">' + mates + '</div>' : '') + othHtml + '<div class="small mute" style="margin:' + (others.length ? '12px' : '0') + ' 0 8px">' + (gq || others.length ? 'Or swap with someone who is waiting:' : 'Who takes their place?') + '</div><div class="swaplist">' + cand.map(p => '<button class="swrow" data-in="' + p.id + '"><span><b>' + esc(p.name) + '</b> ' + '<span class="chip ' + p.level + '">' + p.level + '</span></span><span class="small mute">' + (cn(p.id) || p.games + ' game' + (p.games === 1 ? '' : 's')) + '</span></button>').join('') + '</div>' + playHtml, []);
+  modal('Swap ' + nm(outId), '<div class="swfind"><div class="in"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" autocomplete="off" placeholder="Search player" aria-label="Search player"><button type="button" class="clr" aria-label="Clear search">\u00D7</button></div></div>' + restBtn + (gq && !hideMates ? '<div class="small mute" style="margin-bottom:8px">' + esc(nm(outId)) + ' is on <b>' + (gq.t1.includes(outId) ? 'Team 1' : 'Team 2') + '</b>' + (myCourt ? ' on <b>' + esc(myCourt) + '</b>' : '') + '. Swap with someone in this game to change the teams:</div><div class="swaplist" style="margin-bottom:12px">' + mates + '</div>' : '') + othHtml + '<div class="small mute" style="margin:' + (others.length ? '12px' : '0') + ' 0 8px">' + (gq || others.length ? 'Or swap with someone who is waiting:' : 'Who takes their place?') + '</div><div class="swaplist">' + cand.map(p => '<button class="swrow" data-in="' + p.id + '"><span><b>' + esc(p.name) + '</b> ' + '<span class="chip ' + p.level + '">' + p.level + '</span></span><span class="small mute">' + (cn(p.id) || p.games + ' game' + (p.games === 1 ? '' : 's')) + '</span></button>').join('') + '</div>' + playHtml + '<div class="swnone">No player found</div>', []); sheetSearch();
   const rb = $('#swRest'); if (rb) rb.onclick = () => { closeModal(); buzz(10); const who = nm(outId); act(M.restPlayer(kind, key, outId)); toast(who + ' is on a break. Set them back to Here in the Players tab.'); };
   $$('[data-with]').forEach(b => b.onclick = () => { closeModal(); buzz([8, 30, 8]); act(M.swapAny(kind, key, outId, kind, key, b.dataset.with)); });
   $$('[data-oth]').forEach(b => b.onclick = () => { const [k2, y2, id2] = b.dataset.oth.split(':'); closeModal(); buzz([8, 30, 8]); act(M.swapAny(kind, key, outId, k2, y2, id2)); });
