@@ -27,6 +27,12 @@ input[type=text],input[type=number],select,textarea{width:100%;padding:10px 12px
 @media (hover:none) and (pointer:coarse){input[type=text],input[type=number],input[type=search],select,textarea{font-size:16px}}   /* iPhone Safari zooms the page when you tap a field smaller than 16px, and it stays zoomed */
 input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.15);background:#fff}
 .sportbadge{border:0;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s,background .15s}.sportbadge:active{transform:scale(.95);background:#DDE1EA}.sportbadge{display:inline-block;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;background:var(--fill);color:var(--mute);font-size:12px;font-weight:700}
+.mhead{font-weight:700;font-size:15px;margin:0 2px 8px}.mcard{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;border:1.5px solid transparent;background:var(--fill);border-radius:14px;padding:12px 14px;margin-bottom:8px;font:inherit;color:inherit;cursor:pointer;transition:background .25s,border-color .25s,transform .2s}
+.mcard:active{transform:scale(.985)}.mcard .mt{font-weight:700;font-size:15px;display:flex;align-items:center;gap:6px}.mcard .md{font-size:13px;color:#6E6E73;line-height:1.35}
+.mcard em{font-style:normal;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(52,199,89,.18);color:#1d7a38}
+.mcard.on{background:rgba(0,122,255,.08);border-color:var(--blue)}.mck{font-style:normal;color:var(--blue);animation:mpop .35s cubic-bezier(.34,1.56,.64,1)}@keyframes mpop{from{transform:scale(0)}to{transform:none}}
+.mmore{background:var(--fill);border-radius:14px;padding:0 10px 10px;margin-bottom:10px}.mmore summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 4px;cursor:pointer}.mmore summary::-webkit-details-marker{display:none}.mmore summary small{display:block;color:#6E6E73;font-size:12px;margin-top:1px}
+.mtog{width:9px;height:9px;border-right:2.2px solid #6E6E73;border-bottom:2.2px solid #6E6E73;transform:rotate(45deg);transition:transform .3s;flex:none;margin-right:4px}.mmore[open] .mtog{transform:rotate(-135deg)}.mmore .mcard{background:#fff}.mmore .tog{background:#fff}
 .togs{margin-top:10px;display:flex;flex-direction:column;gap:8px}.tog{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--fill);cursor:pointer}.tog input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--blue);flex:none}.tog small{display:block;color:#6E6E73;font-size:12px;margin-top:1px}.pairrow{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--fill);margin-bottom:6px}.pairrow b{flex:1}.pon input{width:22px;height:22px;accent-color:var(--blue);margin:0;display:block}
 .seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px}
 .seg button{flex:1;border:0;background:none;padding:7px 8px;border-radius:9px;font-weight:600;font-size:13px;white-space:nowrap}
@@ -233,6 +239,14 @@ const MODES = [['any', 'Any level'], ['same', 'Same level'], ['hm', 'High + Mid'
 const MODE_HELP = { any: 'The next four in line play, with the teams balanced by level.', same: 'Four players of the same level play together.',
   hm: 'Each team gets one High and one Mid player.', ml: 'Each team gets one Mid and one Low player.' };
 const MAX_COURTS = 12;
+const styleOf = s => s.wvw ? 'wl' : s.social ? 'social' : s.mode === 'same' ? 'skill' : (s.mode === 'hm' || s.mode === 'ml') ? s.mode : 'balanced';
+const STYLES = [['balanced', 'Balanced', 'Recommended', 'Balances teams by level. Avoids repeat partners when possible.'],
+  ['social', 'Social Mix', '', 'Rotates partners before repeating, then spreads opponents as fairly as possible. Levels are not used.'],
+  ['skill', 'Skill Separated', '', 'Keeps similar skill levels together. May leave a court waiting.'],
+  ['wl', 'Winners / Losers', '', 'Winners play winners and losers play losers. Tap the winner when a game ends.']];
+const MORE_STYLES = [['hm', 'High + Mid', 'Each team gets one High and one Mid player.'], ['ml', 'Mid + Low', 'Each team gets one Mid and one Low player.']];
+let modesOpen = false;
+const styleCard = (k, t, badge, d, on) => '<button class="mcard' + (on ? ' on' : '') + '" data-style="' + k + '" aria-pressed="' + on + '"><span class="mt">' + (on ? '<i class="mck">\u2713</i>' : '') + t + (badge ? ' <em>' + badge + '</em>' : '') + '</span><span class="md">' + d + '</span></button>';
 const SAMPLE_NAMES = ['Aira','Bryan','Carlo','Dessa','Enzo','Faye','Gio','Hannah','Ian','Jasmine','Kyle','Lara','Marco','Nina','Oscar','Pia','Quinn','Rico','Sofia','Tomas','Uma','Vince','Wendy','Xavi','Yna','Zed','Andre','Bea','Carl','Dani','Ella','Fidel','Gwen','Harry','Iris','Jed','Kaye','Leo','Mica','Nico','Olive','Paolo','Rhea','Sam','Tina','Ulric','Vera','Wes','Alex','Bianca','Chris','Dara','Elmer','Flor','Gab','Hazel','Ivan','Joy','Ken','Lia'];
 function sampleList(n) {                                  // random names, levels spread evenly so every pairing mode has players to work with
   const names = SAMPLE_NAMES.slice().sort(() => Math.random() - 0.5), have = new Set(view.players.map(p => p.name.toLowerCase())), out = [];
@@ -261,8 +275,11 @@ const pkey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
 function partnerMap(s) {                       // how many times each two players have been on the same team (finished and current games)
   const m = {}; s.matches.forEach(x => [x.t1, x.t2].forEach(t => { if (t.length === 2) { const k = pkey(t[0], t[1]); m[k] = (m[k] || 0) + 1; } })); return m;
 }
+function oppMap(s) {                           // how many times each two players have faced each other
+  const m = {}; s.matches.forEach(x => x.t1.forEach(a => x.t2.forEach(b => { const k = pkey(a, b); m[k] = (m[k] || 0) + 1; }))); return m;
+}
 const teamCost = (t, pc, avoid) => { const k = pkey(t[0].id, t[1].id); return (pc[k] || 0) * 10 + (avoid && avoid.has(k) ? 15 : 0); };
-function splitsFor(four, mode, pc, avoid) {   // the three ways to make two teams of two: new partners first, then best-balanced
+function splitsFor(four, mode, pc, avoid, opp) {   // the three ways to make two teams of two: new partners first, then best-balanced
   const [a, b, c, d] = four, all = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];
   let ok = all;
   if (mode === 'hm' || mode === 'ml') {
@@ -271,7 +288,8 @@ function splitsFor(four, mode, pc, avoid) {   // the three ways to make two team
     if (mixed.length) ok = mixed;
   }
   const rep = sp => pc ? teamCost(sp[0], pc, avoid) + teamCost(sp[1], pc, avoid) : 0;
-  return ok.slice().sort((x, y) => (rep(x) - rep(y)) || (Math.abs(sumLv(x[0]) - sumLv(x[1])) - Math.abs(sumLv(y[0]) - sumLv(y[1]))));
+  const faced = sp => opp ? sp[0].reduce((n, a) => n + sp[1].reduce((m, b) => m + (opp[pkey(a.id, b.id)] || 0), 0), 0) : 0;
+  return ok.slice().sort((x, y) => (rep(x) - rep(y)) || (opp ? faced(x) - faced(y) : Math.abs(sumLv(x[0]) - sumLv(x[1])) - Math.abs(sumLv(y[0]) - sumLv(y[1]))));   // Social Mix ignores ratings and spreads opponents instead
 }
 function pickFour(q, mode, rnd) {              // rnd = null for the default pick, a random generator for reshuffles
   const take = (arr, n) => rnd ? [arr[0]].concat(shuf(arr.slice(1, 8), rnd)).slice(0, n) : arr.slice(0, n);
@@ -311,14 +329,14 @@ function propose(s, taken, seed, salt) {       // a suggested game for one empty
   const q = queueOrder(s).filter(p => !taken.has(p.id));
   if (s.fixed && validPairs(s).length) return pairGame(s, q, seed, salt);
   const base = pickPool(s, q, s.mode, null); if (!base) return null;
-  const pc = partnerMap(s), v = splitsFor(base, s.mode, pc);
+  const pc = partnerMap(s), opp = s.social ? oppMap(s) : null, v = splitsFor(base, s.mode, pc, null, opp);
   const fresh = v.filter(sp => teamCost(sp[0], pc) + teamCost(sp[1], pc) === 0), use = fresh.length ? fresh : v.slice(0, 1);   // cycle through the teams that bring new partners together
   if (seed < use.length) return { t1: use[seed][0], t2: use[seed][1] };
   const prev = propose(s, taken, seed - 1, salt), avoid = new Set();       // a reshuffle never repeats the partners it replaces, and avoids people who have teamed up before
   if (prev) [prev.t1, prev.t2].forEach(t => avoid.add(pkey(t[0].id, t[1].id)));
   const rnd = mulberry(seed * 7919 + salt); let best = null, bc = 1e9;
   for (let i = 0; i < 30; i++) {
-    const four = pickPool(s, q, s.mode, rnd) || base, sp = splitsFor(four, s.mode, pc, avoid)[0], c = teamCost(sp[0], pc, avoid) + teamCost(sp[1], pc, avoid) + rnd() * 4;
+    const four = pickPool(s, q, s.mode, rnd) || base, sp = splitsFor(four, s.mode, pc, avoid, opp)[0], c = teamCost(sp[0], pc, avoid) + teamCost(sp[1], pc, avoid) + rnd() * 4;
     if (c < bc) { bc = c; best = sp; } }
   return { t1: best[0], t2: best[1] };
 }
@@ -429,6 +447,7 @@ const M = {
   },
   unqueue: id => s => { s.queued = (s.queued || []).filter(g => g.id !== id); },
   setMode: mode => s => { s.mode = mode; s.seeds = {}; },
+  setStyle: k => s => { s.wvw = k === 'wl'; s.social = k === 'social'; s.mode = k === 'skill' ? 'same' : (k === 'hm' || k === 'ml') ? k : 'any'; s.seeds = {}; },
   setWvw: on => s => { s.wvw = !!on; s.seeds = {}; },
   setFixed: on => s => { s.fixed = !!on; s.seeds = {}; },
   addPair: (a, b) => s => { if (!a || !b || a === b) throw new Error('Pick two different players.'); const used = new Set((s.pairs || []).flat()); if (used.has(a) || used.has(b)) throw new Error('One of them is already in a pair.'); s.pairs = (s.pairs || []).concat([[a, b]]); s.seeds = {}; },
@@ -637,7 +656,12 @@ function courtsView() {
   const stats = '<div class="stats"><div class="stat"><b>' + here + '</b><span>Players here</span></div><div class="stat"><b>' + playing + '/' + s.courts.length + '</b><span>Courts playing</span></div><div class="stat"><b>' + doneN + '</b><span>Games played</span></div></div>';
   const hero = s.players.length ? '' : '<div class="card hero" data-k="hero"><div class="big">' + spOf(s).icon + '</div><h1 style="font-size:22px">Ready when you are</h1><p class="mute" style="margin:4px 0 14px">Add your players, or fill in some sample players to try the queue right now.</p><div class="row" style="justify-content:center"><button class="btn" id="sampleQuick">Try with 20 sample players</button><button class="btn ghost" id="toPlayers">Add my own</button></div></div>';
   return stats + hero + '' +
-    '<h2>Courts</h2><div class="small mute" style="margin:-4px 2px 8px">Tap a player\'s name to swap them.</div><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' + queuedHtml + '<div style="height:14px"></div>' + '<div class="card"><div class="seg" id="modes">' + MODES.map(([k, l]) => '<button data-mode="' + k + '" class="' + (s.mode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><div class="small mute" style="margin:8px 2px 0">' + MODE_HELP[s.mode] + ' Tap Shuffle on a court to try other teams. Partners never repeat if someone new is available.</div><div class="togs"><label class="tog"><input type="checkbox" id="wvw"' + (s.wvw ? ' checked' : '') + '><span><b>Winners play winners</b><small>Winners meet winners, losers meet losers (needs the winner tapped when a game ends)</small></span></label><label class="tog"><input type="checkbox" id="fixed"' + (s.fixed ? ' checked' : '') + '><span><b>Fixed pairs</b><small>' + (validPairs(s).length ? validPairs(s).length + ' pair' + (validPairs(s).length === 1 ? '' : 's') + ' stay together (pair plays pair)' : 'Pairs stay together, for practising a team') + '</small></span></label><button class="btn ghost sm" id="pairs">' + (validPairs(s).length ? 'Edit pairs' : 'Set up pairs') + '</button></div><div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
+    '<h2>Courts</h2><div class="small mute" style="margin:-4px 2px 8px">Tap a player\'s name to swap them.</div><div class="grid">' + cards + '</div><div class="row" style="margin-top:10px"><button class="btn ghost" id="addCourt">+ Add court</button><button class="btn ghost" id="renCourts">✎ Rename courts</button><span class="small mute">' + s.courts.length + ' of ' + MAX_COURTS + '</span></div>' + queuedHtml + '<div style="height:14px"></div>' + '<div class="card"><div class="mhead">Matching mode</div>' + STYLES.map(x => styleCard(x[0], x[1], x[2], x[3], styleOf(s) === x[0])).join('') + '<div class="small mute" style="margin:2px 2px 8px">Tap Shuffle on a court to try other teams. Partners never repeat if someone new is available.</div>' +
+    '<details class="mmore" id="mmore"' + (modesOpen || styleOf(s) === 'hm' || styleOf(s) === 'ml' || s.fixed ? ' open' : '') + '><summary><span><b>More modes &amp; formats</b><small>High + Mid \u00B7 Mid + Low \u00B7 Fixed pairs</small></span><span class="mtog"></span></summary>' +
+    MORE_STYLES.map(x => styleCard(x[0], x[1], '', x[2], styleOf(s) === x[0])).join('') +
+    '<label class="tog" style="margin-top:6px"><input type="checkbox" id="fixed"' + (s.fixed ? ' checked' : '') + '><span><b>Fixed pairs</b><small>' + (validPairs(s).length ? validPairs(s).length + ' pair' + (validPairs(s).length === 1 ? '' : 's') + ' stay together (pair plays pair)' : 'Pairs stay together, for practising a team') + '</small></span></label>' +
+    '<button class="btn ghost sm" id="pairs" style="margin-top:6px">' + (validPairs(s).length ? 'Edit pairs' : 'Set up pairs') + '</button></details>' +
+    '<div class="row" style="margin-top:8px"><button class="btn ghost sm" id="ann">' + (announceOn ? '🔔 Announcements on' : '🔕 Announcements off') + '</button><span class="small mute">Plays a chime and says who is up when a game starts.</span></div></div>' +
     '<!--FIND--><div class="row" style="margin:20px 4px 8px"><h2 style="margin:0">Up next (' + q.length + ')</h2><span class="grow"></span><div class="seg sortseg" id="sortSeg">' + [['least', 'Fewest games'], ['most', 'Most'], ['queue', 'Order']].map(([k, l]) => '<button data-sort="' + k + '" class="' + (sortMode === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>' + (selQ && q.some(p => p.id === selQ) ? '<div class="swaphint"><span>Tap another player to swap with <b>' + esc(nm(selQ)) + '</b></span><button id="selCancel">Cancel</button></div>' : '<div class="small mute" style="margin:-4px 2px 8px">Move players by hand: tap a name, then tap another to swap them, or drag the ⠿ handle onto someone.' + (s.manual && s.manual.length ? ' <b>Manual order is on.</b> <a href="#" id="autoOrd" style="color:var(--blue);font-weight:700">Back to automatic</a>' : '') + '</div>') + '<div class="card">' + (q.length ? shown.map(({ p, i }) => '<div class="q' + (next.has(p.id) ? ' next' : '') + (selQ === p.id ? ' sel' : '') + '" data-k="q:' + p.id + '"><span class="n">' + (i + 1) + '</span><div class="grow"><b>' + esc(p.name) + '</b> <span class="chip ' + p.level + '">' + p.level + '</span></div>' +
       '<span class="small mute">' + p.games + ' game' + (p.games === 1 ? '' : 's') + ' · waiting ' + Math.max(0, Math.round((Date.now() - p.since) / 60000)) + 'm</span><span class="grip" data-grip="' + p.id + '" title="Drag to swap">⠿</span></div>').join('') : '<div class="mute">The queue is empty. Check players in on the Players tab.</div>') + '</div>';
 }
@@ -925,8 +949,8 @@ function bind() {
   const si = $('#si'); if (si) si.onclick = e => { e.preventDefault(); goSignIn(); };
   const gr = $('#gReset'); if (gr) gr.onclick = () => { if (confirm('Clear the preview session on this device?')) { server = { state: blank(), version: 0 }; pending = []; saveGuest(); recompute(); render(); } };
   // courts
-  $$('[data-mode]').forEach(b => b.onclick = () => act(M.setMode(b.dataset.mode)));
-  const wv = $('#wvw'); if (wv) wv.onchange = () => act(M.setWvw(wv.checked));
+  $$('[data-style]').forEach(b => b.onclick = () => { buzz(8); act(M.setStyle(b.dataset.style)); });
+  const mm = $('#mmore'); if (mm) mm.addEventListener('toggle', () => { modesOpen = mm.open; });
   const fx = $('#fixed'); if (fx) fx.onchange = () => { act(M.setFixed(fx.checked)); if (fx.checked && !validPairs(view).length) pairsSheet(); };
   const pairBtn = $('#pairs'); if (pairBtn) pairBtn.onclick = () => pairsSheet();
   $$('[data-shuf]').forEach(b => b.onclick = () => act(M.shuffle(b.dataset.shuf)));
