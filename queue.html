@@ -27,7 +27,7 @@ input[type=text],input[type=number],select,textarea{width:100%;padding:10px 12px
 @media (hover:none) and (pointer:coarse){input[type=text],input[type=number],input[type=search],select,textarea{font-size:16px}}   /* iPhone Safari zooms the page when you tap a field smaller than 16px, and it stays zoomed */
 input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,122,255,.15);background:#fff}
 .sportbadge{border:0;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s,background .15s}.sportbadge:active{transform:scale(.95);background:#DDE1EA}.sportbadge{display:inline-block;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;background:var(--fill);color:var(--mute);font-size:12px;font-weight:700}
-.togs{margin-top:10px;display:flex;flex-direction:column;gap:8px}.tog{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--fill);cursor:pointer}.tog input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--blue);flex:none}.tog small{display:block;color:#6E6E73;font-size:12px;margin-top:1px}.pairrow{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--fill);margin-bottom:6px}.pairrow b{flex:1}
+.togs{margin-top:10px;display:flex;flex-direction:column;gap:8px}.tog{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--fill);cursor:pointer}.tog input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--blue);flex:none}.tog small{display:block;color:#6E6E73;font-size:12px;margin-top:1px}.pairrow{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--fill);margin-bottom:6px}.pairrow b{flex:1}.pon input{width:22px;height:22px;accent-color:var(--blue);margin:0;display:block}
 .seg{display:flex;background:var(--fill);border-radius:11px;padding:2px;gap:2px}
 .seg button{flex:1;border:0;background:none;padding:7px 8px;border-radius:9px;font-weight:600;font-size:13px;white-space:nowrap}
 .seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}
@@ -286,8 +286,9 @@ function pickFour(q, mode, rnd) {              // rnd = null for the default pic
   return both.length >= 4 ? take(both, 4) : null;
 }
 function shuf(a, rnd) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-function validPairs(s) {                       // fixed pairs whose two players still exist
-  return (s.pairs || []).filter(pr => pr.length === 2 && pr.every(id => byId(s, id)));
+const allPairs = s => (s.pairs || []).filter(pr => pr.length === 2 && pr.every(id => byId(s, id)));
+function validPairs(s) {                       // pairs that are switched on and whose two players still exist
+  return allPairs(s).filter(pr => !(s.pairsOff || []).includes(pkey(pr[0], pr[1])));
 }
 function pickPool(s, q, mode, rnd) {           // four players for a game. With "winners vs winners" on, people who just won play each other and so do people who just lost
   if (s.wvw) {
@@ -431,7 +432,8 @@ const M = {
   setWvw: on => s => { s.wvw = !!on; s.seeds = {}; },
   setFixed: on => s => { s.fixed = !!on; s.seeds = {}; },
   addPair: (a, b) => s => { if (!a || !b || a === b) throw new Error('Pick two different players.'); const used = new Set((s.pairs || []).flat()); if (used.has(a) || used.has(b)) throw new Error('One of them is already in a pair.'); s.pairs = (s.pairs || []).concat([[a, b]]); s.seeds = {}; },
-  removePair: i => s => { s.pairs = (s.pairs || []).filter((_, j) => j !== i); s.seeds = {}; },
+  removePair: i => s => { const pr = (s.pairs || [])[i]; s.pairs = (s.pairs || []).filter((_, j) => j !== i); if (pr) s.pairsOff = (s.pairsOff || []).filter(k => k !== pkey(pr[0], pr[1])); s.seeds = {}; },
+  togglePair: i => s => { const pr = (s.pairs || [])[i]; if (!pr) return; const k = pkey(pr[0], pr[1]), off = s.pairsOff || []; s.pairsOff = off.includes(k) ? off.filter(x => x !== k) : off.concat([k]); s.seeds = {}; },
   shuffle: cid => s => { s.seeds[cid] = (s.seeds[cid] || 0) + 1; },
   start: (cid, t1, t2) => { const mid = uid(), t0 = Date.now(); return s => {
     if (active(s).some(m => m.court === cid)) throw new Error('That court is already playing.');
@@ -833,12 +835,13 @@ function sheetSearch() {                        // floating search bar at the to
   clr.onclick = () => { inp.value = ''; apply(); inp.focus(); };
 }
 function pairsSheet() {                         // choose which two players always team up
-  const s = view, prs = validPairs(s), used = new Set(prs.flat()), free = s.players.filter(p => !used.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+  const s = view, prs = allPairs(s), used = new Set(prs.flat()), free = s.players.filter(p => !used.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
   const opts = '<option value="">Choose…</option>' + free.map(p => '<option value="' + p.id + '">' + esc(p.name) + ' (' + p.level + ')</option>').join('');
-  modal('Fixed pairs', '<div class="small mute" style="margin-bottom:10px">These two always play on the same team. Turn on "Fixed pairs" on the Courts tab to use them.</div>' +
-    (prs.length ? prs.map((pr, i) => '<div class="pairrow"><b>' + esc(nm(pr[0])) + ' &amp; ' + esc(nm(pr[1])) + '</b><button class="btn ghost sm" data-rp="' + i + '">Remove</button></div>').join('') : '<div class="small mute" style="margin-bottom:8px">No pairs yet.</div>') +
+  modal('Fixed pairs', '<div class="small mute" style="margin-bottom:10px">Tick the pairs that must always play on the same team. Everyone else (and any pair left unticked) is paired as usual. Turn on "Fixed pairs" on the Courts tab to use this.</div>' +
+    (prs.length ? prs.map((pr, i) => '<div class="pairrow"><label class="pon"><input type="checkbox" data-tp="' + i + '"' + ((s.pairsOff || []).includes(pkey(pr[0], pr[1])) ? '' : ' checked') + ' aria-label="Keep this pair together"></label><b>' + esc(nm(pr[0])) + ' &amp; ' + esc(nm(pr[1])) + '</b><button class="btn ghost sm" data-rp="' + i + '">Remove</button></div>').join('') : '<div class="small mute" style="margin-bottom:8px">No pairs yet.</div>') +
     (free.length > 1 ? '<label class="lab">Add a pair</label><div class="row"><select id="pa" class="grow">' + opts + '</select><select id="pb2" class="grow">' + opts + '</select></div>' : ''),
     free.length > 1 ? [{ label: 'Add pair', fn: () => { const a = $('#pa').value, b = $('#pb2').value; if (!a || !b || a === b) { toast('Choose two different players.'); return false; } act(M.addPair(a, b)); setTimeout(pairsSheet, 80); return false; } }] : []);
+  $$('#sheet [data-tp]').forEach(c => c.onchange = () => act(M.togglePair(+c.dataset.tp)));
   $$('#sheet [data-rp]').forEach(b => b.onclick = () => { act(M.removePair(+b.dataset.rp)); setTimeout(pairsSheet, 80); });
 }
 function swapSheet(ref) {                      // tap a name on any court card, then tap who takes their place
